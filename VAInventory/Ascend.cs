@@ -24,7 +24,7 @@ namespace VerdantsAscent
 
         public const string PluginGUID = "com.Fire.VAInventory";
         public const string PluginName = "VAInventory";
-        public const string PluginVersion = "1.0.17";
+        public const string PluginVersion = "1.0.18";
 
         public static AssetBundle assetBundle;
         public static readonly List<GameObject> piecePrefabs = [];

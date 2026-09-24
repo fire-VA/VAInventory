@@ -28,7 +28,9 @@ namespace VerdantsAscent.Managers
             VAInventory.piecePrefabs.Clear();
 
             var allAssets = VAInventory.assetBundle.GetAllAssetNames();
-            Debug.Log($"{VAInventory.PluginName}: AssetBundle contains {allAssets.Length} assets: {string.Join(", ", allAssets)}");
+            Debug.Log($"{VAInventory.PluginName}: AssetBundle contains {allAssets.Length} assets");
+            if (ConfigManager.Instance?.configVerboseLogging?.Value ?? false)
+                Debug.Log($"{VAInventory.PluginName}: bundle assets: {string.Join(", ", allAssets)}");
 
             int failed = 0;
 
