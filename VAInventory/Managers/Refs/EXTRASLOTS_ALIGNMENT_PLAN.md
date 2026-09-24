@@ -586,7 +586,7 @@ results are failures until the blockers above are fixed.
 
 1. Read this file end to end.
 2. Verify the current build state: `dotnet build VAInventory.csproj -c Debug` from
-   `C:/Users/travi/OneDrive/Desktop/valheimRip2/VAInventory/VAInventory/`.
+   `<valheimRip2>/VAInventory/VAInventory/`.
    Should be `0 Error(s)` with ~12 pre-existing warnings.
 3. Treat the 2026-05-06 test pass as the current source of truth:
    Phases A–E are code-complete but not runtime-accepted. Fix the
