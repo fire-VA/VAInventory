@@ -24,7 +24,7 @@ namespace VerdantsAscent
 
         public const string PluginGUID = "com.Fire.VAInventory";
         public const string PluginName = "VAInventory";
-        public const string PluginVersion = "1.0.18";
+        public const string PluginVersion = "1.0.25";
 
         public static AssetBundle assetBundle;
         public static readonly List<GameObject> piecePrefabs = [];
@@ -193,7 +193,7 @@ namespace VerdantsAscent
             }
         }
 
-        private AssetBundle GetAssetBundleFromResources(string name)
+        internal static AssetBundle GetAssetBundleFromResources(string name)
         {
             var assembly = Assembly.GetExecutingAssembly();
             var resourceName = assembly.GetManifestResourceNames()

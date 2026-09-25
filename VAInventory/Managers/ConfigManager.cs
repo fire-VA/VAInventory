@@ -46,6 +46,11 @@ namespace VerdantsAscent.Managers
         public ConfigEntry<bool> configVerboseLogging;
         public ConfigEntry<bool> configServerAuthority; // Server locking config
 
+        // ────── UI layout ──────
+        // One slot registry, two renderers. The toggle must never become a data migration: Legacy and
+        // Unified read the same Slots, so switching is a re-layout and nothing moves in the inventory.
+        public ConfigEntry<string> configUiLayout;
+
         // ────── Extra Slots Settings ──────
         public ConfigEntry<int> configExtraRows; // main inventory
         public ConfigEntry<int> configEquipmentPanelRows; // new: equipment panel
@@ -157,6 +162,13 @@ namespace VerdantsAscent.Managers
 
             configServerAuthority = config.Bind("General", "ServerAuthority", false,
                 "When enabled, config changes are locked to server admin only (synced).");
+
+            configUiLayout = config.Bind("UI", "Layout", "Legacy",
+                new ConfigDescription(
+                    "Unified puts the character panel, carry grid and crafting side by side; Legacy keeps the " +
+                    "vanilla arrangement. Both render the same slots - switching re-lays out the screen and " +
+                    "moves no items.",
+                    new AcceptableValueList<string>("Unified", "Legacy")));
 
             // Extra Slots
             configExtraRows = config.Bind("ExtraSlots", "ExtraRows", 0,

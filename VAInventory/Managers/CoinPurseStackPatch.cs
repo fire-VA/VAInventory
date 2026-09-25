@@ -38,7 +38,7 @@ namespace VerdantsAscent.Managers
             if (local == null) return null;
             if (inv != local.GetInventory()) return null;
 
-            return Slots.slots
+            return Slots.AllSlots()
                 .FirstOrDefault(s => s != null && s.IsCoinPurseSlot && s.IsActive);
         }
 
@@ -311,12 +311,9 @@ namespace VerdantsAscent.Managers
         /// somewhere — a follow-up patch (TryFindFreeSlotForItem) can route
         /// to the empty purse slot specifically.
         /// </summary>
-        [HarmonyPatch(typeof(Inventory), nameof(Inventory.AddItem),
-            [typeof(ItemDrop.ItemData)])]
-        [HarmonyPrefix]
-        private static bool Inventory_AddItem_Prefix(Inventory __instance,
-                                                    ItemDrop.ItemData item,
-                                                    ref bool __result)
+        internal static bool AddItemDepositCoins(Inventory __instance,
+                                                ItemDrop.ItemData item,
+                                                ref bool __result)
         {
             if (!IsCoins(item))
                 return true;
@@ -344,11 +341,8 @@ namespace VerdantsAscent.Managers
             RestorePersistedPurseStack(__instance);
         }
 
-        [HarmonyPatch(typeof(Player), nameof(Player.OnSpawned))]
-        [HarmonyPostfix]
-        private static void Player_OnSpawned_RestorePurseStack(Player __instance)
+        internal static void RestorePurseStackOnSpawn(Player __instance)
         {
-            if (__instance != Player.m_localPlayer) return;
             RestorePersistedPurseStack(__instance.GetInventory());
         }
 
@@ -375,9 +369,7 @@ namespace VerdantsAscent.Managers
             PersistCurrentPurseStack(__instance);
         }
 
-        [HarmonyPatch(typeof(Inventory), "CanAddItem", [typeof(ItemDrop.ItemData), typeof(int)])]
-        [HarmonyPostfix]
-        private static void Inventory_CanAddItem_CoinsFitPurse(Inventory __instance, ItemDrop.ItemData item, ref bool __result)
+        internal static void CanAddItemCoinsFitPurse(Inventory __instance, ItemDrop.ItemData item, ref bool __result)
         {
             if (__result || __instance != Slots.PlayerInventory) return;
             string key = Slots.CurrencyKey(item);
@@ -387,9 +379,7 @@ namespace VerdantsAscent.Managers
                 __result = true;
         }
 
-        [HarmonyPatch(typeof(InventoryGrid), "OnRightDown")]
-        [HarmonyPrefix]
-        private static bool InventoryGrid_OnRightClick_DepositCoins(InventoryGrid __instance, UIInputHandler element)
+        internal static bool OnRightDownDepositCoins(InventoryGrid __instance, UIInputHandler element)
         {
             if (__instance == null || __instance != InventoryGui.instance?.m_playerGrid) return true;
 
@@ -414,10 +404,7 @@ namespace VerdantsAscent.Managers
             return true;
         }
 
-        [HarmonyPatch(typeof(InventoryGrid), nameof(InventoryGrid.DropItem),
-            [typeof(Inventory), typeof(ItemDrop.ItemData), typeof(int), typeof(Vector2i)])]
-        [HarmonyPrefix]
-        private static bool InventoryGrid_DropItem_DepositCoins(InventoryGrid __instance, Inventory fromInventory, ItemDrop.ItemData item, int amount, Vector2i pos)
+        internal static bool DropItemDepositCoins(InventoryGrid __instance, Inventory fromInventory, ItemDrop.ItemData item, int amount, Vector2i pos)
         {
             if (__instance == null || __instance != InventoryGui.instance?.m_playerGrid) return true;
             if (fromInventory != Slots.PlayerInventory) return true;

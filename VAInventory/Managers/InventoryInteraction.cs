@@ -18,6 +18,7 @@ namespace VerdantsAscent
         private static readonly FieldInfo fi_inventory_height = AccessTools.Field(typeof(Inventory), "m_height");
         private static readonly FieldInfo fi_inventory_width = AccessTools.Field(typeof(Inventory), "m_width");
         private static readonly FieldInfo fi_inventory_list = AccessTools.Field(typeof(Inventory), "m_inventory");
+        private static readonly MethodInfo mi_inventory_changed = AccessTools.Method(typeof(Inventory), "Changed", new[] { typeof(bool), typeof(bool) });
         // Reflection for Player.m_inventory
         private static readonly FieldInfo fi_player_inventory = AccessTools.Field(typeof(Player), "m_inventory");
         private static readonly FieldInfo fi_onChanged = AccessTools.Field(typeof(Inventory), "m_onChanged");
@@ -52,21 +53,6 @@ namespace VerdantsAscent
                 var inv = (Inventory)fi_player_inventory.GetValue(__instance);
                 if (inv != null)
                     fi_inventory_height.SetValue(inv, Slots.InventoryHeightFull);
-            }
-        }
-        [HarmonyPatch(typeof(Player), "OnSpawned")]
-        private static class Player_OnSpawned_UpdateInventoryOnSpawn
-        {
-            private static void Prefix(Player __instance)
-            {
-                if (__instance != Player.m_localPlayer) return;
-                PlayerInventoryRows.AdoptSavedLayout(__instance);
-            }
-
-            private static void Postfix(Player __instance)
-            {
-                if (__instance != Player.m_localPlayer) return;
-                UpdatePlayerInventorySize();
             }
         }
         [HarmonyPatch(typeof(Player), "Update")]
@@ -130,7 +116,7 @@ namespace VerdantsAscent
             private static void Postfix(Inventory __instance, ref bool __result)
             {
                 if (__instance != Slots.PlayerInventory) return;
-                __result = __instance.GetEmptySlots() > 0 || Slots.slots.Any(s => s != null && s.IsActive && s.IsFree);
+                __result = __instance.GetEmptySlots() > 0 || Slots.CapacitySlots().Any(s => s != null && s.IsActive && s.IsFree);
             }
         }
         [HarmonyPatch(typeof(Inventory), "GetEmptySlots")]
@@ -151,12 +137,9 @@ namespace VerdantsAscent
                         visibleUsed++;
                 }
                 __result = Mathf.Max(0, Slots.InventoryHeightPlayer * width - visibleUsed) +
-                           Slots.slots.Count(s => s != null && s.IsActive && s.IsFree);
+                           Slots.CapacitySlots().Count(s => s != null && s.IsActive && s.IsFree);
             }
         }
-        [HarmonyPatch(typeof(Inventory), "CanAddItem", [typeof(ItemDrop.ItemData), typeof(int)])]
-        private static class Inventory_CanAddItem_CheckExtraSlots
-        {
             // Vanilla's CanAddItem math uses the FULL extended m_height, so every empty
             // reserved cell (equipment/ammo/food/quick slot rows) counts as generic free
             // space — a completely full visible inventory still answers "yes". Player.AutoPickup
@@ -164,10 +147,9 @@ namespace VerdantsAscent
             // AddItem (which DOES respect the slots) refused it, and the drop hovered and
             // followed forever. Recompute against the VISIBLE area only, then let the typed
             // custom slots opt items in that actually fit them.
-            // Priority.High: runs before other CanAddItem postfixes (coin purse) so their
-            // false→true upgrades still apply after this correction.
-            [HarmonyPriority(Priority.High)]
-            private static void Postfix(Inventory __instance, ItemDrop.ItemData item, int stack, ref bool __result)
+            // Runs before the coin-purse contribution so its false→true upgrade still applies
+            // after this correction; the hook orders the two.
+            internal static void CanAddItemCheckExtraSlots(Inventory __instance, ItemDrop.ItemData item, int stack, ref bool __result)
             {
                 if (__instance != Slots.PlayerInventory) return;
                 if (stack <= 0) stack = item.m_stack;
@@ -186,6 +168,46 @@ namespace VerdantsAscent
                     + freeVisible * item.m_shared.m_maxStackSize >= stack;
                 if (!__result && stack <= item.m_shared.m_maxStackSize && Slots.TryFindFreeSlotForItem(item, out _))
                     __result = true;
+            }
+        [HarmonyPatch(typeof(Inventory), nameof(Inventory.StackAll))]
+        private static class Inventory_StackAll_KeepSlotItems
+        {
+            // StackAll copies fromInventory's whole backing list and moves anything the container
+            // already holds by name, excluding only equipped items — so an UNEQUIPPED item parked in a
+            // quick, food, ammo or custom slot is eligible, and one press of stack-all at a chest
+            // empties those slots. Hide the slot items for the duration. Configured extra rows are part
+            // of InventoryHeightPlayer, so they stay stackable; only real slots are held back.
+            // Restore is a Finalizer so a throw anywhere in the chain cannot leave items detached, and
+            // it re-fires Changed because vanilla already fired its own while they were hidden, which
+            // would otherwise leave the weight and the grid reporting the hidden state.
+            private static void Prefix(Inventory fromInventory, out List<ItemDrop.ItemData> __state)
+            {
+                __state = null;
+                if (fromInventory == null || fromInventory != Slots.PlayerInventory) return;
+                if (fi_inventory_list.GetValue(fromInventory) is not List<ItemDrop.ItemData> list) return;
+                List<ItemDrop.ItemData> held = null;
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    if (!Slots.IsItemInSlot(list[i])) continue;
+                    held ??= new List<ItemDrop.ItemData>();
+                    held.Add(list[i]);
+                    list.RemoveAt(i);
+                }
+                __state = held;
+            }
+            private static void Finalizer(Inventory fromInventory, List<ItemDrop.ItemData> __state)
+            {
+                if (__state == null) return;
+                try
+                {
+                    if (fi_inventory_list.GetValue(fromInventory) is not List<ItemDrop.ItemData> list) return;
+                    for (int i = __state.Count - 1; i >= 0; i--)
+                    {
+                        if (!list.Contains(__state[i])) list.Add(__state[i]);
+                    }
+                    mi_inventory_changed?.Invoke(fromInventory, new object[] { false, false });
+                }
+                catch { }
             }
         }
         [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.EquipItem))]
@@ -284,10 +306,7 @@ namespace VerdantsAscent
               FoodHotBar.MarkDirty();
             }
         }
-        [HarmonyPatch(typeof(InventoryGrid), nameof(InventoryGrid.DropItem))]
- public static class InventoryGrid_DropItem_BlockInvalid
- {
-  private static bool Prefix(InventoryGrid __instance, ItemDrop.ItemData item, Vector2i pos)
+        internal static bool DropItemBlockInvalid(InventoryGrid __instance, ItemDrop.ItemData item, Vector2i pos)
  {
  if (__instance != InventoryGui.instance.m_playerGrid) return true;
  // Block drop if grid position is hidden by config (row, column, or equipment panel)
@@ -308,17 +327,12 @@ namespace VerdantsAscent
  }
  return true;
  }
- }
-        // Add this helper
         private static void InvokeChanged(Inventory inventory)
         {
             var onChanged = fi_onChanged.GetValue(inventory) as Action;
             onChanged?.Invoke();
         }
-        [HarmonyPatch(typeof(Inventory), "AddItem", [typeof(ItemDrop.ItemData)])]
-        private static class Inventory_AddItem_TryExtraSlot
-        {
-            private static void Postfix(Inventory __instance, ItemDrop.ItemData item, ref bool __result)
+            internal static void AddItemTryExtraSlot(Inventory __instance, ItemDrop.ItemData item, ref bool __result)
             {
                 if (__instance != Slots.PlayerInventory || __result) return;
                 if (Slots.TryFindFreeSlotForItem(item, out Slots.Slot slot))
@@ -330,11 +344,7 @@ namespace VerdantsAscent
                     __result = true;
                 }
             }
-        }
-        [HarmonyPatch(typeof(Player), "OnInventoryChanged")]
-        private static class Player_OnInventoryChanged_ValidateItems
-        {
-            private static void Postfix(Player __instance)
+            internal static void OnInventoryChangedMarkDirty(Player __instance)
             {
                 if (!Slots.IsValidPlayer(__instance)) return;
                 // Mark dirty and defer full validation to InventoryGrid.UpdateGui postfix
@@ -343,11 +353,7 @@ namespace VerdantsAscent
                 // during UI event handlers).
                 ItemsSlotsValidation.MarkDirty();
  }
- }
-        [HarmonyPatch(typeof(InventoryGrid), "OnRightDown")]
-        private static class InventoryGrid_OnRightClick_TransferOrDrop
-        {
-            private static bool Prefix(InventoryGrid __instance, UIInputHandler element)
+            internal static bool OnRightDownTransferOrDrop(InventoryGrid __instance, UIInputHandler element)
             {
                 // Only handle the player's inventory grid
                 if (__instance != InventoryGui.instance?.m_playerGrid) return true;
@@ -411,7 +417,6 @@ namespace VerdantsAscent
 
                 return true;
             }
-        }
         /// <summary>
         /// Tries to relocate the item to a valid inventory slot or drops it if no space is available.
         /// </summary>
@@ -478,11 +483,7 @@ namespace VerdantsAscent
                 return false;
             return true;
         }
-        // Harmony patch for InventoryGrid.DropItem
-        [HarmonyPatch(typeof(InventoryGrid), nameof(InventoryGrid.DropItem))]
- public static class InventoryGrid_DropItem_Robust
- {
- private static bool Prefix(Inventory fromInventory, ItemDrop.ItemData item, Vector2i pos)
+        internal static bool DropItemRobust(Inventory fromInventory, ItemDrop.ItemData item, Vector2i pos)
  {
   bool allowed = InventoryInteraction.PassDropItem(fromInventory, item, pos);
  if (!allowed)
@@ -490,7 +491,6 @@ namespace VerdantsAscent
  VerdantsAscent.EquipmentPanel.ClearDragState();
  }
  return allowed;
- }
  }
         // Harmony patch for InventoryGui.OnSelectedItem
         // Run AFTER FiresRPGmaker's prefix so its dressing-room / companion drop handlers

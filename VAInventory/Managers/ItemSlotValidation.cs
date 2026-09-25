@@ -344,24 +344,20 @@ namespace VerdantsAscent
         // Harmony Patches
         // =============================================================================
 
-        [HarmonyPatch(typeof(Player), "OnInventoryChanged")]
-        public static class Player_OnInventoryChanged_EquipmentPanelRefresh
+        internal static void OnInventoryChangedRefresh(Player __instance)
         {
-            private static void Postfix(Player __instance)
-            {
-                // Skip if this inventory change was caused by our own validation logic
-                if (ItemsSlotsValidation.suppressOnInventoryChanged) return;
+            // Skip if this inventory change was caused by our own validation logic
+            if (ItemsSlotsValidation.suppressOnInventoryChanged) return;
 
-                if (!Slots.IsValidPlayer(__instance)) return;
+            if (!Slots.IsValidPlayer(__instance)) return;
 
-                // Update slot grid positions and mark panels dirty
-                Slots.UpdateSlotsGridPosition();
-                EquipmentPanel.MarkDirty(); // Trigger visual update on next UpdateGui
+            // Update slot grid positions and mark panels dirty
+            Slots.UpdateSlotsGridPosition();
+            EquipmentPanel.MarkDirty(); // Trigger visual update on next UpdateGui
 
-                // Validate because the inventory actually changed
-                ItemsSlotsValidation.MarkDirty();
-                ItemsSlotsValidation.ScheduleValidateNextFrame();
-            }
+            // Validate because the inventory actually changed
+            ItemsSlotsValidation.MarkDirty();
+            ItemsSlotsValidation.ScheduleValidateNextFrame();
         }
 
         [HarmonyPatch(typeof(Inventory), "MoveAll")]

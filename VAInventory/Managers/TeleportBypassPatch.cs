@@ -52,7 +52,7 @@ namespace VerdantsAscent.Managers
             // Find the bypass slot's grid position. Slot may be null
             // (config disables, or extra-rows config hides it).
             Vector2i? bypassPos = null;
-            var bypassSlot = Slots.slots.FirstOrDefault(
+            var bypassSlot = Slots.AllSlots().FirstOrDefault(
                 s => s != null && s.IsTeleportBypassSlot && s.IsActive);
             if (bypassSlot != null) bypassPos = bypassSlot.GridPosition;
 
@@ -70,19 +70,5 @@ namespace VerdantsAscent.Managers
             return false;
         }
 
-        // Cosmetic: hide the red "no teleport" overlay on items sitting
-        // in the bypass slot, so the player gets visual confirmation that
-        // the smuggled item is actually being smuggled. Without this,
-        // ore in the bypass slot still has the red diagonal cross over
-        // its icon, which is confusing.
-        [HarmonyPatch(typeof(InventoryGrid), "UpdateGui")]
-        [HarmonyPostfix]
-        private static void InventoryGrid_UpdateGui_Postfix()
-        {
-            // Disabled by default — InventoryGrid's element list is private
-            // and varies between Valheim builds. Hooking it cleanly is a
-            // follow-up. The bypass logic itself works regardless of this
-            // visual cue.
-        }
     }
 }

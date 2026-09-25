@@ -10,8 +10,7 @@ using TMPro;
 
 namespace VerdantsAscent.Managers
 {
-    [HarmonyPatch(typeof(InventoryGrid), "UpdateGui")]
-    public static class InventoryGrid_UpdateGui_ExtendGridForExtraSlots
+    public static class InventoryGridExtraSlots
     {
         // The three per-element FieldInfos that used to live here are gone: Valheim 1.0 replaced the
         // private nested InventoryGrid.Element with the public top-level InventoryElement MonoBehaviour,
@@ -20,7 +19,7 @@ namespace VerdantsAscent.Managers
         private static readonly FieldInfo fi_elementPrefab = AccessTools.Field(typeof(InventoryGrid), "m_elementPrefab");
         private static readonly FieldInfo fi_width = AccessTools.Field(typeof(InventoryGrid), "m_width");
 
-        private static void Prefix(InventoryGrid __instance)
+        internal static void ExtendGrid(InventoryGrid __instance)
         {
             try
             {
@@ -90,7 +89,7 @@ namespace VerdantsAscent.Managers
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[VAInventory] InventoryGrid_ExtendGridForExtraSlots Prefix exception: {ex}");
+                Debug.LogError($"[VAInventory] InventoryGridExtraSlots.ExtendGrid exception: {ex}");
             }
         }
     }

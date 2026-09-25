@@ -45,10 +45,8 @@ namespace VerdantsAscent.Managers
  return true;
  }
 
- // Prefix: skip InventoryGrid.UpdateGui when obvious internal state is invalid
- [HarmonyPatch(typeof(InventoryGrid), "UpdateGui")]
- [HarmonyPrefix]
-  public static bool InventoryGrid_UpdateGui_Prefix(InventoryGrid __instance)
+ // Returns false when obvious internal state is invalid and vanilla UpdateGui must not run.
+  public static bool AllowUpdateGui(InventoryGrid __instance)
  {
  try
  {
@@ -148,10 +146,8 @@ namespace VerdantsAscent.Managers
  return true;
  }
 
- // Finalizer: catch exceptions from InventoryGrid.UpdateGui and emit one-time diagnostic dump
- [HarmonyPatch(typeof(InventoryGrid), "UpdateGui")]
- [HarmonyFinalizer]
- public static Exception InventoryGrid_UpdateGui_Finalizer(InventoryGrid __instance, Exception __exception)
+ // Catch exceptions from InventoryGrid.UpdateGui and emit one-time diagnostic dump
+ public static Exception UpdateGuiFinalizer(InventoryGrid __instance, Exception __exception)
  {
  if (__exception == null) return null;
 
@@ -317,10 +313,8 @@ namespace VerdantsAscent.Managers
  return null;
  }
 
- // Finalizer: rate-limited logging for InventoryGui.Update exceptions
- [HarmonyPatch(typeof(InventoryGui), "Update")]
- [HarmonyFinalizer]
- public static Exception InventoryGui_Update_Finalizer(Exception __exception)
+ // Rate-limited logging for InventoryGui.Update exceptions
+ public static Exception InventoryGuiUpdateFinalizer(Exception __exception)
  {
  if (__exception == null) return null;
 

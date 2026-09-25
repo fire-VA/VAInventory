@@ -4,11 +4,9 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
- [HarmonyPatch(typeof(InventoryGui), "Show")]
- public static class InventoryGui_Show_ApplyCustomBackground
+ public static class InventoryGuiBackgrounds
  {
- [HarmonyPostfix]
- private static void Postfix(InventoryGui __instance)
+ internal static void Apply(InventoryGui __instance)
  {
  // Helper to apply background
  void ApplyBackground(Transform panel, string key, bool attachDrag = false, RectTransform dragTarget = null)

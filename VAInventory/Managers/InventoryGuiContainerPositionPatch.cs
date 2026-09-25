@@ -35,15 +35,4 @@ namespace VerdantsAscent.Managers
  }
  }
 
- [HarmonyPatch(typeof(InventoryGui), "Show")]
- public static class InventoryGui_Show_ResetContainerPosition_Patch
- {
- static void Prefix() => InventoryGui_UpdateContainer_Patch.Reset();
- }
-
- [HarmonyPatch(typeof(InventoryGui), "Hide")]
- public static class InventoryGui_Hide_ResetContainerPosition_Patch
- {
- static void Prefix() => InventoryGui_UpdateContainer_Patch.Reset();
- }
 }

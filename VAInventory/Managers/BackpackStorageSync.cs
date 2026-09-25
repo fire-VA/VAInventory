@@ -366,7 +366,7 @@ namespace VerdantsAscent.Managers
             if (inv == null) return string.Empty;
             if (string.IsNullOrEmpty(prefab)) return string.Empty;
 
-            var blockSlots = Slots.slots
+            var blockSlots = Slots.AllSlots()
                 .Where(s => s != null
                             && s.IsBackpackStorageSlot
                             && Slots.GetBackpackPrefabFromSlot(s) == prefab)
@@ -461,7 +461,7 @@ namespace VerdantsAscent.Managers
             // misc block. Find the start-Y of the first bag block by
             // scanning existing IsBackpackStorageSlot entries — robust to
             // changes in the equipment-panel layout.
-            var allBpSlots = Slots.slots
+            var allBpSlots = Slots.AllSlots()
                 .Where(s => s != null && s.IsBackpackStorageSlot)
                 .ToList();
             if (allBpSlots.Count == 0) return result;
@@ -660,7 +660,7 @@ namespace VerdantsAscent.Managers
             var inv = player?.GetInventory();
             if (inv == null) return;
 
-            var bpSlots = Slots.slots
+            var bpSlots = Slots.AllSlots()
                 .Where(s => s != null && s.IsBackpackStorageSlot)
                 .ToList();
             if (bpSlots.Count == 0) return;
@@ -691,15 +691,6 @@ namespace VerdantsAscent.Managers
             }
 
             inv.m_onChanged?.Invoke();
-        }
-
-        [HarmonyPatch(typeof(InventoryGui), "Hide")]
-        private static class InventoryGui_Hide_SaveBackpackStorage
-        {
-            private static void Prefix()
-            {
-                SaveEquippedBackpackContents(removeItems: false);
-            }
         }
 
         [HarmonyPatch(typeof(Player), nameof(Player.OnDestroy))]

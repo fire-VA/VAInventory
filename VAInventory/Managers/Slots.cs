@@ -88,19 +88,24 @@ namespace VerdantsAscent
         public static int InventoryWidth => PlayerInventory?.GetWidth() ?? VanillaInventoryWidth;
         public static int InventoryHeightPlayer => VanillaPlayerRows + ExtraRowsPlayer;
 
-        // InventoryHeightFull now considers any tool hotbar rows so tool slots are not treated as out-of-bounds
+        // Covers any group drawn in the player's grid so its rows are not treated as out-of-bounds.
+        // Restricted to those groups rather than every slot on purpose: widening it to AllSlots()
+        // would be the more obviously correct rule, but it can only raise the height, and raising it
+        // is a change to the value DropInvalidItems bounds-checks against. See SLOT_REGISTRY notes.
         public static int InventoryHeightFull
         {
             get
             {
                 int baseFull = InventoryHeightPlayer + GetTargetInventoryHeight(slots.Length, InventoryWidth);
-                if (toolHotbarSlots != null && toolHotbarSlots.Count > 0)
-                {
-                    int maxHotbarY = toolHotbarSlots.Where(s => s != null).Select(s => s.GridPosition.y).DefaultIfEmpty(InventoryHeightPlayer - 1).Max();
-                    // height is number of rows, so maxY +1
-                    return Math.Max(baseFull, maxHotbarY + 1);
-                }
-                return baseFull;
+                int maxVisibleY = slotGroups
+                    .Where(g => g.VisibleInMainGrid)
+                    .SelectMany(g => g.Members)
+                    .Where(s => s != null)
+                    .Select(s => s.GridPosition.y)
+                    .DefaultIfEmpty(InventoryHeightPlayer - 1)
+                    .Max();
+                // height is number of rows, so maxY +1
+                return Math.Max(baseFull, maxVisibleY + 1);
             }
         }
 
@@ -135,14 +140,13 @@ namespace VerdantsAscent
         public static Slot[] GetMiscSlots() =>
             [.. AllSlots().Where(s => s != null && s.IsMiscSlot && s.IsActive)];
 
-        // Consider positions that are either in the hidden rows OR explicitly present in toolHotbarSlots as valid slot positions
+        // Everything past the player rows is slot territory, plus any registered group's cell that
+        // sits inside them.
         public static bool IsGridPositionASlot(Vector2i gridPos)
         {
             if (gridPos.y >= InventoryHeightPlayer)
                 return true;
-            if (toolHotbarSlots != null && toolHotbarSlots.Any(s => s != null && s.GridPosition == gridPos))
-                return true;
-            return false;
+            return AllSlots().Any(s => s.GridPosition == gridPos);
         }
 
         public static bool IsItemInSlot(ItemDrop.ItemData item) =>
@@ -151,34 +155,66 @@ namespace VerdantsAscent
         public static bool IsItemInEquipmentSlot(ItemDrop.ItemData item) =>
             item != null && GetItemSlot(item)?.IsEquipmentSlot == true;
 
-        // Return a sequence containing both the main slots array and tool hotbar slots
-        private static IEnumerable<Slot> AllSlots()
+        // Every collection of slots is registered here exactly once, and nothing else may enumerate
+        // one directly. A group that some code paths know about and others do not is precisely how
+        // Inventory.StackAll came to move items out of quick/food/ammo slots: toolHotbarSlots lived
+        // outside the slots array, so each path had to remember to consult it, and the capacity
+        // paths did not.
+        //
+        // VisibleInMainGrid marks a group whose cells are drawn in the player's own grid even though
+        // they sit past the player rows, so IsGridPositionHidden must not hide them.
+        internal sealed class SlotGroup(string id, Func<IEnumerable<Slot>> members, bool visibleInMainGrid, bool countsAsGenericCapacity)
         {
-            foreach (var s in slots)
+            internal string ID { get; } = id;
+            internal bool VisibleInMainGrid { get; } = visibleInMainGrid;
+            internal bool CountsAsGenericCapacity { get; } = countsAsGenericCapacity;
+            internal IEnumerable<Slot> Members => members() ?? [];
+        }
+
+        private static readonly List<SlotGroup> slotGroups =
+        [
+            new SlotGroup("Main", () => slots, visibleInMainGrid: false, countsAsGenericCapacity: true),
+            new SlotGroup("ToolHotbar", () => toolHotbarSlots, visibleInMainGrid: true, countsAsGenericCapacity: false),
+        ];
+
+        // The one call a new slot group makes. Registering is what puts a group in front of every
+        // capacity, validation and rendering path at once. Both flags are required rather than
+        // defaulted, so a new group has to STATE whether it is free space instead of silently
+        // inheriting an answer.
+        internal static void RegisterSlotGroup(string id, Func<IEnumerable<Slot>> members, bool visibleInMainGrid, bool countsAsGenericCapacity)
+        {
+            if (string.IsNullOrEmpty(id) || members == null) return;
+            if (slotGroups.Any(g => g.ID == id)) return;
+            slotGroups.Add(new SlotGroup(id, members, visibleInMainGrid, countsAsGenericCapacity));
+        }
+
+        // The item-agnostic capacity view: what GetEmptySlots / HaveEmptySlot may report as generic
+        // free space. Item-AWARE capacity goes through TryFindFreeSlotForItem, which sees every
+        // group and honours each slot's ItemFits.
+        public static IEnumerable<Slot> CapacitySlots() =>
+            slotGroups.Where(g => g.CountsAsGenericCapacity)
+                      .SelectMany(g => g.Members)
+                      .Where(s => s != null);
+
+        private static bool IsInVisibleGroup(Vector2i pos) =>
+            slotGroups.Any(g => g.VisibleInMainGrid && g.Members.Any(s => s != null && s.GridPosition == pos));
+
+        public static IEnumerable<Slot> AllSlots()
+        {
+            foreach (var group in slotGroups)
             {
-                if (s != null) yield return s;
-            }
-            if (toolHotbarSlots != null)
-            {
-                foreach (var s in toolHotbarSlots)
+                foreach (var s in group.Members)
                 {
                     if (s != null) yield return s;
                 }
             }
         }
 
+        // Registration order decides ties, so the main array still wins over the tool hotbar.
         public static Slot GetSlotInGrid(Vector2i pos)
         {
             if (!IsGridPositionASlot(pos)) return null;
-            // Prefer slots from the main slots array (equipment panel) first
-            var main = slots.FirstOrDefault(slot => slot != null && slot.GridPosition == pos);
-            if (main != null) return main;
-            // Then check tool hotbar slots explicitly
-            if (toolHotbarSlots != null)
-            {
-                return toolHotbarSlots.FirstOrDefault(slot => slot != null && slot.GridPosition == pos);
-            }
-            return null;
+            return AllSlots().FirstOrDefault(slot => slot.GridPosition == pos);
         }
 
         public static Slot GetItemSlot(ItemDrop.ItemData item)
@@ -803,18 +839,9 @@ namespace VerdantsAscent
         {
             ClearCachedItems();
 
-            foreach (var slot in slots)
+            foreach (var slot in AllSlots())
             {
-                slot?.CacheItem();
-            }
-
-            // Also cache tool hotbar slots so validation can see items placed there
-            if (toolHotbarSlots != null)
-            {
-                foreach (var t in toolHotbarSlots)
-                {
-                    t?.CacheItem();
-                }
+                slot.CacheItem();
             }
 
             ClearCachedItems();
@@ -825,8 +852,8 @@ namespace VerdantsAscent
 
         public static bool IsGridPositionHidden(Vector2i pos)
         {
-            // If this position belongs to a tool hotbar slot, it should NOT be treated as hidden
-            if (toolHotbarSlots != null && toolHotbarSlots.Any(s => s != null && s.GridPosition == pos))
+            // A group that draws in the player's own grid is never hidden by the row check below.
+            if (IsInVisibleGroup(pos))
                 return false;
 
             // Main inventory: hidden if row >= InventoryHeightPlayer (hidden extra rows)

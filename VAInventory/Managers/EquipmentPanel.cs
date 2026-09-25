@@ -116,7 +116,7 @@
 
             private static int MiscRows => Mathf.Clamp(ConfigManager.Instance.configEquipmentPanelRows.Value, 0, 3);
 
-            private static Slots.Slot[] BackpackStorageSlots => [.. Slots.slots
+            private static Slots.Slot[] BackpackStorageSlots => [.. Slots.AllSlots()
                 .Where(s => s != null && s.IsActive && s.IsBackpackStorageSlot)
                 .OrderBy(s => s.GridPosition.y).ThenBy(s => s.GridPosition.x)];
 
@@ -607,15 +607,21 @@
                 // ones, and updates dimensions for existing ones.
                 EnsureBackpackPanelsExist();
 
-                var extraSlots = Slots.slots
+                // Tool hotbar slots carry negative indices (they are kept out of the main array on purpose),
+                // so the index window below cannot reach them. In Unified they have a cell in the character
+                // panel, so append them; in Legacy there is no cell and this adds nothing, leaving
+                // ToolHotBar's own HUD bar as the only view. One slot, two views - never two slots.
+                var extraSlots = Slots.AllSlots()
                     .Where(s => s != null && s.IsActive && !s.IsCurrencyVaultSlot && s.Index >= Slots.InventorySizePlayer && s.Index < Slots.InventorySizePlayer + SIDE_PANEL_MAX_SLOTS)
                     .OrderBy(s => s.Index)
+                    .Concat(Slots.toolHotbarSlots.Where(s => s != null && s.IsActive && UnifiedScreen.TryGetCell(s, out _)))
                     .ToArray();
 
                 for (int i = 0; i < extraSlots.Length; i++)
                 {
                     var slot = extraSlots[i];
                     Transform slotParent;
+                    RectTransform unifiedCell = null;
                     if (slot.IsBackpackStorageSlot)
                     {
                         // Route to that bag's detached panel; fall back to
@@ -626,13 +632,22 @@
                         else
                             slotParent = equipmentBackground;
                     }
+                    else if (UnifiedScreen.TryGetCell(slot, out unifiedCell))
+                    {
+                        slotParent = unifiedCell;
+                    }
                     else
                     {
                         slotParent = equipmentBackground;
                     }
                     GameObject go = UnityEngine.Object.Instantiate(elementPrefab, slotParent);
                     var rect = go.GetComponent<RectTransform>();
-                    rect.anchoredPosition = slot.Position;
+                    // In Unified the prefab cell owns the geometry, so the element just fills it; Legacy
+                    // keeps positioning by Slot.Position against the equipment background.
+                    if (unifiedCell != null)
+                        UnifiedScreen.FillCell(rect);
+                    else
+                        rect.anchoredPosition = slot.Position;
 
                     var iconImg = go.transform.Find("icon")?.GetComponent<Image>();
                     if (iconImg)
@@ -1112,7 +1127,14 @@
                 GameObject go = ElemGo(element);
                 if (!go) return;
                 go.SetActive(slot.IsActive);
-                go.GetComponent<RectTransform>().anchoredPosition = slot.Position;
+                // In Unified the prefab cell owns the geometry. Writing slot.Position here would undo the
+                // cell placement on EVERY refresh, not just drift it - the element is parented to a ~50px
+                // cell, so a position meant for the equipment background throws it clean out of the panel.
+                var elemRect = go.GetComponent<RectTransform>();
+                if (UnifiedScreen.TryGetCell(slot, out _))
+                    UnifiedScreen.FillCell(elemRect);
+                else
+                    elemRect.anchoredPosition = slot.Position;
 
                 var item = slot.Item;
                 var icon = ElemIcon(element);
@@ -1188,7 +1210,7 @@
                 // detached panels, each backpack-storage slot is positioned
                 // relative to ITS OWN panel (origin = panel's top-left
                 // + padding offset), not a single shared origin like before.
-                var extraSlots = Slots.slots
+                var extraSlots = Slots.AllSlots()
                     .Where(s => s != null
                              && !s.IsCurrencyVaultSlot
                              && s.Index >= Slots.InventorySizePlayer
@@ -1400,50 +1422,31 @@
             }
 
 
-            [HarmonyPatch(typeof(InventoryGui), "Show")]
-            private static class InventoryGui_Show_UpdatePanel
-            {
-                private static void Postfix()
-                {
-                    if (!Player.m_localPlayer) return;
-                    UpdatePanel();
-                    UpdateExtraSlotsPanel(); // Ensure overlays are synced and logging runs when inventory is opened
-                }
-            }
-
             [HarmonyPatch(typeof(InventoryGui), "OnDestroy")]
             private static class InventoryGui_OnDestroy_ClearObjects
             {
-                private static void Postfix() => ClearPanel();
-            }
-
-            [HarmonyPatch(typeof(InventoryGui), "Update")]
-            private static class InventoryGui_Update_UpdateEquipmentPanel
-            {
+                // Teardown on logout too: the preview camera is parented to the player, and the prefab
+                // instance to the GUI root, so both have to go with the screen or they leak across sessions.
                 private static void Postfix()
                 {
-                    if (!Player.m_localPlayer || !InventoryGui.IsVisible()) return;
-                    UpdateEquipmentBackground();
+                    ClearPanel();
+                    UnifiedScreen.Reset();
                 }
             }
 
-            [HarmonyPatch(typeof(InventoryGrid), "UpdateGui")]
-            internal static class InventoryGrid_UpdateGui_UpdateSlotsOnDirty
+            internal static int CaptureGridElementCount(InventoryGrid grid)
             {
-                private static void Prefix(InventoryGrid __instance, ref int __state)
-                {
-                    if (__instance != InventoryGui.instance?.m_playerGrid) return;
-                    __state = ((IList)fi_elements.GetValue(__instance)).Count;
-                }
+                if (grid != InventoryGui.instance?.m_playerGrid) return 0;
+                return ((IList)fi_elements.GetValue(grid)).Count;
+            }
 
-                private static void Postfix(InventoryGrid __instance, int __state)
-                {
-                    if (__instance != InventoryGui.instance?.m_playerGrid) return;
-                    if (__state != ((IList)fi_elements.GetValue(__instance)).Count)
-                        MarkDirty();
+            internal static void AfterUpdateGui(InventoryGrid grid, int elementCountBefore)
+            {
+                if (grid != InventoryGui.instance?.m_playerGrid) return;
+                if (elementCountBefore != ((IList)fi_elements.GetValue(grid)).Count)
+                    MarkDirty();
 
-                    UpdateInventorySlots();
-                }
+                UpdateInventorySlots();
             }
 
             [HarmonyPatch(typeof(InventoryGui), "SetupDragItem")]
@@ -1543,7 +1546,7 @@
                 int numColumns =2 + (showFood ?1 :0) + (showAmmo ?1 :0);
 
                 // Gather all new active slots
-                var allSlots = Slots.slots
+                var allSlots = Slots.AllSlots()
                 .Where(s => s != null && s.IsActive && s.IsEquipmentSlot)
                 .ToArray();
 
@@ -1642,7 +1645,7 @@
                         // Internal move: just update pos (no remove/add needed)
                         item.m_gridPos = targetSlot.GridPosition;
                         targetSlot.CacheItem();
-                        var slotAfter = Slots.slots.FirstOrDefault(s => s != null && s.GridPosition == targetSlot.GridPosition);
+                        var slotAfter = Slots.GetSlotInGrid(targetSlot.GridPosition);
                         string slotItemName = slotAfter?.Item != null ? slotAfter.Item.m_shared.m_name : "(empty)";
                         bool slotIsFree = slotAfter?.IsFree ?? true;
                         Debug.Log($"[VAInventory] POST-ADD: Slot {targetSlot.ID} (x={targetSlot.GridPosition.x}, y={targetSlot.GridPosition.y}) IsFree={slotIsFree} Item={slotItemName}");

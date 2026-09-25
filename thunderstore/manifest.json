@@ -1,6 +1,6 @@
 {
     "name":  "VAInventory",
-    "version_number":  "1.0.18",
+    "version_number":  "1.0.25",
     "website_url":  "https://github.com/fire-VA/VAInventory",
     "description":  "Part of the Fires mod family for Valheim.",
     "dependencies":  [
