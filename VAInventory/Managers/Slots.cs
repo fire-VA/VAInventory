@@ -1,4 +1,4 @@
-﻿using BepInEx.Configuration;
+using BepInEx.Configuration;
 using HarmonyLib;
 using System;
 using System.Collections.Generic;
@@ -36,7 +36,31 @@ namespace VerdantsAscent
         public const string coinPurseSlotID       = "CoinPurse";
         public const string backpackSlotID        = "Backpack";
         public const string ringSlotID            = "Ring";
+        // 1.0.110 (Fire 10-12, Jewelry): the old Ring cell is the LEFT ring (same grid position, so a saved ring stays put);
+        // the right ring and the necklace take the two always-empty Torch-column cells (rows 3-4), which never held an item.
+        public const string ringRightSlotID       = "RingRight";
+        public const string necklaceSlotID        = "Necklace";
+        // The contract with FiresRPGCrafting ([fgn], FIRESRPGCRAFTING_DESIGN.md §11.2), read by reflection.
+        public const string JewelryNecklaceSlotID  = necklaceSlotID;
+        public const string JewelryRingLeftSlotID  = ringSlotID;
+        public const string JewelryRingRightSlotID = ringRightSlotID;
         public const string teleportBypassSlotID  = "TeleportBypass";
+        // Pocket pet (FiresNPCs' PetApi, soft-detected by PetBridge like the Backpack slot). It takes the Torch column's
+        // second cell, which was an always-inactive Empty cell, so no existing slot's index or grid position moves.
+        public const string petSlotID             = "Pet";
+
+        // FiresRPGClasses' two skill bars each take their weapon and off hand from these slots (Fire, 2026-09-30),
+        // so the bars no longer follow whatever is equipped. One column, present only when FiresRPGClasses is
+        // loaded: Front bar / Front offhand / Back bar / Back offhand. The slots HOLD the items (they stay in the
+        // player inventory at these grid positions); FiresRPGClasses equips the active bar's pair and reads the
+        // slots through the public API below.
+        public const string frontWeaponSlotID  = "FrontWeapon";
+        public const string frontOffhandSlotID = "FrontOffhand";
+        public const string backWeaponSlotID   = "BackWeapon";
+        public const string backOffhandSlotID  = "BackOffhand";
+        // Fire, 2026-09-30: the equipment grid's one free cell holds a torch or lantern, toggled by a double-tapped hotkey.
+        public const string torchSlotID = "Torch";
+        private const string ClassesPluginGuid = "com.Fire.FiresRPGClasses";
         // Prefix for the dynamic backpack-storage block. The block is appended
         // when a backpack is equipped (rows × cols extra slots) and removed
         // on unequip; serialization round-trips through the backpack item's
@@ -137,6 +161,21 @@ namespace VerdantsAscent
         public static Slot[] GetAmmoSlots() =>
             [.. AllSlots().Where(s => s != null && s.IsAmmoSlot && s.IsActive)];
 
+        // Pouches (UI only, Unified layout): open one the real way for tests. Group "tools" / "ammo" / "food", any case.
+        // For tests (FDT backpack_shot): "tools" / "ammo" / "food", and from 1.0.69 "coin" (the coin purse's popup, above the purse).
+        public static string OpenPouchGroup => CurrencyPouchPopup.IsOpen ? "coin" : PouchPopup.OpenGroup;
+        public static void OpenPouch(string group)
+        {
+            if (!string.Equals(group, "coin", StringComparison.OrdinalIgnoreCase)) { PouchPopup.Open(group, false); return; }
+            var purse = AllSlots().FirstOrDefault(s => s != null && s.IsActive && s.IsCoinPurseSlot);
+            CurrencyPouchPopup.Open(purse != null && UnifiedScreen.TryGetCell(purse, out var cell) ? cell : null);
+        }
+        public static void ClosePouches()
+        {
+            PouchPopup.Close();
+            CurrencyPouchPopup.Close();
+        }
+
         public static Slot[] GetMiscSlots() =>
             [.. AllSlots().Where(s => s != null && s.IsMiscSlot && s.IsActive)];
 
@@ -234,7 +273,12 @@ namespace VerdantsAscent
                 return true;
             }
 
-            slot = AllSlots().FirstOrDefault(s => s != null && s.IsActive && s.IsFree && s.ItemFits(item));
+            // 1.0.92 (Fire: "a backpack in our Backpack slot and another in the Bypass slot"): the Bypass slot takes any item, so a
+            // second bag picked up while the Backpack slot was full landed there. Bypass is a slot the player fills by hand
+            // (the smuggler's pocket); automatic placement never uses it.
+            slot = AllSlots().FirstOrDefault(s => s != null && s.IsActive && s.IsFree && !s.IsTeleportBypassSlot && s.ItemFits(item));
+            if (slot == null && item.m_dropPrefab != null && AllSlots().Any(s => s != null && s.IsActive && s.IsFree && s.IsTeleportBypassSlot))
+                EquipmentPanel.PanelLog?.LogDebug($"slots: {item.m_dropPrefab.name} not auto-placed in the Bypass slot (it is filled by hand only)");
             return slot != null;
         }
 
@@ -323,7 +367,7 @@ namespace VerdantsAscent
                     return true;
                 }
 
-                if (TryFindFreeSlotForItem(item, out freeSlot))
+                if (TryFindFreeNonBagSlotForItem(item, out freeSlot))
                 {
                     pos = item.m_gridPos;
                     item.m_gridPos = freeSlot.GridPosition;
@@ -332,6 +376,16 @@ namespace VerdantsAscent
             }
 
             return false;
+        }
+
+        // 1.0.125 (R-1013L audit): making room never moves an item into a bag's storage block. A bag block may be one that is not
+        // restored yet (equip/unequip, spawn), and an item parked there was captured into that bag's blob while a live copy stayed:
+        // duplicates. Typed slots (equipment, misc, hotbars) still take what fits; a bag only ever gets what the player puts in it.
+        private static bool TryFindFreeNonBagSlotForItem(ItemDrop.ItemData item, out Slot slot)
+        {
+            slot = AllSlots().FirstOrDefault(s => s != null && s.IsActive && s.IsFree && !s.IsTeleportBypassSlot && s.ItemFits(item)
+                                                  && string.IsNullOrEmpty(GetBackpackPrefabFromSlot(s)));
+            return slot != null;
         }
 
         public static bool IsEquipmentSlotItem(ItemDrop.ItemData item) =>
@@ -378,6 +432,144 @@ namespace VerdantsAscent
         public static bool IsTrinketSlotItem(ItemDrop.ItemData item) => item?.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Trinket;
         public static bool IsCapeSlotItem(ItemDrop.ItemData item) => item?.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Shoulder;
         public static bool IsAmmoSlotItem(ItemDrop.ItemData item) => item?.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Ammo;
+
+        // A bar's main hand: anything FiresRPGClasses can drive a bar with (a torch counts, as in its own bar rules).
+        public static bool IsClassBarWeaponItem(ItemDrop.ItemData item)
+        {
+            switch (item?.m_shared?.m_itemType)
+            {
+                case ItemDrop.ItemData.ItemType.OneHandedWeapon:
+                case ItemDrop.ItemData.ItemType.TwoHandedWeapon:
+                case ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft:
+                case ItemDrop.ItemData.ItemType.Bow:
+                case ItemDrop.ItemData.ItemType.Torch:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        // A bar's off hand: what vanilla puts in the left hand next to a one-handed weapon.
+        public static bool IsClassBarOffhandItem(ItemDrop.ItemData item) =>
+            item?.m_shared?.m_itemType == ItemDrop.ItemData.ItemType.Shield
+            || item?.m_shared?.m_itemType == ItemDrop.ItemData.ItemType.Torch;
+
+        // BepInEx fills PluginInfos as it loads each plugin, and FiresRPGClasses loads AFTER VAInventory (its soft
+        // dependency), so this is false during VAInventory's Awake. Ascend.Start re-runs InitializeSlots once every
+        // plugin is loaded (1.0.47 on the rig: "class bars False" and no bar slots).
+        internal static bool ClassBarsAvailable() =>
+            BepInEx.Bootstrap.Chainloader.PluginInfos.ContainsKey(ClassesPluginGuid);
+
+        // The Torch slot: vanilla torches, and lanterns (by name, so modded lanterns that are not Torch-typed fit too).
+        public static bool IsTorchSlotItem(ItemDrop.ItemData item)
+        {
+            if (item?.m_shared == null) return false;
+            if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Torch) return true;
+            string prefab = item.m_dropPrefab != null ? item.m_dropPrefab.name : string.Empty;
+            return (prefab + " " + item.m_shared.m_name).IndexOf("lantern", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        /// <summary>For bots and other mods (by reflection): the torch or lantern in the Torch slot, or null.</summary>
+        public static ItemDrop.ItemData GetTorchSlotItem() =>
+            AllSlots().FirstOrDefault(s => s != null && s.IsTorchSlot)?.Item;
+
+        /// <summary>For FiresNPCs (by reflection): the Pet slot is shown (PetApi was found).</summary>
+        public static bool PetSlotActive => AllSlots().Any(s => s != null && s.IsPetSlot && s.IsActive);
+
+        /// <summary>For FiresNPCs (by reflection): the pet item in the Pet slot, or null when empty or inactive.</summary>
+        public static ItemDrop.ItemData GetPetSlotItem()
+        {
+            var slot = AllSlots().FirstOrDefault(s => s != null && s.IsPetSlot);
+            return slot != null && slot.IsActive ? slot.Item : null;
+        }
+
+        /// <summary>
+        /// For bots and other mods (by reflection): moves a torch or lantern already in the player's inventory into the
+        /// Torch slot, swapping out whatever was there. False when the item does not fit or is not in the inventory.
+        /// </summary>
+        public static bool TryPutInTorchSlot(ItemDrop.ItemData item) => TryPutInSlot(s => s.IsTorchSlot, item);
+
+        /// <summary>
+        /// For FiresNPCs (by reflection, [classes-ui] 10-07; Fire: "using the pet item from the inventory moves it into the Pet
+        /// slot AND equips it"): moves a pet item from the player's inventory into the Pet slot; an item in the Pet slot is
+        /// out. A pet already there goes to this item's old cell. Reports the change through PetApi.OnPetSlotChanged, as a
+        /// drop on the slot does. False when it is not a pet, the slot is not shown, the item is not in the inventory, it
+        /// is already in the slot, or there is no room for the swap.
+        /// </summary>
+        public static bool TryEquipPet(ItemDrop.ItemData item)
+        {
+            var player = Player.m_localPlayer;
+            if (player == null || item == null || !PetSlotActive || !PetBridge.IsPet(item)) return false;
+            if (GetPetSlotItem() == item) return false;
+            if (!TryPutInSlot(s => s.IsPetSlot && s.IsActive, item)) return false;
+            PetBridge.NotifyChanged(player, item);
+            EquipmentPanel.MarkDirty();
+            EquipmentPanel.UpdatePanel();
+            return true;
+        }
+
+        /// <summary>
+        /// For the hotkey, bots and other mods: equips the Torch slot's item when it is not in hand, puts it away when it
+        /// is. Vanilla's EquipItem / UnequipItem decide the hand. False when the slot is empty or there is no player.
+        /// </summary>
+        public static bool ToggleTorchSlot()
+        {
+            var player = Player.m_localPlayer;
+            var item = GetTorchSlotItem();
+            if (player == null || item == null || player.IsDead()) return false;
+            if (player.IsItemEquiped(item)) player.UnequipItem(item);
+            else player.EquipItem(item);
+            return true;
+        }
+
+        private static string ClassBarSlotName(string slotID) => slotID switch
+        {
+            frontWeaponSlotID => "Front bar",
+            frontOffhandSlotID => "Front offhand",
+            backWeaponSlotID => "Back bar",
+            backOffhandSlotID => "Back offhand",
+            ringSlotID => "Left ring",
+            ringRightSlotID => "Right ring",
+            _ => slotID
+        };
+
+        /// <summary>For FiresRPGClasses (by reflection): the class bar slots exist (FiresRPGClasses is loaded).</summary>
+        public static bool ClassBarSlotsActive => AllSlots().Any(s => s != null && s.IsClassBarSlot && s.IsActive);
+
+        /// <summary>For FiresRPGClasses (by reflection): the item in a class bar slot, or null when it is empty.</summary>
+        public static ItemDrop.ItemData GetClassBarItem(string slotId) =>
+            AllSlots().FirstOrDefault(s => s != null && s.IsClassBarSlot && s.ID == slotId)?.Item;
+
+        /// <summary>
+        /// For FiresRPGClasses and its test tools (by reflection): moves an item already in the player's inventory into a
+        /// class bar slot. An item already there takes the moved item's old place, or the first free main-grid cell when
+        /// it cannot go there. False when the item does not fit the slot or is not in the player's inventory.
+        /// </summary>
+        public static bool TryPutInClassBarSlot(string slotId, ItemDrop.ItemData item) =>
+            TryPutInSlot(s => s.IsClassBarSlot && s.ID == slotId, item);
+
+        private static bool TryPutInSlot(Func<Slot, bool> which, ItemDrop.ItemData item)
+        {
+            var inv = PlayerInventory;
+            var slot = AllSlots().FirstOrDefault(s => s != null && which(s));
+            if (inv == null || slot == null || item == null || !slot.ItemFits(item) || !inv.ContainsItem(item)) return false;
+
+            var occupant = slot.Item;
+            if (occupant == item) return true;
+
+            Vector2i oldPos = item.m_gridPos;
+            if (occupant != null)
+            {
+                var oldSlot = GetSlotInGrid(oldPos);
+                if (oldSlot == null || oldSlot.ItemFits(occupant)) occupant.m_gridPos = oldPos;
+                else if (TryMakeFreeSpaceInPlayerInventory(true, out Vector2i free)) occupant.m_gridPos = free;
+                else return false;
+            }
+            item.m_gridPos = slot.GridPosition;
+            ClearCachedItems();
+            inv.m_onChanged?.Invoke();
+            return true;
+        }
         public static bool IsFoodSlotItem(ItemDrop.ItemData item) => item?.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable && item.m_shared.m_food > 0;
         public static bool IsToolHotbarSlotItem(ItemDrop.ItemData item)
         {
@@ -514,8 +706,9 @@ namespace VerdantsAscent
         public static bool IsRingSlotItem(ItemDrop.ItemData item)
         {
             if (item?.m_dropPrefab == null) return false;
-            if (RingItemMatcher != null) return RingItemMatcher(item);
             string n = item.m_dropPrefab.name?.ToLowerInvariant() ?? string.Empty;
+            if (n.StartsWith("frcring_")) return true;   // 1.0.110: FiresRPGCrafting's rings (contract with [fgn])
+            if (RingItemMatcher != null) return RingItemMatcher(item);
             // Common naming conventions: "Ring*", "*_ring*", "ring_*".
             return n.StartsWith("ring") || n.Contains("_ring") || n.Contains("ringof");
         }
@@ -527,6 +720,60 @@ namespace VerdantsAscent
         /// name-fragment heuristic above.
         /// </summary>
         public static System.Func<ItemDrop.ItemData, bool> RingItemMatcher;
+
+        /// <summary>1.0.110: the Necklace cell takes FiresRPGCrafting's necklaces ("FrcNecklace_*").</summary>
+        public static bool IsNecklaceSlotItem(ItemDrop.ItemData item) =>
+            item?.m_dropPrefab != null && (item.m_dropPrefab.name ?? "").StartsWith("FrcNecklace_", StringComparison.OrdinalIgnoreCase);
+
+        // ── Jewelry API (1.0.110, for FiresRPGCrafting by reflection) ─────────────────────────────────────────────────
+        /// <summary>[necklace, left ring, right ring] for the local player; null = empty. Any other player: all null
+        /// (only the local player's VAInventory slots are loaded).</summary>
+        public static ItemDrop.ItemData[] GetJewelry(Player p)
+        {
+            var result = new ItemDrop.ItemData[3];
+            if (p == null || p != Player.m_localPlayer) return result;
+            result[0] = JewelryItem(necklaceSlotID);
+            result[1] = JewelryItem(ringSlotID);
+            result[2] = JewelryItem(ringRightSlotID);
+            return result;
+        }
+
+        /// <summary>The player-inventory grid position of a jewelry cell ("Necklace" / "Ring" / "RingRight"), for tests that equip
+        /// through it with vanilla Inventory.MoveItemToThis; (-1,-1) when the cell is unknown or inactive.</summary>
+        public static Vector2i GetJewelrySlotPosition(string slotId)
+        {
+            if (slotId != necklaceSlotID && slotId != ringSlotID && slotId != ringRightSlotID) return emptyPosition;
+            var slot = AllSlots().FirstOrDefault(s => s != null && s.ID == slotId && s.IsActive);
+            return slot != null ? slot.GridPosition : emptyPosition;
+        }
+
+        /// <summary>Raised when one of the three jewelry cells changes (put, take, swap, load); at most once a frame.</summary>
+        public static event Action<Player> JewelryChanged;
+
+        static ItemDrop.ItemData JewelryItem(string id)
+        {
+            var slot = AllSlots().FirstOrDefault(s => s != null && s.ID == id && s.IsActive);
+            if (slot == null || PlayerInventory == null) return null;
+            return PlayerInventory.GetItemAt(slot.GridPosition.x, slot.GridPosition.y);
+        }
+
+        static readonly ItemDrop.ItemData[] lastJewelry = new ItemDrop.ItemData[3];
+        static int lastJewelryFrame = -1;
+
+        /// <summary>Called on every local inventory change and on spawn; raises JewelryChanged only when a jewelry cell
+        /// holds a different item (or none) than last time.</summary>
+        internal static void CheckJewelryChanged(Player p)
+        {
+            if (p == null || p != Player.m_localPlayer || Time.frameCount == lastJewelryFrame) return;
+            var now = GetJewelry(p);
+            bool changed = false;
+            for (int i = 0; i < 3; i++) if (!ReferenceEquals(now[i], lastJewelry[i])) { changed = true; lastJewelry[i] = now[i]; }
+            if (!changed) return;
+            lastJewelryFrame = Time.frameCount;
+            EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] jewelry changed: necklace {now[0]?.m_dropPrefab?.name ?? "-"}, left {now[1]?.m_dropPrefab?.name ?? "-"}, right {now[2]?.m_dropPrefab?.name ?? "-"}");
+            try { JewelryChanged?.Invoke(p); }
+            catch (Exception ex) { Debug.LogWarning($"[VAInventory] a JewelryChanged handler threw: {ex.Message}"); }
+        }
 
         /// <summary>
         /// The TeleportBypass slot accepts any item that vanilla considers
@@ -544,7 +791,40 @@ namespace VerdantsAscent
             // anything I want past the teleport check" pocket — but the
             // patch in Player_IsTeleportable_Postfix only flips the
             // result for items that genuinely needed the bypass.
-            return true;
+            // 1.0.93 (Fire: "That slot should never have a bag in it."): never a backpack, on any path (drag, auto-place,
+            // restore all ask this validator through Slot.ItemFits).
+            return !BackpackBridge.IsBackpack(item);
+        }
+
+        // 1.0.93: a bag already in the Bypass slot (from before this rule) moves to a free main-grid cell, or is dropped at the
+        // player's feet if the grid is full. Checked about once a second, inventory open or not, so it also runs right after load.
+        static float nextBypassCheck;
+        static readonly System.Reflection.MethodInfo InventoryChanged = HarmonyLib.AccessTools.Method(typeof(Inventory), "Changed");
+
+        internal static void EvictBagFromBypass()
+        {
+            if (Time.unscaledTime < nextBypassCheck) return;
+            nextBypassCheck = Time.unscaledTime + 1f;
+            var player = Player.m_localPlayer;
+            var inv = PlayerInventory;
+            if (player == null || inv == null) return;
+            var bypass = AllSlots().FirstOrDefault(s => s != null && s.IsActive && s.IsTeleportBypassSlot);
+            if (bypass == null) return;
+            var item = bypass.CacheItem();
+            if (item == null || !BackpackBridge.IsBackpack(item)) return;
+            for (int y = 0; y < InventoryHeightPlayer; y++)
+                for (int x = 0; x < InventoryWidth; x++)
+                {
+                    if (inv.GetItemAt(x, y) != null) continue;
+                    item.m_gridPos = new Vector2i(x, y);
+                    ClearCachedItems();
+                    InventoryChanged?.Invoke(inv, null);
+                    EquipmentPanel.PanelLog?.LogDebug($"slots: {item.m_dropPrefab?.name} moved out of the Bypass slot to the main grid ({x},{y}) (no bags in Bypass)");
+                    return;
+                }
+            ClearCachedItems();
+            player.DropItem(inv, item, item.m_stack);
+            EquipmentPanel.PanelLog?.LogDebug($"slots: {item.m_dropPrefab?.name} moved out of the Bypass slot and dropped (main grid full; no bags in Bypass)");
         }
 
         // Validator helper
@@ -562,8 +842,14 @@ namespace VerdantsAscent
                 trinketSlotID => IsTrinketSlotItem,
                 backpackSlotID => IsBackpackSlotItem,
                 coinPurseSlotID => IsCoinSlotItem,
-                ringSlotID => IsRingSlotItem,
+                ringSlotID or ringRightSlotID => IsRingSlotItem,
+                necklaceSlotID => IsNecklaceSlotItem,
                 teleportBypassSlotID => IsTeleportBypassSlotItem,
+                frontWeaponSlotID or backWeaponSlotID => IsClassBarWeaponItem,
+                frontOffhandSlotID or backOffhandSlotID => IsClassBarOffhandItem,
+                torchSlotID => IsTorchSlotItem,
+                petSlotID => PetBridge.IsPet,
+                emptySlotID => (item => false),
                 _ => (item => true)
             };
         }
@@ -571,8 +857,43 @@ namespace VerdantsAscent
         // Tool hotbar slots are managed separately
         public static List<Slot> toolHotbarSlots = [];
 
+        // 1.0.133 (perf audit #1, the lead GO): every input InitializeSlots builds the slot set from, folded into one number. An
+        // equip that leaves it unchanged has the same slots, so the panel need not be torn down and rebuilt (RefreshPanelOnly).
+        // Bags count by identity and size: a bag equipped, removed or resized changes it.
+        internal static int LayoutSignature()
+        {
+            unchecked
+            {
+                var cfg = ConfigManager.Instance;
+                int h = 17;
+                h = h * 31 + (cfg != null && cfg.configShowFoodSlots.Value ? 1 : 0);
+                h = h * 31 + (cfg != null && cfg.configShowAmmoSlots.Value ? 1 : 0);
+                h = h * 31 + (cfg != null ? cfg.configEquipmentPanelRows.Value : -1);
+                h = h * 31 + (cfg != null ? cfg.configToolHotbarSlots.Value : -1);
+                h = h * 31 + InventoryHeightPlayer;
+                h = h * 31 + InventoryWidth;
+                h = h * 31 + (ClassBarsAvailable() ? 1 : 0);
+                h = h * 31 + (BackpackBridge.IsAvailable ? 1 : 0);
+                h = h * 31 + (PetBridge.IsAvailable ? 1 : 0);
+                var localPlayer = Player.m_localPlayer;
+                h = h * 31 + (localPlayer != null ? localPlayer.GetInstanceID() : 0);
+                if (localPlayer != null && BackpackBridge.IsAvailable)
+                    foreach (var bag in BackpackBridge.GetEquippedBackpacks(localPlayer))
+                    {
+                        var (r, c) = BackpackBridge.GetConfigDimensions(bag);
+                        h = h * 31 + System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(bag);
+                        h = h * 31 + r * 101 + c;
+                    }
+                return h;
+            }
+        }
+        internal static int LastLayoutSignature = int.MinValue;
+        internal static int Generation;
+
         internal static void InitializeSlots()
         {
+            LastLayoutSignature = LayoutSignature();
+            Generation++;   // 1.0.133: the Slot objects are new; a panel bound to the old ones must rebuild
             bool showFood = ConfigManager.Instance.configShowFoodSlots.Value;
             bool showAmmo = ConfigManager.Instance.configShowAmmoSlots.Value;
 
@@ -603,7 +924,26 @@ namespace VerdantsAscent
                 if (showAmmo) rowDefinitions[r].Add(isRow4 ? teleportBypassSlotID : ammoSlotID);
             }
 
-            int numColumns = rowDefinitions[0].Count; // 2–4
+            // FiresRPGClasses' bar column goes LAST, so every existing slot keeps its grid position (and the items
+            // saved there). Only when FiresRPGClasses is loaded, so a plain VAInventory install looks as before.
+            bool showBars = ClassBarsAvailable();
+            if (showBars)
+            {
+                string[] barColumn = { frontWeaponSlotID, frontOffhandSlotID, backWeaponSlotID, backOffhandSlotID };
+                for (int r = 0; r < rowDefinitions.Count && r < barColumn.Length; r++) rowDefinitions[r].Add(barColumn[r]);
+            }
+
+            // The Torch column goes after everything, for the same reason: one Torch slot and three unused cells (inactive,
+            // they take nothing and show nothing), which keeps the block rectangular for SetSlotsPositions.
+            // The Pet slot reuses the first of those unused cells: same index and grid position the Empty cell had (it
+            // never held an item), so every existing slot and saved item stays put.
+            // 1.0.110: the two unused cells (always inactive, never held an item) are now the Necklace and the right ring.
+            string[] torchColumn = { torchSlotID, petSlotID, necklaceSlotID, ringRightSlotID };
+            for (int r = 0; r < rowDefinitions.Count && r < torchColumn.Length; r++) rowDefinitions[r].Add(torchColumn[r]);
+
+            int numColumns = rowDefinitions[0].Count; // 3–6
+            // The misc block keeps the old width: the bar and torch columns are not repeated under it.
+            int miscColumns = numColumns - (showBars ? 1 : 0) - 1;
             int miscRows = Mathf.Clamp(ConfigManager.Instance.configEquipmentPanelRows.Value, 0, 3);
 
             // Backpack-storage blocks: one block per equipped bag (e.g. shoulder
@@ -630,7 +970,7 @@ namespace VerdantsAscent
             }
 
             int totalExtraSlots = (rowDefinitions.Count * numColumns)  // first block (now 4 rows)
-                                + (miscRows * numColumns)              // misc block
+                                + (miscRows * miscColumns)             // misc block
                                 + CurrencyVaultCount                   // hidden coin-pouch currency vault
                                 + bpBlockSlots;                        // sum of all backpack blocks
             int startIndex = mainGridRows * InventoryWidth;
@@ -663,7 +1003,8 @@ namespace VerdantsAscent
                     // are always active when their column is enabled.
                     Func<bool> isActive = slotID == backpackSlotID
                         ? (Func<bool>)(() => BackpackBridge.IsAvailable)
-                        : () => true;
+                        : slotID == petSlotID ? (Func<bool>)(() => PetBridge.IsAvailable)
+                        : slotID == emptySlotID ? (Func<bool>)(() => false) : () => true;
 
                     if (slotID == foodSlotID)
                     {
@@ -696,7 +1037,7 @@ namespace VerdantsAscent
                         slots[index] = new Slot(
                             slotID,
                             index,
-                            () => slotID,
+                            () => ClassBarSlotName(slotID),
                             validator,
                             isActive
                         );
@@ -710,7 +1051,7 @@ namespace VerdantsAscent
             int miscBlockStartY = equipmentPanelStartY + rowDefinitions.Count;
             for (int miscRow = 0; miscRow < miscRows; miscRow++)
             {
-                for (int col = 0; col < numColumns; col++, index++)
+                for (int col = 0; col < miscColumns; col++, index++)
                 {
                     string slotID = $"{miscSlotID}_{col}_{miscRow}";
 
@@ -808,7 +1149,7 @@ namespace VerdantsAscent
                     IsToolHotbarSlotItem,
                     () => true,
                     () => new KeyboardShortcut(),
-                    () => ConfigManager.Instance.configToolHotbarKeybindsEx[idx].Value
+                    () => ConfigManager.KeyText(ConfigManager.Instance.configToolHotbarKeys[idx])
                 );
                 // Phase A of EXTRASLOTS_ALIGNMENT_PLAN: tool hotbar slots
                 // sit directly below the player rows (y = InventoryHeightPlayer)
@@ -824,8 +1165,8 @@ namespace VerdantsAscent
 
             UpdateSlotsGridPosition();
 
-            string summary = $"[VAInventory] slots: equipment {rowDefinitions.Count}x{numColumns}, misc {miscRows}x{numColumns}, " +
-                             $"tool hotbar {toolHotbarCount}, food {showFood}, ammo {showAmmo}{bagBlocks}; {createdSlots} created, array {slots.Length}";
+            string summary = $"[VAInventory] slots: equipment {rowDefinitions.Count}x{numColumns}, misc {miscRows}x{miscColumns}, " +
+                             $"tool hotbar {toolHotbarCount}, food {showFood}, ammo {showAmmo}, class bars {showBars}{bagBlocks}; {createdSlots} created, array {slots.Length}";
             if (summary != _lastSlotSummary)
             {
                 _lastSlotSummary = summary;
@@ -905,6 +1246,10 @@ namespace VerdantsAscent
             public bool IsRingSlot => _id == ringSlotID;
             public bool IsTeleportBypassSlot => _id == teleportBypassSlotID;
             public bool IsBackpackStorageSlot => _id != null && _id.StartsWith(backpackStorageSlotPrefix);
+            public bool IsClassBarSlot => _id == frontWeaponSlotID || _id == frontOffhandSlotID
+                                          || _id == backWeaponSlotID || _id == backOffhandSlotID;
+            public bool IsTorchSlot => _id == torchSlotID;
+            public bool IsPetSlot => _id == petSlotID;
 
             internal void SetPosition(Vector2 newPosition)
             {
@@ -928,7 +1273,9 @@ namespace VerdantsAscent
                 get
                 {
                     if (PlayerInventory == null || _gridPos == emptyPosition) return null;
-                    if (cachedItems.TryGetValue(_gridPos, out var cached)) return cached;
+                    // 1.0.81 ([generator]'s leak read): a cached item that left the slot (eaten, moved, removed) is not trusted.
+                    if (cachedItems.TryGetValue(_gridPos, out var cached)
+                        && (cached == null || (cached.m_gridPos == _gridPos && PlayerInventory.ContainsItem(cached)))) return cached;
                     return CacheItem();
                 }
             }

@@ -442,6 +442,9 @@ namespace VerdantsAscent.Managers
         /// resolve to their own slots without bleeding into other bags'
         /// blocks.
         /// </summary>
+        /// <summary>The cells of this bag's block in the player's grid (bag_resize_test).</summary>
+        internal static List<Vector2i> CellsOf(Player player, ItemDrop.ItemData bag) => GetSlotsForBag(player, bag).Select(s => s.GridPosition).ToList();
+
         private static List<Slots.Slot> GetSlotsForBag(Player player, ItemDrop.ItemData bag)
         {
             var result = new List<Slots.Slot>();
@@ -583,7 +586,10 @@ namespace VerdantsAscent.Managers
                 return;
             }
 
-            var backpackInv = new Inventory("Backpack", null, maxLocalX + 1, maxLocalY + 1);
+            // R-1013L: vanilla Inventory.Load skips only the y >= height check (skipValidPositionCheck); an item at x >= width is
+            // REFUSED and gone. A bag shrunk narrower lost every item past the new width before the placement below ever saw it.
+            // The temporary inventory is as wide and tall as any bag can be, so every saved item loads at its saved cell.
+            var backpackInv = new Inventory("Backpack", null, Mathf.Max(maxLocalX + 1, LoadGridSize), Mathf.Max(maxLocalY + 1, LoadGridSize));
             try { backpackInv.Load(pkg); }
             catch (System.Exception ex)
             {
@@ -591,16 +597,30 @@ namespace VerdantsAscent.Managers
                 return;
             }
 
-            foreach (var added in backpackInv.GetAllItems().ToList())
-            {
-                // Determine whether the saved local position fits in the
-                // current block; if not (smaller backpack), let vanilla
-                // AddItem find a spot.
-                Vector2i pos = added.m_gridPos;
-                bool inBounds = pos.x >= 0 && pos.x <= maxLocalX
-                             && pos.y >= 0 && pos.y <= maxLocalY;
+            // Bag resize (Fire 10-13, Tools\BAG_RESIZE_DESIGN.md): every saved item goes, in this order, to its saved cell; any free cell
+            // of this bag (it stays IN the bag when only the shape changed); the main grid; the ground at the player's feet. An item that
+            // can't even be dropped is kept on the bag (OverflowKey) and retried on the next restore. Nothing is ever deleted.
+            // Items whose saved cell is inside the block go first, top row first, so a grown bag never moves anything.
+            int width = maxLocalX + 1, height = maxLocalY + 1;
+            string savedSize = backpackItem.m_customData.TryGetValue(SizeKey, out var s) ? s : null;
+            string nowSize = width + "x" + height;
+            var queue = backpackInv.GetAllItems().ToList();
+            // An unreadable store comes back null and is never touched again here: nothing we can't read gets overwritten.
+            var readBack = ReadOverflow(backpackItem);
+            bool overflowUnreadable = readBack == null;
+            var parked = readBack ?? new List<ItemDrop.ItemData>();
+            // (-1,-1) on purpose: retried items sort first among the out-of-block ones and so get the first free bag cells.
+            foreach (var item in parked) { item.m_gridPos = new Vector2i(-1, -1); queue.Add(item); }
+            queue = queue.OrderBy(i => InLocalBlock(i.m_gridPos, maxLocalX, maxLocalY) ? 0 : 1)
+                         .ThenBy(i => i.m_gridPos.y).ThenBy(i => i.m_gridPos.x).ToList();
 
-                if (inBounds)
+            int alreadyThere = 0, dropped = 0, reseated = 0, toMain = 0;
+            var stuck = new List<ItemDrop.ItemData>();
+            foreach (var added in queue)
+            {
+                Vector2i pos = added.m_gridPos;
+                bool placed = false;
+                if (InLocalBlock(pos, maxLocalX, maxLocalY))
                 {
                     int worldX = pos.x + minX;
                     int worldY = pos.y + minY;
@@ -608,37 +628,207 @@ namespace VerdantsAscent.Managers
                     if (occupant == null || occupant == added)
                     {
                         added.m_gridPos = new Vector2i(worldX, worldY);
+                        placed = true;
                     }
-                    else if (Slots.TryMakeFreeSpaceInPlayerInventory(true, out var overflowPos))
+                    else if (IsSameBagItem(occupant, added, ownerPrefab))
                     {
-                        added.m_gridPos = overflowPos;
-                    }
-                    else
-                    {
-                        Debug.LogWarning($"[VAInventory] Backpack overflow: no space for {added.m_shared?.m_name}×{added.m_stack}");
+                        // A save from before 1.0.69 kept this item twice: in the player's inventory at this cell
+                        // (loaded already) and in the blob. The loaded copy is the item; the blob's is not added again.
+                        alreadyThere++;
                         continue;
                     }
                 }
-                else if (!Slots.TryMakeFreeSpaceInPlayerInventory(true, out var overflowPos))
+                if (!placed && FreeBlockCell(inv, blockSlots, out var cell))
                 {
-                    Debug.LogWarning($"[VAInventory] Backpack overflow: no space for {added.m_shared?.m_name}×{added.m_stack}");
-                    continue;
+                    added.m_gridPos = cell;
+                    placed = true;
+                    reseated++;
                 }
-                else
+                // R-1013L: a FREE main cell only. TryMakeFreeSpaceInPlayerInventory makes room by moving a main item into ANY free
+                // slot, including another worn bag's block that isn't restored yet; that bag then captured it too: duplicates.
+                if (!placed && FreeMainCell(inv, out var overflowPos))
                 {
                     added.m_gridPos = overflowPos;
+                    placed = true;
+                    toMain++;
+                }
+                if (!placed)
+                {
+                    if (DropAtFeet(player, added, ownerPrefab)) dropped++;
+                    else stuck.Add(added);
+                    continue;
                 }
 
                 // Stamp the owner tag so capture, eviction, and any
                 // future slot-shift reorderings can recognise this item
                 // as belonging to this specific bag — independent of the
                 // grid position it currently sits at.
-                SetOwner(added, ownerPrefab);
+                // 1.0.125: only when it is IN this bag. An item that went to the main grid has left the bag; a stale tag there
+                // made a later eviction treat it as this bag's (the R-1013L duplication path).
+                if (blockSlots.Any(sl => sl.GridPosition.x == added.m_gridPos.x && sl.GridPosition.y == added.m_gridPos.y))
+                    SetOwner(added, ownerPrefab);
+                else
+                    added.m_customData.Remove(OWNER_KEY);
 
                 inv.GetAllItems().Add(added);
             }
 
+            if (alreadyThere > 0)
+                Debug.LogWarning($"[VAInventory] bag restore: {alreadyThere} item(s) of {ownerPrefab} were already in their cells "
+                    + "(a save from before 1.0.69 kept both copies); each kept once");
+            backpackItem.m_customData[SizeKey] = nowSize;
+            WriteOverflow(backpackItem, stuck, overflowUnreadable, parked.Count);
+            if (savedSize != null && savedSize != nowSize || reseated + toMain + dropped + stuck.Count + parked.Count > 0)
+                EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag resize: {ownerPrefab} saved {savedSize ?? "?"} now {nowSize}: "
+                    + $"{reseated} moved inside the bag, {toMain} to the main grid, {dropped} dropped, {stuck.Count} kept on the bag (of {queue.Count}; {parked.Count} retried)");
+            if (dropped > 0 || toMain > 0 || reseated > 0 || parked.Count > 0)
+            {
+                // [seasons] review (1.0.121): anything that left its saved cell is still in this bag's blob until the next save; a second
+                // restore before it (re-equip, crash) would place it again. Rewrite the blob from the block now, as the save does.
+                BackpackBridge.WriteStorage(backpackItem, SerializeFromBlock(player, backpackItem, false));
+            }
+            if (dropped > 0)
+                player.Message(MessageHud.MessageType.Center, $"Your bag has fewer slots: {dropped} item(s) dropped at your feet");
             inv.m_onChanged?.Invoke();
+        }
+
+        // Fire 10-13 (bag resize design, Tools\BAG_RESIZE_DESIGN.md): an item that fits neither the bag nor the main grid is dropped at
+        // the player's feet, never deleted. Before, the restore loop just skipped it and the next save left it out: the item was gone.
+        private const string SizeKey = "VA_BagSize";          // "WxH" the contents were last laid out in (diagnostics; old saves lack it)
+        private const string OverflowKey = "VA_BagOverflow";  // items that fit nowhere and could not be dropped: kept here, retried
+
+        private static bool InLocalBlock(Vector2i p, int maxX, int maxY) => p.x >= 0 && p.x <= maxX && p.y >= 0 && p.y <= maxY;
+
+        private const int LoadGridSize = 32;   // wider and taller than any bag (VABackpacks' Rows/Columns go to 20)
+
+        // An empty cell of the player's own rows (bought rows included), bottom-right first like the old search, moving nothing.
+        private static bool FreeMainCell(Inventory inv, out Vector2i cell)
+        {
+            for (int y = Slots.InventoryHeightPlayer - 1; y >= 0; y--)
+                for (int x = Slots.InventoryWidth - 1; x >= 0; x--)
+                    if (inv.GetItemAt(x, y) == null) { cell = new Vector2i(x, y); return true; }
+            cell = new Vector2i(-1, -1);
+            return false;
+        }
+
+        private static bool FreeBlockCell(Inventory inv, List<Slots.Slot> blockSlots, out Vector2i cell)
+        {
+            foreach (var slot in blockSlots)
+                if (inv.GetItemAt(slot.GridPosition.x, slot.GridPosition.y) == null) { cell = slot.GridPosition; return true; }
+            cell = new Vector2i(-1, -1);
+            return false;
+        }
+
+        // null = the store exists but can't be read (left exactly as it is); empty = there is none.
+        private static List<ItemDrop.ItemData> ReadOverflow(ItemDrop.ItemData bag)
+        {
+            if (!bag.m_customData.TryGetValue(OverflowKey, out var b64) || string.IsNullOrEmpty(b64)) return new List<ItemDrop.ItemData>();
+            try
+            {
+                var parked = new Inventory("BagOverflow", null, 256, 1);
+                parked.Load(new ZPackage(b64));
+                return parked.GetAllItems().ToList();
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[VAInventory] bag overflow store of {bag.m_shared?.m_name} unreadable, kept as is: {ex.Message}");
+                return null;
+            }
+        }
+
+        private static void WriteOverflow(ItemDrop.ItemData bag, List<ItemDrop.ItemData> stuck, bool oldUnreadable, int retried)
+        {
+            // An unreadable old store keeps its bytes; anything newly stuck goes under the next free VA_BagOverflow.N instead.
+            string key = OverflowKey;
+            if (oldUnreadable)
+            {
+                if (stuck.Count == 0) return;
+                int n = 2;
+                while (bag.m_customData.ContainsKey(OverflowKey + "." + n)) n++;
+                key = OverflowKey + "." + n;
+            }
+            if (stuck.Count == 0) { bag.m_customData.Remove(key); return; }
+            var parked = new Inventory("BagOverflow", null, 256, 1);
+            for (int i = 0; i < stuck.Count; i++) { stuck[i].m_gridPos = new Vector2i(i, 0); parked.GetAllItems().Add(stuck[i]); }
+            var pkg = new ZPackage();
+            parked.Save(pkg);
+            bag.m_customData[key] = pkg.GetBase64();
+            Debug.LogWarning($"[VAInventory] bag overflow: {stuck.Count} item(s) fit nowhere and could not be dropped; {(retried > 0 ? "still kept" : "kept")} on {bag.m_shared?.m_name} ({key}), retried next time");
+        }
+
+        private static bool DropAtFeet(Player player, ItemDrop.ItemData item, string ownerPrefab)
+        {
+            item.m_customData.Remove(OWNER_KEY);
+            Transform t = player.transform;
+            ItemDrop drop = ItemDrop.DropItem(item, item.m_stack, t.position + t.forward * 0.6f + Vector3.up * 0.5f, t.rotation);
+            if (drop != null)
+            {
+                Debug.LogWarning($"[VAInventory] bag overflow: {item.m_shared?.m_name} x{item.m_stack} from {ownerPrefab} fits neither the bag nor the main grid, dropped at the player's feet");
+                return true;
+            }
+            Debug.LogError($"[VAInventory] bag overflow: {item.m_shared?.m_name} x{item.m_stack} from {ownerPrefab} could not be dropped (no prefab); it is lost");
+            return false;
+        }
+
+        // The loaded copy of a bag item: same prefab, stack, quality, variant and durability, tagged for this bag.
+        private static bool IsSameBagItem(ItemDrop.ItemData occupant, ItemDrop.ItemData saved, string ownerPrefab)
+        {
+            if (occupant == null || saved == null || string.IsNullOrEmpty(ownerPrefab)) return false;
+            if (GetOwner(occupant) != ownerPrefab) return false;
+            return occupant.m_dropPrefab != null && saved.m_dropPrefab != null && occupant.m_dropPrefab.name == saved.m_dropPrefab.name
+                && occupant.m_stack == saved.m_stack && occupant.m_quality == saved.m_quality && occupant.m_variant == saved.m_variant
+                && Mathf.Abs(occupant.m_durability - saved.m_durability) < 0.01f;
+        }
+
+        // ── Saving (the relog duplicate, [seasons] 10-07, VABACKPACKS_PAD_TEST C2) ──────────────────────────────────────
+        // While a bag is worn its items sit in the player's inventory at the bag's cells AND in the bag's blob (written at
+        // InventoryGui.Hide, and never cleared after the equip restore). Player.Save wrote both; on the next login vanilla's
+        // Inventory.Load put the saved copies back (no position check), and the equip restore found their cells taken and
+        // spilled the blob's copies into the main inventory: every stack doubled per relog. So the save writes each worn
+        // bag's cells into its blob and leaves those items out of the saved inventory list; the same ItemData objects go
+        // straight back after (no Changed(), nothing else sees it).
+        [HarmonyPatch(typeof(Player), nameof(Player.Save))]
+        private static class Player_Save_BagItemsOnlyInTheBag
+        {
+            private static void Prefix(Player __instance, out List<ItemDrop.ItemData> __state)
+            {
+                __state = null;
+                if (__instance == null || __instance != Player.m_localPlayer) return;
+                try { __state = PullBagItemsForSave(__instance); }
+                catch (System.Exception ex) { Debug.LogError($"[VAInventory] save: bag items not separated: {ex}"); }
+            }
+
+            private static void Finalizer(Player __instance, List<ItemDrop.ItemData> __state)
+            {
+                if (__state == null || __state.Count == 0) return;
+                var list = __instance?.GetInventory()?.GetAllItems();
+                if (list == null) return;
+                foreach (var item in __state)
+                    if (!list.Contains(item)) list.Add(item);
+            }
+        }
+
+        private static List<ItemDrop.ItemData> PullBagItemsForSave(Player player)
+        {
+            var pulled = new List<ItemDrop.ItemData>();
+            var inv = player.GetInventory();
+            var bags = BackpackBridge.GetEquippedBackpacks(player);
+            if (inv == null || bags == null) return pulled;
+            var list = inv.GetAllItems();
+            foreach (var bag in bags)
+            {
+                if (bag == null) continue;
+                // No block yet (the slot rebuild hasn't run): the bag's items live only in its blob, which is saved as is.
+                var slots = GetSlotsForBag(player, bag);
+                if (slots.Count == 0) continue;
+                var items = slots.Select(s => inv.GetItemAt(s.GridPosition.x, s.GridPosition.y)).Where(i => i != null).Distinct().ToList();
+                BackpackBridge.WriteStorage(bag, SerializeFromBlock(player, bag, removeItems: false));
+                foreach (var item in items)
+                    if (list.Remove(item)) pulled.Add(item);
+            }
+            if (pulled.Count > 0 && ConfigManager.IsVerbose)
+                Debug.Log($"[VAInventory] save: {pulled.Count} bag item(s) saved inside their bag only");
+            return pulled;
         }
 
         /// <summary>
@@ -681,7 +871,8 @@ namespace VerdantsAscent.Managers
                 // Move it out of this bag's slot. RemoveItem first so the
                 // inventory's tracking stays consistent, then re-add at a
                 // free main-inventory position.
-                if (!Slots.TryMakeFreeSpaceInPlayerInventory(true, out var freePos))
+                // R-1013L: a free main cell only (TryMakeFreeSpace would shove another item into some other bag's block).
+                if (!FreeMainCell(inv, out var freePos))
                 {
                     Debug.LogWarning($"[VAInventory] EvictForeignItems: no free main-inventory slot for '{item.m_shared?.m_name}' (owner={owner}); leaving in place.");
                     continue;

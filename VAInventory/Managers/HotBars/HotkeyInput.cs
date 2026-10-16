@@ -56,7 +56,9 @@ namespace VerdantsAscent.Managers.HotBars
 
                 if (!ModifiersMatch(wantAlt, wantCtrl, wantShift)) return false;
 
-                return Input.GetKeyDown(key) || Input.GetKeyDown(GetEquivalentKeypadKey(key));
+                // 1.0.103 (Fire: no keybinds while typing): raw hotkeys wait while a text field has input.
+                if (InputGate.Typing && !VaInventoryKeys.Injecting) return false;
+                return VaInventoryKeys.GetKeyDown(key) || VaInventoryKeys.GetKeyDown(GetEquivalentKeypadKey(key));
             }
             catch { return false; }
         }
@@ -88,11 +90,11 @@ namespace VerdantsAscent.Managers.HotBars
         public static string GetToolHotbarKeybindText(int slotIndex)
         {
             var cfg = ConfigManager.Instance;
-            if (cfg?.configToolHotbarKeybindsEx != null
+            if (cfg?.configToolHotbarKeys != null
                 && slotIndex >= 0
-                && slotIndex < cfg.configToolHotbarKeybindsEx.Length)
+                && slotIndex < cfg.configToolHotbarKeys.Length)
             {
-                var ks = cfg.configToolHotbarKeybindsEx[slotIndex]?.Value;
+                var ks = ConfigManager.KeyText(cfg.configToolHotbarKeys[slotIndex]);
                 if (!string.IsNullOrEmpty(ks)) return ks;
             }
 
@@ -109,14 +111,15 @@ namespace VerdantsAscent.Managers.HotBars
             var keypadKey = (KeyCode)((int)KeyCode.Keypad1 + slotIndex);
             if (key != alphaKey && key != keypadKey) return false;
 
-            return Input.GetKeyDown(alphaKey) || Input.GetKeyDown(keypadKey);
+            if (InputGate.Typing && !VaInventoryKeys.Injecting) return false;   // 1.0.103: not while typing
+            return VaInventoryKeys.GetKeyDown(alphaKey) || VaInventoryKeys.GetKeyDown(keypadKey);
         }
 
         private static bool ModifiersMatch(bool wantAlt, bool wantCtrl, bool wantShift)
         {
-            bool altDown = Input.GetKey(KeyCode.LeftAlt) || Input.GetKey(KeyCode.RightAlt);
-            bool ctrlDown = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-            bool shiftDown = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            bool altDown = VaInventoryKeys.GetKey(KeyCode.LeftAlt) || VaInventoryKeys.GetKey(KeyCode.RightAlt);
+            bool ctrlDown = VaInventoryKeys.GetKey(KeyCode.LeftControl) || VaInventoryKeys.GetKey(KeyCode.RightControl);
+            bool shiftDown = VaInventoryKeys.GetKey(KeyCode.LeftShift) || VaInventoryKeys.GetKey(KeyCode.RightShift);
 
             return altDown == wantAlt && ctrlDown == wantCtrl && shiftDown == wantShift;
         }

@@ -1,4 +1,4 @@
-﻿using BepInEx;
+using BepInEx;
 using BepInEx.Configuration;
 using HarmonyLib;
 using System;
@@ -17,6 +17,8 @@ namespace VerdantsAscent
     // Current/MinimumRequiredVersion below use. Held as two separate literals they drifted apart on the
     // very next version bump, leaving the plugin announcing 1.0.10 while its own sync claimed 1.0.11.
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
+    // Load after VABackpacks when it is installed, so BackpackBridge finds it in Awake (Fire 10-07, backpack_shot_q2).
+    [BepInDependency("com.Fire.VA_Backpacks", BepInDependency.DependencyFlags.SoftDependency)]
     public class VAInventory : BaseUnityPlugin
     {
         public static VAInventory Instance;
@@ -24,7 +26,8 @@ namespace VerdantsAscent
 
         public const string PluginGUID = "com.Fire.VAInventory";
         public const string PluginName = "VAInventory";
-        public const string PluginVersion = "1.0.25";
+        public const string PluginVersion = "1.0.134";
+        public const string SyncMinimumVersion = "1.0.116";
 
         public static AssetBundle assetBundle;
         public static readonly List<GameObject> piecePrefabs = [];
@@ -52,7 +55,8 @@ namespace VerdantsAscent
             {
                 DisplayName = PluginName,
                 CurrentVersion = PluginVersion,
-                MinimumRequiredVersion = PluginVersion
+                // Fixed (lead 10-13): raise only when a synced key's name, type or meaning changes; 1.0.116 is the config-audit release.
+                MinimumRequiredVersion = SyncMinimumVersion
             };
             configSync.LockedConfigChanged += ConfigManager.Instance.OnConfigLockChanged;
 
@@ -71,6 +75,8 @@ namespace VerdantsAscent
             BackpackStorageSync.Initialize();
 
             Slots.InitializeSlots();
+            // The Torch slot's key; idle without a local player, so harmless on a server.
+            RootObject.AddComponent<TorchSlotHotkey>();
 
             // Shared help panel (FiresCore) — SOFT dependency; no-ops when Core is absent.
             Utilities.VaInventoryHelpContent.TryRegister();
@@ -79,6 +85,14 @@ namespace VerdantsAscent
                 StartCoroutine(DelayedDedicatedServerInit());
             else
                 FinishInit();
+        }
+
+        // Unity runs Start on the frame after BepInEx loaded every plugin. FiresRPGClasses loads after VAInventory, so the
+        // layout built in Awake has no class bar column; build it again now that FiresRPGClasses is known to be there.
+        private void Start()
+        {
+            if (Slots.ClassBarsAvailable() && !Slots.ClassBarSlotsActive)
+                Slots.InitializeSlots();
         }
 
         private IEnumerator DelayedDedicatedServerInit()
@@ -96,6 +110,8 @@ namespace VerdantsAscent
 
             // Register custom UI backgrounds
             VerdantsAscent.Managers.UIBackgroundManager.RegisterDefaultBackgrounds();
+            VerdantsAscent.Managers.UiDump.Register();
+            VerdantsAscent.Managers.UiTest.Register();
 
             // Force immediate panel rebuild now that slots are ready
             EquipmentPanel.UpdatePanel();

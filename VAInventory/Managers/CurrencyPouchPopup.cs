@@ -5,13 +5,21 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // Right-click the coin pouch → a grid popup of every configured currency; click one to
-    // display it in the pouch. Plain Unity UI (VAInventory doesn't reference FUC's helpers),
-    // styled to the game's dark parchment tooltip. Closes on outside-click, Esc, or inventory close.
+    // The coin purse's popup: every configured currency; click one to display it in the purse. Plain Unity UI (VAInventory
+    // doesn't reference FUC's helpers). Fire 10-07 (1.0.69): it opens on a LEFT click in Unified (right click in Legacy) and
+    // looks like the Tools / Ammo / Food pouch popups: a title bar over slot-face cells, just above the purse, no screen
+    // dimming. Closes on an outside click, Esc, or the inventory closing.
     internal static class CurrencyPouchPopup
     {
         private static GameObject _root;
         public static bool IsOpen => _root != null;
+
+        // The pouch popups' look (UnifiedScreen.BuildPouches): panel colour, gold edge and title, cells at the row pitch.
+        private static readonly Color PanelColor = new Color(0.13f, 0.10f, 0.07f, 0.98f);
+        private static readonly Color Gold = new Color(0.93f, 0.78f, 0.37f, 1f);
+        private static readonly Color GoldEdge = new Color(0.55f, 0.42f, 0.20f, 1f);
+        private const int MaxCols = 4;
+        private const float Cell = 64f, Gap = 6f, PadX = 10f, PadTop = 6f, PadBottom = 10f, TitleH = 20f, TitleGap = 4f, AboveAnchor = 6f;
 
         public static void Toggle(RectTransform anchor = null) { if (IsOpen) Close(); else Open(anchor); }
 
@@ -30,6 +38,7 @@ namespace VerdantsAscent.Managers
         public static void Open(RectTransform anchor = null)
         {
             Close();
+            PouchPopup.Close(); // one popup at a time (pouches + coin)
             var grid = InventoryGui.instance?.m_playerGrid;
             if (grid == null) return;
             var canvas = grid.GetComponentInParent<Canvas>();
@@ -39,91 +48,82 @@ namespace VerdantsAscent.Managers
             if (contents.Count == 0) return;
             string displayed = CoinPurseStackPatch.DisplayedKey();
             var font = Font();
+            var face = grid.m_elementPrefab != null ? grid.m_elementPrefab.GetComponent<Image>() : null;
+            var faceTint = grid.m_elementPrefab != null ? grid.m_elementPrefab.GetComponent<Selectable>() : null;
 
-            const int cols = 3;
-            int rows = Mathf.Max(1, (contents.Count + cols - 1) / cols);
-            const float cell = 62f, gap = 6f, pad = 12f, titleH = 26f;
-            float w = pad * 2 + cols * cell + (cols - 1) * gap;
-            float h = pad * 2 + titleH + rows * cell + (rows - 1) * gap;
+            int cols = Mathf.Min(MaxCols, contents.Count);
+            int rows = (contents.Count + cols - 1) / cols;
+            float w = PadX * 2f + cols * Cell + (cols - 1) * Gap;
+            float h = PadTop + TitleH + TitleGap + rows * Cell + (rows - 1) * Gap + PadBottom;
 
-            _root = new GameObject("CurrencyPouchPopup", typeof(RectTransform));
-            _root.transform.SetParent(canvas.transform, false);
-            Stretch(_root);
+            _root = NewChild(canvas.transform, "CurrencyPouchPopup");
             _root.transform.SetAsLastSibling();
-            _root.AddComponent<PopupWatcher>();
-
-            var catcher = NewChild(_root.transform, "catcher");
-            Stretch(catcher);
-            var cImg = catcher.AddComponent<Image>(); cImg.color = new Color(0f, 0f, 0f, 0.35f); cImg.raycastTarget = true;
-            var cBtn = catcher.AddComponent<Button>(); cBtn.transition = Selectable.Transition.None; cBtn.onClick.AddListener(Close);
-
-            var panel = NewChild(_root.transform, "panel");
-            var prt = (RectTransform)panel.transform;
+            _root.AddComponent<PopupWatcher>().Init(anchor);
+            var prt = (RectTransform)_root.transform;
             prt.anchorMin = prt.anchorMax = new Vector2(0.5f, 0.5f);
             prt.sizeDelta = new Vector2(w, h);
+            Place(prt, (RectTransform)canvas.transform, canvas, anchor, w, h);
+            var pImg = _root.AddComponent<Image>(); pImg.color = PanelColor; pImg.raycastTarget = true;
+            var pol = _root.AddComponent<Outline>(); pol.effectColor = GoldEdge; pol.effectDistance = new Vector2(2f, -2f);
 
-            // Anchor just below the pouch slot (top-left of the panel = bottom-left of the slot),
-            // clamped on-screen. Falls back to screen-centre when no anchor is supplied.
-            var canvasRect = (RectTransform)canvas.transform;
-            if (anchor != null)
-            {
-                prt.pivot = new Vector2(0f, 1f);
-                var cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
-                var corners = new Vector3[4];
-                anchor.GetWorldCorners(corners); // 0 = bottom-left
-                Vector2 screenBL = RectTransformUtility.WorldToScreenPoint(cam, corners[0]);
-                if (RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, screenBL, cam, out Vector2 localBL))
-                {
-                    var ap = localBL + new Vector2(0f, -4f);
-                    float cw = canvasRect.rect.width, ch = canvasRect.rect.height;
-                    ap.x = Mathf.Clamp(ap.x, -cw / 2f + 4f, cw / 2f - w - 4f);
-                    ap.y = Mathf.Clamp(ap.y, -ch / 2f + h + 4f, ch / 2f - 4f);
-                    prt.anchoredPosition = ap;
-                }
-                else { prt.pivot = new Vector2(0.5f, 0.5f); prt.anchoredPosition = Vector2.zero; }
-            }
-            else
-            {
-                prt.pivot = new Vector2(0.5f, 0.5f);
-                prt.anchoredPosition = Vector2.zero;
-            }
-            var pImg = panel.AddComponent<Image>(); pImg.color = new Color(0.13f, 0.10f, 0.07f, 0.98f); pImg.raycastTarget = true;
-            var pol = panel.AddComponent<Outline>(); pol.effectColor = new Color(0.55f, 0.42f, 0.20f, 1f); pol.effectDistance = new Vector2(2f, -2f);
-
-            var title = NewChild(panel.transform, "title");
+            var title = NewChild(_root.transform, "title");
             var trt = (RectTransform)title.transform;
             trt.anchorMin = new Vector2(0f, 1f); trt.anchorMax = new Vector2(1f, 1f); trt.pivot = new Vector2(0.5f, 1f);
-            trt.offsetMin = new Vector2(0f, -(titleH + 4f)); trt.offsetMax = new Vector2(0f, -4f);
+            trt.offsetMin = new Vector2(0f, -(PadTop + TitleH)); trt.offsetMax = new Vector2(0f, -PadTop);
             var ttmp = title.AddComponent<TextMeshProUGUI>();
             if (font != null) ttmp.font = font;
-            ttmp.text = "Coin Pouch"; ttmp.fontSize = 16f; ttmp.color = new Color(0.93f, 0.78f, 0.37f);
+            ttmp.text = "Coin purse"; ttmp.fontSize = 15f; ttmp.color = Gold;
             ttmp.alignment = TextAlignmentOptions.Center; ttmp.raycastTarget = false;
 
-            float x0 = pad, y0 = -(titleH + pad);
+            float y0 = -(PadTop + TitleH + TitleGap);
             for (int i = 0; i < contents.Count; i++)
             {
                 var (key, item) = contents[i];
                 int r = i / cols, c = i % cols;
-                MakeCell(panel.transform, key, item,
+                MakeCell(_root.transform, key, item,
                     string.Equals(key, displayed, System.StringComparison.OrdinalIgnoreCase),
-                    font, x0 + c * (cell + gap), y0 - r * (cell + gap), cell);
+                    font, face, faceTint, PadX + c * (Cell + Gap), y0 - r * (Cell + Gap), Cell);
             }
         }
 
-        private static void MakeCell(Transform parent, string key, ItemDrop.ItemData item, bool displayed, TMP_FontAsset font, float x, float y, float size)
+        // Bottom-centre just above the purse (as the pouch popups sit above their pouch), kept on screen; below it when there
+        // is no room above. Screen centre without an anchor.
+        private static void Place(RectTransform popup, RectTransform canvasRect, Canvas canvas, RectTransform anchor, float w, float h)
+        {
+            popup.pivot = new Vector2(0.5f, 0f);
+            popup.anchoredPosition = new Vector2(0f, -h / 2f);
+            if (anchor == null) return;
+            var cam = canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : canvas.worldCamera;
+            var corners = new Vector3[4];
+            anchor.GetWorldCorners(corners); // 0 = bottom-left, 1 = top-left, 2 = top-right
+            Vector2 top = RectTransformUtility.WorldToScreenPoint(cam, (corners[1] + corners[2]) * 0.5f);
+            Vector2 bottom = RectTransformUtility.WorldToScreenPoint(cam, (corners[0] + corners[3]) * 0.5f);
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, top, cam, out Vector2 localTop)) return;
+            float cw = canvasRect.rect.width, ch = canvasRect.rect.height;
+            var ap = localTop + new Vector2(0f, AboveAnchor);
+            if (ap.y + h > ch / 2f - 4f && RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, bottom, cam, out Vector2 localBottom))
+            {
+                popup.pivot = new Vector2(0.5f, 1f);
+                ap = localBottom - new Vector2(0f, AboveAnchor);
+            }
+            ap.x = Mathf.Clamp(ap.x, -cw / 2f + w / 2f + 4f, cw / 2f - w / 2f - 4f);
+            popup.anchoredPosition = ap;
+        }
+
+        private static void MakeCell(Transform parent, string key, ItemDrop.ItemData item, bool displayed, TMP_FontAsset font,
+            Image face, Selectable faceTint, float x, float y, float size)
         {
             var go = NewChild(parent, "cell");
             var rt = (RectTransform)go.transform;
             rt.anchorMin = rt.anchorMax = new Vector2(0f, 1f); rt.pivot = new Vector2(0f, 1f);
             rt.anchoredPosition = new Vector2(x, y); rt.sizeDelta = new Vector2(size, size);
             var bg = go.AddComponent<Image>();
-            bg.color = displayed ? new Color(0.30f, 0.24f, 0.11f, 0.95f) : new Color(0.19f, 0.16f, 0.12f, 0.9f);
+            if (face != null && face.sprite != null) { bg.sprite = face.sprite; bg.type = Image.Type.Sliced; }
+            bg.color = faceTint != null ? faceTint.colors.normalColor : new Color(0.19f, 0.16f, 0.12f, 0.9f);
             bg.raycastTarget = true;
-            if (displayed)
-            {
-                var ol = go.AddComponent<Outline>();
-                ol.effectColor = new Color(0.93f, 0.78f, 0.37f, 1f); ol.effectDistance = new Vector2(1.5f, -1.5f);
-            }
+            var ol = go.AddComponent<Outline>();
+            ol.effectColor = displayed ? Gold : GoldEdge;
+            ol.effectDistance = displayed ? new Vector2(2f, -2f) : new Vector2(1f, -1f);
 
             var icon = CoinPurseStackPatch.GetCurrencyIcon(key, item);
             if (icon != null)
@@ -163,20 +163,23 @@ namespace VerdantsAscent.Managers
             return go;
         }
 
-        private static void Stretch(GameObject go)
-        {
-            var rt = (RectTransform)go.transform;
-            rt.anchorMin = Vector2.zero; rt.anchorMax = Vector2.one;
-            rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
-        }
-
+        // Closes on Esc, the inventory closing, or a click outside both the popup and the purse (a click on the purse is its
+        // own toggle).
         private class PopupWatcher : MonoBehaviour
         {
+            private RectTransform _anchor;
+            internal void Init(RectTransform anchor) => _anchor = anchor;
+
             private void Update()
             {
-                if (!InventoryGui.IsVisible() || Input.GetKeyDown(KeyCode.Escape))
+                if (!InventoryGui.IsVisible() || Input.GetKeyDown(KeyCode.Escape)) { Close(); return; }
+                if ((Input.GetMouseButtonUp(0) || Input.GetMouseButtonUp(1))
+                    && !Over(transform as RectTransform) && !Over(_anchor))
                     Close();
             }
+
+            private static bool Over(RectTransform rect) =>
+                rect != null && RectTransformUtility.RectangleContainsScreenPoint(rect, Input.mousePosition, null);
         }
     }
 }

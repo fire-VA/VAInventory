@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -136,35 +136,54 @@
     <Compile Include="Ascend.cs" />
     <Compile Include="Managers\AdminSyncing.cs" />
     <Compile Include="Managers\BackpackBridge.cs" />
+    <Compile Include="Managers\BagBonusSlots.cs" />
+    <Compile Include="Managers\PetBridge.cs" />
     <Compile Include="Managers\BackpackStorageSync.cs" />
+    <Compile Include="Managers\BagSpecialRail.cs" />
     <Compile Include="Managers\CoinPurseStackPatch.cs" />
     <Compile Include="Managers\CurrencyPouchPopup.cs" />
+    <Compile Include="Managers\PanelScroll.cs" />
+    <Compile Include="Managers\PlayerGridPlate.cs" />
+    <Compile Include="Managers\PanelSkin.cs" />
+    <Compile Include="Managers\PouchPopup.cs" />
     <Compile Include="Managers\ConfigManager.cs" />
     <Compile Include="Managers\ConfigSync.cs" />
     <Compile Include="Managers\EquipmentBackgroundDragCleanup.cs" />
+    <Compile Include="Managers\BackpackTab.cs" />
     <Compile Include="Managers\EquipmentPanel.cs" />
     <Compile Include="Managers\HotBars\AmmoHotBar.cs" />
     <Compile Include="Managers\HotBars\FoodHotBar.cs" />
     <Compile Include="Managers\HotBars\HotBarController.cs" />
+    <Compile Include="Managers\HotBars\VaInventoryKeys.cs" />
     <Compile Include="Managers\HotBars\HotBarDragHandle.cs" />
     <Compile Include="Managers\HotBars\HotBarPlacement.cs" />
     <Compile Include="Managers\HotBars\HotkeyInput.cs" />
+    <Compile Include="Managers\HotBars\InputGate.cs" />
     <Compile Include="Managers\HotBars\ToolHotBar.cs" />
     <Compile Include="Managers\HotbarManager.cs" />
     <Compile Include="Managers\InventoryGrid_ExtendGridForExtraSlots.cs" />
     <Compile Include="Managers\InventoryGuiBackgroundPatch.cs" />
     <Compile Include="Managers\InventoryGuiContainerPositionPatch.cs" />
     <Compile Include="Managers\InventoryInteraction.cs" />
+    <Compile Include="Managers\InventoryTabs.cs" />
     <Compile Include="Managers\ItemSlotValidation.cs" />
-    <Compile Include="Managers\LightenedSlots.cs" />
     <Compile Include="Managers\PlayerInventoryRows.cs" />
     <Compile Include="Managers\SafeGuiPatches.cs" />
     <Compile Include="Managers\Slots.cs" />
+    <Compile Include="Managers\TorchSlotHotkey.cs" />
     <Compile Include="Managers\TeleportBypassPatch.cs" />
     <Compile Include="Managers\UIBackgroundManager.cs" />
     <Compile Include="Managers\CharacterPreview.cs" />
     <Compile Include="Managers\StatsPanel.cs" />
+    <Compile Include="Managers\UiDump.cs" />
+    <Compile Include="Managers\UiTest.cs" />
+    <Compile Include="Managers\UiTest.BagResize.cs" />
+    <Compile Include="Managers\UiTest.InvUpgrade.cs" />
+    <Compile Include="Managers\UiTestCore.cs" />
     <Compile Include="Managers\UnifiedScreen.cs" />
+    <Compile Include="Managers\GripSprite.cs" />
+    <Compile Include="Managers\VAInventoryApi.cs" />
+    <Compile Include="Managers\PanelLayout.cs" />
     <Compile Include="Managers\VaInventoryVanillaHooks.cs" />
     <Compile Include="Managers\UniversalDragHandler.cs" />
     <Compile Include="Managers\VAItemManager.cs" />

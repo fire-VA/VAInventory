@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -14,117 +15,114 @@ namespace VerdantsAscent.Managers
     // FATI's own HookOtherTabs will find this tab on its next sweep and wire it the same way.
     internal static class StatsPanel
     {
-        const string TabName = "VAStats";
-        const float TabPitch = 107f;   // FATI's spacing, so the row stays even
+        const string TabId = "vainventory.character";
 
-        static Button tab;
         static RectTransform view;
         static Transform content;
         static GameObject rowTemplate;
         static GameObject headerTemplate;
         static readonly List<GameObject> spawned = [];
 
-        internal static bool Active { get; private set; }
-
         internal static void Reset()
         {
-            if (tab != null) UnityEngine.Object.Destroy(tab.gameObject);
-            tab = null;
             view = null;
             content = null;
             rowTemplate = null;
             headerTemplate = null;
             spawned.Clear();
-            Active = false;
         }
 
-        internal static void EnsureTab(RectTransform craftingExtras)
+        // Registered once at startup. The registry replays it whenever the screen opens, so nothing here
+        // needs the inventory to exist yet.
+        internal static void RegisterTab()
         {
-            var gui = InventoryGui.instance;
-            if (gui == null || craftingExtras == null) return;
+            // UnifiedScreen calls this on every open. A mod that took the tab over as a launcher keeps it: with FiresRPGClasses
+            // installed, Character opens the full Classes window on its Character board (Fire, popup 2026-09-29).
+            if (InventoryTabs.HasLauncher(TabId)) return;
+            InventoryTabs.Register(new InventoryTabs.Tab
+            {
+                Id = TabId,
+                Label = "Character",
+                Order = 10,
+                Build = BuildInto,
+                OnVisibility = shown => { if (shown) Populate(); }
+            });
+        }
 
-            view = craftingExtras.Find("StatsView") as RectTransform;
-            if (view == null) return;
+        // The prefab's StatsView is authored inside CraftingExtras so it can be laid out in Unity. Move it
+        // into the view the registry hands us rather than building a second copy in code.
+        static void BuildInto(RectTransform parent)
+        {
+            var authored = parent.parent != null ? parent.parent.Find("StatsView") as RectTransform : null;
+            if (authored == null)
+            {
+                Debug.LogWarning("[VAInventory] stats: no authored StatsView under "
+                    + (parent.parent != null ? parent.parent.name : "<no parent>")
+                    + " - the tab will be empty. Is CraftingExtras mounted?");
+                return;
+            }
+
+            authored.SetParent(parent, false);
+            authored.anchorMin = Vector2.zero;
+            authored.anchorMax = Vector2.one;
+            authored.offsetMin = Vector2.zero;
+            authored.offsetMax = Vector2.zero;
+            authored.gameObject.SetActive(true);
+
+            view = authored;
             content = view.Find("Content");
             rowTemplate = content?.Find("RowTemplate")?.gameObject;
             headerTemplate = content?.Find("HeaderTemplate")?.gameObject;
 
-            if (tab != null) { HookSiblings(); return; }
-            if (gui.m_tabUpgrade == null) return;
-
-            tab = UnityEngine.Object.Instantiate(gui.m_tabUpgrade, gui.m_tabUpgrade.transform.parent);
-            tab.gameObject.SetActive(true);
-            tab.name = TabName;
-            tab.onClick.RemoveAllListeners();
-            tab.onClick.AddListener(Show);
-
-            var label = tab.transform.Find("Text")?.GetComponent<TextMeshProUGUI>();
-            if (label != null) label.text = "Character";
-
-            HookSiblings();
-            Hide();
-        }
-
-        // Every other button in the row turns this view off, which is how vanilla's Craft/Upgrade and FATI's
-        // own tab stay mutually exclusive with it.
-        static void HookSiblings()
-        {
-            if (tab == null) return;
-            foreach (var button in tab.transform.parent.GetComponentsInChildren<Button>(true))
+            // The prefab ships sample rows so the panel is not blank while being positioned in Unity.
+            // DestroyImmediate, not Destroy: deferred destruction leaves them on screen for the rest of the
+            // frame, and Populate runs in that same frame - so the placeholders were still there, stacked
+            // under the real rows, all reading the template's "Health 92 / 92".
+            int samples = 0;
+            if (content != null)
             {
-                if (button == tab) continue;
-                button.onClick.RemoveListener(Hide);
-                button.onClick.AddListener(Hide);
+                for (int i = content.childCount - 1; i >= 0; i--)
+                {
+                    var child = content.GetChild(i);
+                    if (!child.name.StartsWith("SampleRow_")) continue;
+                    UnityEngine.Object.DestroyImmediate(child.gameObject);
+                    samples++;
+                }
             }
+
+            Debug.Log($"[VAInventory] stats built: content={(content != null)} rowTemplate={(rowTemplate != null)} "
+                + $"headerTemplate={(headerTemplate != null)} samplesRemoved={samples}");
+
+            BindFont();
         }
 
-        internal static void Show()
+        static void BindFont()
         {
-            var gui = InventoryGui.instance;
-            if (gui == null || view == null) return;
-
-            Active = true;
-            if (tab != null) tab.interactable = false;
-            gui.m_inventoryRoot.Find("Crafting/RecipeList")?.gameObject.SetActive(false);
-            gui.m_inventoryRoot.Find("Crafting/Decription")?.gameObject.SetActive(false);
-            gui.m_inventoryRoot.Find("Crafting/RepairButton")?.gameObject.SetActive(false);
-            gui.m_inventoryRoot.Find("Crafting/RepairSimple")?.gameObject.SetActive(false);
-
-            view.gameObject.SetActive(true);
-            Populate();
-            PositionTab();
-
-            if (gui.m_tabCraft != null) gui.m_tabCraft.interactable = true;
-            if (gui.m_tabUpgrade != null) gui.m_tabUpgrade.interactable = true;
-        }
-
-        internal static void Hide()
-        {
-            Active = false;
-            if (tab != null) tab.interactable = true;
-            if (view != null) view.gameObject.SetActive(false);
-        }
-
-        // Sits after the last visible tab, so it does not overlap FATI's when both are installed.
-        static void PositionTab()
-        {
-            if (tab == null) return;
-            var rect = (RectTransform)tab.transform;
-            for (int i = rect.GetSiblingIndex() - 1; i >= 0; i--)
+            var source = InventoryGui.instance?.m_inventoryRoot
+                ?.GetComponentsInChildren<TextMeshProUGUI>(true)
+                .FirstOrDefault(t => t.font != null && !t.transform.IsChildOf(view));
+            if (source == null || view == null) return;
+            foreach (var text in view.GetComponentsInChildren<TextMeshProUGUI>(true))
             {
-                var sibling = rect.parent.GetChild(i);
-                if (!sibling.gameObject.activeSelf) continue;
-                rect.anchoredPosition = ((RectTransform)sibling).anchoredPosition + new Vector2(TabPitch, 0f);
-                break;
+                text.font = source.font;
+                text.fontSharedMaterial = source.fontSharedMaterial;
             }
         }
 
         internal static void Populate()
         {
             var player = Player.m_localPlayer;
-            if (player == null || content == null || rowTemplate == null || headerTemplate == null) return;
+            if (player == null || content == null || rowTemplate == null || headerTemplate == null)
+            {
+                Debug.LogWarning($"[VAInventory] stats NOT populated: player={(player != null)} "
+                    + $"content={(content != null)} rowTemplate={(rowTemplate != null)} "
+                    + $"headerTemplate={(headerTemplate != null)} - the panel keeps whatever the prefab shipped.");
+                return;
+            }
 
-            foreach (var old in spawned) if (old != null) UnityEngine.Object.Destroy(old);
+            // Populate re-runs on every re-show and refills below in this same call; deferred Destroy would
+            // leave the previous rows drawing underneath the new ones at identical positions.
+            foreach (var old in spawned) if (old != null) UnityEngine.Object.DestroyImmediate(old);
             spawned.Clear();
 
             var title = view.Find("Title")?.GetComponent<TextMeshProUGUI>();
@@ -181,6 +179,10 @@ namespace VerdantsAscent.Managers
             go.SetActive(true);
             var label = go.transform.Find("Label")?.GetComponent<TextMeshProUGUI>();
             var amount = go.transform.Find("Value")?.GetComponent<TextMeshProUGUI>();
+            // A missing child here is why every row would read the template's placeholder instead of data.
+            if (label == null || amount == null)
+                Debug.LogWarning($"[VAInventory] stats row '{name}': Label={(label != null)} Value={(amount != null)}"
+                    + " - row will show the prefab's placeholder text.");
             if (label != null) label.text = name;
             if (amount != null) amount.text = value;
             spawned.Add(go);

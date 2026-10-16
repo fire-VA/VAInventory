@@ -32,8 +32,8 @@ namespace VerdantsAscent.Utilities
         private static void BuildPanel(FiresCore.Help.HelpContentWriter w)
         {
             w.Header("The Equipment Panel");
-            w.Paragraph("VAInventory adds a dedicated equipment grid below your inventory — your " +
-                "worn gear gets real slots instead of living mixed into the bag.");
+            w.Paragraph("VAInventory puts a character panel beside your inventory — your worn gear " +
+                "gets real slots instead of living mixed into the bag, and your bags open right in it.");
             w.Divider();
 
             w.SubHeader("The Slots");
@@ -43,6 +43,10 @@ namespace VerdantsAscent.Utilities
             w.Bullet("Backpack — active when VABackpacks is installed; the worn bag sits here.");
             w.Bullet("Food and Ammo columns — quick-glance slots, toggleable in config " +
                 "(ShowFoodSlots / ShowAmmoSlots).");
+            w.Bullet("Torch — a torch or lantern kept ready: double-tap T (TorchSlot.Key) to take it " +
+                "out or put it away.");
+            w.Bullet("Pet — the pet slot.");
+            w.Bullet("Tools / Food / Ammo pouches — click a pouch to open its slots in a small popup.");
             w.Bullet("TeleportBypass — the smuggler's pocket: ONE non-teleportable item (ore, " +
                 "ingots) placed here rides through portals with you. Everything else still blocks.");
             w.Divider();
@@ -54,9 +58,10 @@ namespace VerdantsAscent.Utilities
             w.Divider();
 
             w.SubHeader("Backpack Panels");
-            w.Paragraph("Each equipped bag renders its contents as a DETACHED panel you can drag " +
-                "anywhere — wear a shoulder bag and carry the Hobo Stick and you get two. Panel " +
-                "positions are remembered.");
+            w.Paragraph("Each equipped bag shows its contents as a section of the character panel, " +
+                "under Misc — wear a shoulder bag and carry the Hobo Stick and you get two. When " +
+                "they don't fit on screen, the bag sections scroll with the mouse wheel. Drag the " +
+                "character panel to move it.");
         }
 
         private static void BuildHotbars(FiresCore.Help.HelpContentWriter w)
@@ -66,7 +71,7 @@ namespace VerdantsAscent.Utilities
                 "scalable, each slot with its own rebindable key:");
             w.Divider();
 
-            w.Bullet("Tool hotbar — up to 8 slots, defaults Alt+1 ... Alt+8.");
+            w.Bullet("Tool hotbar — 4 slots by default (up to 8), keys Alt+1, Alt+2, ...");
             w.Bullet("Food hotbar — 3 slots, defaults Ctrl+1 ... Ctrl+3. Eat without opening " +
                 "your inventory.");
             w.Bullet("Ammo hotbar — 3 slots, defaults Ctrl+Alt+1 ... Ctrl+Alt+3. Swap arrow " +
@@ -88,7 +93,7 @@ namespace VerdantsAscent.Utilities
             w.Bullet("Configured currencies (default: Coins, Ruby, Amber, AmberPearl) are " +
                 "AUTO-DEPOSITED into the pouch — pickups, trader change, quest rewards, all of it.");
             w.Bullet("Right-click a loose coin stack in your inventory to bank it into the pouch.");
-            w.Bullet("Right-click the pouch slot to open the currency picker — every currency " +
+            w.Bullet("Left-click the pouch slot to open the currency picker — every currency " +
                 "with its total; click one to make it the displayed stack. Esc closes.");
             w.Bullet("Spending works exactly like vanilla — traders and vendors pull from the " +
                 "pouch automatically.");

@@ -63,11 +63,27 @@ namespace VerdantsAscent.Managers
                 if (bypassPos.HasValue && item.m_gridPos == bypassPos.Value)
                     continue;                                         // smuggled
                 __result = false;
+                LogBlock(item);
                 return false;
             }
 
             __result = true;
+            lastBlock = null;
             return false;
+        }
+
+        // 1.0.87 ([lead]: "teleportable False" three rounds running): name what blocks, once per change, at Debug.
+        static string lastBlock;
+
+        static void LogBlock(ItemDrop.ItemData item)
+        {
+            var slot = Slots.AllSlots().FirstOrDefault(s => s != null && s.GridPosition == item.m_gridPos);
+            string where = slot != null ? $"slot {slot.ID}"
+                : item.m_gridPos.y < Slots.InventoryHeightPlayer ? $"main grid {item.m_gridPos}" : $"hidden row {item.m_gridPos} (bag section / extra rows)";
+            string line = $"teleport blocked by {item.m_dropPrefab?.name ?? item.m_shared.m_name} x{item.m_stack} at {where}";
+            if (line == lastBlock) return;
+            lastBlock = line;
+            EquipmentPanel.PanelLog?.LogDebug(line);
         }
 
     }

@@ -213,9 +213,12 @@ namespace VerdantsAscent
         [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.EquipItem))]
         public static class Humanoid_EquipItem_AutoMoveToSlot
         {
+            /// <summary>Set by the panel's drop-to-equip: the item already sits in the slot the player chose.</summary>
+            internal static bool KeepDroppedSlot;
+
             private static void Postfix(Humanoid __instance, ItemDrop.ItemData item, bool __result)
             {
-                if (!__result || !Slots.IsValidPlayer(__instance) || item == null) return;
+                if (KeepDroppedSlot || !__result ||!Slots.IsValidPlayer(__instance) || item == null) return;
                 // Only move items that are valid for a custom slot (armor, utility, ammo, food, etc.)
                 if (!Slots.IsEquipmentSlotItem(item) && !Slots.GetAmmoSlots().Any(s => s.ItemFits(item)) && !Slots.GetFoodSlots().Any(s => s.ItemFits(item)))
                 {
@@ -251,19 +254,31 @@ namespace VerdantsAscent
         [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.UnequipItem))]
         public static class Humanoid_UnequipItem_ReturnToInventory
         {
-            private static void Postfix(Humanoid __instance, ItemDrop.ItemData item)
+            // Only an item that WAS equipped is moved out ([classes-ui] 10-07: vanilla UnequipItem is a no-op on an item that
+            // isn't worn, but this postfix still moved it, so an UnequipItem call on a Pet-slot item - never m_equipped by
+            // agreement - "Returned unequipped Pocket Bonemaw from slot" and emptied the Pet slot).
+            private static void Prefix(Humanoid __instance, ItemDrop.ItemData item, out bool __state) =>
+                __state = item != null && __instance != null && __instance.IsItemEquiped(item);
+
+            private static void Postfix(Humanoid __instance, ItemDrop.ItemData item, bool __state)
             {
              if (suppressUnequipReturnToInventory) return;
+             if (!__state) return;
              if (!Slots.IsValidPlayer(__instance) || item == null) return;
              if (!Slots.IsItemInSlot(item)) return;
-             
+
              var inv = __instance.GetInventory();
              var oldPos = item.m_gridPos;
-             
+
              // If the unequipped item belongs to a tool hotbar slot, keep it at that grid position
              // and ensure it remains present in the inventory list. This preserves quickslot behavior
              // where equip/unequip does not migrate the item into the main inventory.
              var slot = Slots.GetItemSlot(item);
+             // FiresRPGClasses' bar slots HOLD their weapon and off hand: switching bars unequips the old pair,
+             // which must stay in its bar slot, not go back to the main inventory.
+             // The Torch slot holds its torch the same way: putting it away leaves it in the slot.
+             // The Pet slot holds its pet: the slot itself is "out" (FiresNPCs), so nothing moves it but the player.
+             if (slot != null && (slot.IsClassBarSlot || slot.IsTorchSlot || slot.IsPetSlot)) return;
              if (slot != null && Slots.toolHotbarSlots != null && Slots.toolHotbarSlots.Contains(slot))
              {
                try
@@ -291,6 +306,7 @@ namespace VerdantsAscent
                     item.m_gridPos = newPos;
                     var list = (List<ItemDrop.ItemData>)fi_inventory_list.GetValue(inv);
                     list.Add(item);
+                    Slots.ClearCachedItems();   // the slot reads free at once (a drop this frame saw the old occupant)
                     inv.m_onChanged?.Invoke();
                     Debug.Log($"[VAInventory] Returned unequipped {item.m_shared.m_name} from slot at {oldPos} to inventory at {item.m_gridPos}");
                     EquipmentPanel.RefreshPanelOnly();
@@ -390,6 +406,13 @@ namespace VerdantsAscent
                 // Only handle our custom/extra slots
                 if (Slots.IsGridPositionASlot(pos))
                 {
+                    // 1.0.107 (Fire 10-12 #16): right-clicking food in a pouch eats it, like vanilla, instead of moving it out.
+                    if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable)
+                    {
+                        EquipmentPanel.PanelLog.LogDebug($"[VAInventory] slot right-click: {item.m_shared.m_name} at {pos.x},{pos.y} is consumable, vanilla use");
+                        return true;
+                    }
+
                     var inventory = player.GetInventory();
 
                     // Unequip if equipped

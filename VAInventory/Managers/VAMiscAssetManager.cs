@@ -181,7 +181,7 @@ namespace VerdantsAscent.Managers
  var loadImageMethod = imageConversionType.GetMethod("LoadImage", BindingFlags.Static | BindingFlags.Public, null, [typeof(Texture2D), typeof(byte[]), typeof(bool)], null);
  if (loadImageMethod != null)
  {
- bool loaded = (bool)loadImageMethod.Invoke(null, [tex, fileData, false]);
+ bool loaded = (bool)loadImageMethod.Invoke(null, [tex, fileData, true]);   // 1.0.134 (memory plan): non-readable - no CPU copy of the pixels next to the GPU one (nothing reads them back)
  if (!loaded)
  {
  Debug.LogWarning($"{VAInventory.PluginName}: Failed to load image data from file: {filePath}");

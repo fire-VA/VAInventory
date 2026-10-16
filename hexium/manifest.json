@@ -1,0 +1,10 @@
+{
+    "name":  "VAInventory",
+    "version_number":  "1.0.134",
+    "website_url":  "https://github.com/fire-VA/VAInventory",
+    "description":  "Part of the Fires mod family for Valheim.",
+    "dependencies":  [
+                         "denikson-BepInExPack_Valheim-5.4.2350",
+                         "incompletionists-FiresUnifiedCore-0.2.580"
+                     ]
+}

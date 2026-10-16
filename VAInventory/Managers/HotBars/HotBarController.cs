@@ -140,6 +140,7 @@ namespace VerdantsAscent.Managers.HotBars
                 {
                     if (slot.IsAmmoSlot)
                         InventoryInteraction.suppressUnequipReturnToInventory = true;
+                    EquipmentPanel.PanelLog.LogDebug($"[VAInventory] slot hotkey {keybindTextProvider(i)}: use {item.m_shared.m_name} x{item.m_stack} (slot {i}, {(slot.IsFoodSlot ? "food" : slot.IsAmmoSlot ? "ammo" : "tool")})");
                     player.UseItem(player.GetInventory(), item, false);
                 }
                 finally
@@ -177,8 +178,27 @@ namespace VerdantsAscent.Managers.HotBars
                 UpdateBarIcons(AmmoHotBar.GetHotkeyBar(), player);
                 UpdateBarIcons(FoodHotBar.GetHotkeyBar(), player);
 
-                if (ToolHotBar.IsEnabled())
-                    UpdateItemUse();
+                // 1.0.94: state + on-screen check per bar (HotBarPlacement.Report).
+                int tools = Slots.toolHotbarSlots?.Count(s => s != null && s.CacheItem() != null) ?? 0;
+                int ammo = Slots.GetAmmoSlots()?.Count(s => s != null && s.CacheItem() != null) ?? 0;
+                int food = Slots.GetFoodSlots()?.Count(s => s != null && s.CacheItem() != null) ?? 0;
+                string open = InventoryGui.IsVisible() ? "inventory open: the panel shows the pouches" : null;
+                HotBarPlacement.Report("Tool", ToolHotBar.GetHotkeyBar()?.transform as RectTransform, open ?? (tools == 0 ? "tools pouch empty" : "not built yet"), tools);
+                HotBarPlacement.Report("Ammo", AmmoHotBar.GetHotkeyBar()?.transform as RectTransform, open ?? (ammo == 0 ? "ammo pouch empty" : "not built yet / ShowHotbar off"), ammo);
+                HotBarPlacement.Report("Food", FoodHotBar.GetHotkeyBar()?.transform as RectTransform, open ?? (food == 0 ? "food pouch empty" : "not built yet / ShowHotbar off"), food);
+                HotBarPlacement.ReportDone();
+                var cfg = ConfigManager.Instance;
+                if (cfg != null)
+                    HotBarPlacement.StackFromAmmo(ToolHotBar.GetHotkeyBar()?.transform as RectTransform,
+                        FoodHotBar.GetHotkeyBar()?.transform as RectTransform, AmmoHotBar.GetHotkeyBar()?.transform as RectTransform,
+                        cfg.configToolHotbarPosition.Value, cfg.configFoodHotbarPosition.Value, cfg.configAmmoHotbarPosition.Value,
+                        Mathf.Abs(((Vector2)cfg.configFoodHotbarPosition.DefaultValue).y - ((Vector2)cfg.configToolHotbarPosition.DefaultValue).y));
+                HotBarPlacement.KeepAboveVitals(ToolHotBar.GetHotkeyBar()?.transform as RectTransform,
+                    FoodHotBar.GetHotkeyBar()?.transform as RectTransform, AmmoHotBar.GetHotkeyBar()?.transform as RectTransform);
+
+                // 1.0.107 (Fire 10-12 #15): every slot hotkey, not only while the TOOL bar shows. Since 1.0.79 an empty
+                // tools pouch hides that bar, which also left Ctrl+1-3 (food) and the ammo keys dead.
+                UpdateItemUse();
             }
         }
 
@@ -290,11 +310,11 @@ namespace VerdantsAscent.Managers.HotBars
         private static List<Slots.Slot> GetVisibleSlotsForBar(HotkeyBar bar)
         {
             if (ToolHotBar.IsOurBar(bar))
-                return Slots.toolHotbarSlots?.Where(s => s != null && s.IsActive && s.Item != null).ToList();
+                return Slots.toolHotbarSlots?.ToList();
             if (AmmoHotBar.IsOurBar(bar))
-                return Slots.GetAmmoSlots()?.Where(s => s != null && s.IsActive && s.Item != null).ToList();
+                return Slots.GetAmmoSlots()?.ToList();
             if (FoodHotBar.IsOurBar(bar))
-                return Slots.GetFoodSlots()?.Where(s => s != null && s.IsActive && s.Item != null).ToList();
+                return Slots.GetFoodSlots()?.ToList();
             return null;
         }
 

@@ -24,6 +24,8 @@ namespace VerdantsAscent.Managers
         private bool isDragging;
         private bool didMove;
 
+        public bool IsDragging => isDragging;
+
         // Reflection for drag item/inventory
         private static readonly FieldInfo fi_dragItem = AccessTools.Field(typeof(InventoryGui), "m_dragItem");
         private static readonly FieldInfo fi_dragInventory = AccessTools.Field(typeof(InventoryGui), "m_dragInventory");

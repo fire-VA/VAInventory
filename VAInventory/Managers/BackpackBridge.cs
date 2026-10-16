@@ -41,13 +41,51 @@ namespace VerdantsAscent.Managers
         private static FieldInfo _onEquippedField;
         private static FieldInfo _onUnequippedField;
 
+        // Special-slot rail (VABackpacks 1.0.20+). OPTIONAL: older builds lack
+        // these, the handles stay null and the rail simply never appears.
+        private static MethodInfo _getSpecialSlots;
+        private static MethodInfo _readSpecialSlot;
+        private static MethodInfo _writeSpecialSlot;
+        private static MethodInfo _specialSlotAccepts;
+        private static MethodInfo _getSlotIcon;
+        private static PropertyInfo _slotStorageActive;
+
+        /// <summary>VABackpacks stores bag contents in VAInventory's slots (its slots mode). Older builds without the
+        /// property: assume yes, as VABackpacks always picks slots mode when VAInventory is loaded.</summary>
+        public static bool SlotStorageActive
+        {
+            get
+            {
+                if (!IsAvailable) return false;
+                try { return _slotStorageActive == null || (bool)_slotStorageActive.GetValue(null); }
+                catch { return true; }
+            }
+        }
+        private static PropertyInfo _specialSlotsVersion;
+
         // Reflection accessors for fields on BackpackConfig
         private static PropertyInfo _cfgRows;
         private static PropertyInfo _cfgCols;
 
         // ── State ──────────────────────────────────────────────────────
 
-        public static bool IsAvailable { get; private set; }
+        // Fire 10-07 (backpack_shot_q2): VAInventory's Awake can run before BepInEx loads VABackpacks, and a one-shot
+        // Initialize then hid the Backpack slot for the whole session. Not found yet = look again, at most every 5 s.
+        private static bool _available, _missingLogged;
+        private static float _nextRetry;
+        public static bool IsAvailable
+        {
+            get
+            {
+                if (!_available && Time.realtimeSinceStartup >= _nextRetry)
+                {
+                    _nextRetry = Time.realtimeSinceStartup + 5f;
+                    Initialize();
+                }
+                return _available;
+            }
+            private set => _available = value;
+        }
 
         /// <summary>
         /// Subscribers must use these C# events (which we relay from the
@@ -73,7 +111,7 @@ namespace VerdantsAscent.Managers
 
                 if (asm == null)
                 {
-                    Debug.Log("[VAInventory] VABackpacks assembly not loaded — backpack slot will be hidden.");
+                    if (!_missingLogged) { _missingLogged = true; Debug.Log("[VAInventory] VABackpacks assembly not loaded yet — backpack slot hidden until it is (re-checked every 5 s)."); }
                     IsAvailable = false;
                     return;
                 }
@@ -101,12 +139,23 @@ namespace VerdantsAscent.Managers
                 _readStorage   = AccessTools.Method(_apiType, "ReadStorage", [typeof(ItemDrop.ItemData)]);
                 _writeStorage  = AccessTools.Method(_apiType, "WriteStorage", [typeof(ItemDrop.ItemData), typeof(string)]);
                 _getConfig     = AccessTools.Method(_apiType, "GetConfig", [typeof(ItemDrop.ItemData)]);
+                _getBonus      = AccessTools.Method(_apiType, "GetBonus", [typeof(ItemDrop.ItemData)]);   // 1.0.120: VABackpacks 1.0.49+
+                _bonusProvider = AccessTools.Field(_apiType, "BonusProvider");
 
                 _onEquippedField   = AccessTools.Field(_apiType, "OnEquipped");
                 _onUnequippedField = AccessTools.Field(_apiType, "OnUnequipped");
 
                 _cfgRows = AccessTools.Property(_cfgType, "Rows");
                 _cfgCols = AccessTools.Property(_cfgType, "Columns");
+
+                // Optional special slots — never part of the sanity check below.
+                _getSpecialSlots     = AccessTools.Method(_apiType, "GetSpecialSlots", [typeof(ItemDrop.ItemData)]);
+                _readSpecialSlot     = AccessTools.Method(_apiType, "ReadSpecialSlot", [typeof(ItemDrop.ItemData), typeof(string)]);
+                _writeSpecialSlot    = AccessTools.Method(_apiType, "WriteSpecialSlot", [typeof(ItemDrop.ItemData), typeof(string), typeof(ItemDrop.ItemData)]);
+                _specialSlotAccepts  = AccessTools.Method(_apiType, "SpecialSlotAccepts", [typeof(ItemDrop.ItemData), typeof(string), typeof(ItemDrop.ItemData)]);
+                _getSlotIcon         = AccessTools.Method(_apiType, "GetSlotIcon", [typeof(string)]);
+                _specialSlotsVersion = AccessTools.Property(_apiType, "SpecialSlotsVersion");
+                _slotStorageActive   = AccessTools.Property(_apiType, "IsSlotBasedStorageActive");
 
                 // Sanity-check the essentials
                 if (_isBackpack == null || _getEquipped == null
@@ -186,6 +235,21 @@ namespace VerdantsAscent.Managers
         }
 
         // ── Public accessors (safe when bridge is unavailable) ───────
+
+        // 1.0.120 (VABackpacks 1.0.49 bag bonuses, FRC section 15): optional; older VABackpacks leaves both null.
+        private static System.Reflection.MethodInfo _getBonus;
+        private static System.Reflection.FieldInfo _bonusProvider;
+
+        /// <summary>True when VABackpacks has the bonus API AND another mod (FRC) set a provider.</summary>
+        public static bool HasBonus => IsAvailable && _getBonus != null && _bonusProvider?.GetValue(null) != null;
+
+        /// <summary>{ carryWeight, contentsWeightFactor, loadedSpeed, extraSlots } for one bag, or null.</summary>
+        public static float[] GetBonus(ItemDrop.ItemData bag)
+        {
+            if (_getBonus == null || bag == null) return null;
+            try { return _getBonus.Invoke(null, [bag]) as float[]; }
+            catch { return null; }
+        }
 
         public static bool IsBackpack(ItemDrop.ItemData item)
         {
@@ -297,6 +361,65 @@ namespace VerdantsAscent.Managers
             {
                 Debug.LogError($"[VAInventory] BackpackBridge.WriteStorage failed: {ex.Message}");
             }
+        }
+
+        // ── Special slots (optional, VABackpacks 1.0.20+) ────────────
+
+        /// <summary>True when the connected VABackpacks exposes the special-slot API.</summary>
+        public static bool HasSpecialSlots =>
+            IsAvailable && _getSpecialSlots != null && _readSpecialSlot != null
+            && _writeSpecialSlot != null && _specialSlotAccepts != null;
+
+        /// <summary>The bag's special-slot kinds top-down; empty when none or unsupported.</summary>
+        public static string[] GetSpecialSlots(ItemDrop.ItemData bag)
+        {
+            if (!HasSpecialSlots || bag == null) return [];
+            try { return (string[])_getSpecialSlots.Invoke(null, [bag]) ?? []; }
+            catch { return []; }
+        }
+
+        public static ItemDrop.ItemData ReadSpecialSlot(ItemDrop.ItemData bag, string kind)
+        {
+            if (!HasSpecialSlots || bag == null) return null;
+            try { return (ItemDrop.ItemData)_readSpecialSlot.Invoke(null, [bag, kind]); }
+            catch { return null; }
+        }
+
+        /// <summary>Null item clears the slot. False when not accepted (or unsupported).</summary>
+        public static bool WriteSpecialSlot(ItemDrop.ItemData bag, string kind, ItemDrop.ItemData item)
+        {
+            if (!HasSpecialSlots || bag == null) return false;
+            try { return (bool)_writeSpecialSlot.Invoke(null, [bag, kind, item]); }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[VAInventory] BackpackBridge.WriteSpecialSlot failed: {ex.Message}");
+                return false;
+            }
+        }
+
+        public static bool SpecialSlotAccepts(ItemDrop.ItemData bag, string kind, ItemDrop.ItemData item)
+        {
+            if (!HasSpecialSlots || bag == null || item == null) return false;
+            try { return (bool)_specialSlotAccepts.Invoke(null, [bag, kind, item]); }
+            catch { return false; }
+        }
+
+        /// <summary>Bumped by VABackpacks on every special-slot change; 0 when unsupported.</summary>
+        public static int SpecialSlotsVersion
+        {
+            get
+            {
+                if (!HasSpecialSlots || _specialSlotsVersion == null) return 0;
+                try { return (int)_specialSlotsVersion.GetValue(null, null); }
+                catch { return 0; }
+            }
+        }
+
+        public static Sprite GetSlotIcon(string kind)
+        {
+            if (!HasSpecialSlots || _getSlotIcon == null) return null;
+            try { return _getSlotIcon.Invoke(null, [kind]) as Sprite; }
+            catch { return null; }
         }
     }
 }

@@ -31,6 +31,7 @@ namespace VerdantsAscent.Managers
             return runOriginal;
         }
 
+        [HarmonyAfter("com.Fire.FiresRPGCrafting")]   // 1.0.118: FRC's rarity tint is on the vanilla element before we mirror it
         private static void Postfix(InventoryGrid __instance, int __state)
             => EquipmentPanel.AfterUpdateGui(__instance, __state);
 
@@ -60,8 +61,10 @@ namespace VerdantsAscent.Managers
     {
         private static void Postfix()
         {
+            if (Player.m_localPlayer) Slots.EvictBagFromBypass();   // 1.0.93: open or not, ~1/s
             if (!Player.m_localPlayer || !InventoryGui.IsVisible()) return;
             EquipmentPanel.UpdateEquipmentBackground();
+            UnifiedScreen.Tick();
         }
 
         private static Exception Finalizer(Exception __exception)
@@ -139,6 +142,7 @@ namespace VerdantsAscent.Managers
         {
             InventoryInteraction.OnInventoryChangedMarkDirty(__instance);
             ItemsSlotsValidation.OnInventoryChangedRefresh(__instance);
+            Slots.CheckJewelryChanged(__instance);   // 1.0.110: FiresRPGCrafting's jewelry stats
         }
     }
 
@@ -155,6 +159,7 @@ namespace VerdantsAscent.Managers
         {
             if (__instance != Player.m_localPlayer) return;
             CoinPurseStackPatch.RestorePurseStackOnSpawn(__instance);
+            Slots.CheckJewelryChanged(__instance);   // 1.0.110: the loaded jewelry, once, for FiresRPGCrafting
             InventoryInteraction.UpdatePlayerInventorySize();
         }
     }
