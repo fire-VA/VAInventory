@@ -26,7 +26,7 @@ namespace VerdantsAscent
 
         public const string PluginGUID = "com.Fire.VAInventory";
         public const string PluginName = "VAInventory";
-        public const string PluginVersion = "1.0.320";
+        public const string PluginVersion = "1.0.321";
         public const string SyncMinimumVersion = "1.0.116";
 
         public static AssetBundle assetBundle;

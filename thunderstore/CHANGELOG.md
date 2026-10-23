@@ -1,4 +1,4 @@
-## 1.0.320
+## 1.0.321
 - Companion grid and worn gear: click to pick an item up and drop it where you want, the same as your own inventory.
 - Bag special slots: drag items between slots and swap them like vanilla, instead of them jumping to your main grid.
 - Coins and currency in the coin pouch no longer add to your carry weight.

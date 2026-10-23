@@ -1,6 +1,6 @@
 {
     "name":  "VAInventory",
-    "version_number": "1.0.320",
+    "version_number": "1.0.321",
     "website_url":  "https://github.com/fire-VA/VAInventory",
     "description":  "A character panel for your inventory: gear slots around a live preview, coin pouch, tool/food/ammo hotbars, movable docking panels and a player stats page. Part of the Fires mod family.",
     "dependencies":  [
