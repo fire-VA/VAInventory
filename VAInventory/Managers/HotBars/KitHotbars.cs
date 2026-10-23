@@ -65,7 +65,7 @@ namespace VerdantsAscent.Managers.HotBars
         const string RowNode = "HotbarRow";   // Core's Widgets.PathNode group name under the parent
         static readonly Dictionary<string, FiresCore.UI.Shell.Kit.KitHotbarRow> s_rows = new Dictionary<string, FiresCore.UI.Shell.Kit.KitHotbarRow>();
 
-        /// <summary>1.0.291: the bar's live kit row (its drawn slots under the Fires UI override), or null.</summary>
+        /// <summary>The bar's live kit row (its drawn slots under the Fires UI override), or null.</summary>
         internal static RectTransform RowRoot(string barName) =>
             s_rows.TryGetValue(barName, out var row) && row != null && row.Root != null && row.Root.gameObject.activeInHierarchy ? row.Root : null;
 
@@ -98,7 +98,7 @@ namespace VerdantsAscent.Managers.HotBars
             ApplyFlow(barName, root, row);
         }
 
-        // 1.0.231 (lead; Core 0.2.578 SizeChanged + MinSize): the dock rect's new size re-flows the kit slots into cols x rows (4x1 -> 2x2 ...).
+        // The dock rect's new size re-flows the kit slots into cols x rows (4x1 -> 2x2 ...).
         // Slots are scaled uniformly (never stretched), cell clamped to [MinCell, 64]; laid out from the bar rect's top-left. Persisted per bar.
         internal const float MinCell = 40f;
         const float Cell = 64f, Gap = 6f;
@@ -129,8 +129,7 @@ namespace VerdantsAscent.Managers.HotBars
 
         internal static void Reflow(string barName, Vector2 want)
         {
-            // 1.0.291 (after Unified OFF -> ON "the tools hotbar is now vertical"; log 'VA_ToolHotBar re-flowed to 1x4, cell 40
-            // (rect 40x40)' in a loop): a rect smaller than one cell is never a player's resize (the old 38x5 element fit fed it here) - ignored
+            // A rect smaller than one cell is never a player's resize (a stray sliver fit would turn the bar vertical) - ignored
             // And never a size that can't hold all of the bar's slots at the minimum cell (40x40 for 4 tools = one vertical column)
             int slots = s_rows.TryGetValue(barName, out var r0) && r0 != null && r0.Slots != null ? r0.Slots.Length : 1;
             if (want.x < MinCell - 1f || want.y < MinCell * 0.5f || !Holds(want, slots)) { EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] hotbars: {barName} re-flow to {want.x:0}x{want.y:0} ignored (can't hold its {slots} slot(s))"); return; }
@@ -183,8 +182,7 @@ namespace VerdantsAscent.Managers.HotBars
             LoadFlow();
             if (!s_flow.TryGetValue(barName, out var want) || row.Slots.Length == 0) return;
             int n = row.Slots.Length;
-            // 1.0.292 ("the tools hotbar is now vertical"; his cache\VAInventory\hotbar_layout.txt held 'VA_ToolHotBar|40|40' - Core's
-            // 40 px MinSize clamp of the old 38x5 element fit, saved through SizeChanged): a flow that cannot hold all n slots at the minimum cell
+            // A flow that cannot hold all n slots at the minimum cell (e.g. Core's MinSize clamp of a sliver fit, saved through SizeChanged)
             // is not a player's layout - it is dropped (file rewritten) and the bar keeps its default one-row layout. A real vertical resize
             // (tall enough for every slot) still applies.
             if (!Holds(want, n))
@@ -216,8 +214,8 @@ namespace VerdantsAscent.Managers.HotBars
             EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] hotbars: {barName} re-flowed to {cols}x{rows}, cell {cell:0} (rect {want.x:0}x{want.y:0})");
         }
 
-        // 1.0.170 (the approved hotbars golden all_bars_1920.png: 'C+A+1', 'S+A+1'; single modifiers stay 'Ctrl+1' / 'Alt+1'): a key with two or
-        // more modifiers is written with their initials, so it fits the kit's key chip
+        // A key with two or more modifiers is written with their initials ('C+A+1', 'S+A+1'; single modifiers stay 'Ctrl+1' / 'Alt+1'),
+        // so it fits the kit's key chip
         static string ShortKey(string k)
         {
             if (string.IsNullOrEmpty(k)) return k;

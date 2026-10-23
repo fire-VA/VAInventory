@@ -55,8 +55,8 @@ namespace VerdantsAscent.Managers
             }
         }
 
-        /// <summary>1.0.179: every slot on the character panel gets the faint 1 px gold edge. 1.0.180 (Fire: "the player panel looks shit, the
-        /// squares show in one shot and not the other"): and the SAME filled slot face as the grids, so it no longer depends on what is behind
+        /// <summary>Every slot on the character panel gets the faint 1 px gold edge and the SAME filled slot face as the grids, so it
+        /// no longer depends on what is behind
         /// the outline-only kit pill. Slots = every InventoryElement root (equipment rail, Tools / Ammo / Food / Coin purse, Misc, backpacks)
         /// plus the panel's own "Cell_" squares. Returns the slots changed.</summary>
         static int OriginalCharacterPanelSlots()
@@ -75,13 +75,12 @@ namespace VerdantsAscent.Managers
         }
         static bool s_panelLogged;
 
-        // ---- 1.0.181 (Fire: "we have perfectly working examples if we toggle off the unified UI - copy the originals that looked right and
-        // change the colour") -----------------------------------------------------------------------------------------------------------------
+        // ---- Copy the original slot look that renders right with the unified UI off, and only change the colour -------------------------
         // The ORIGINAL slot = vanilla's grid element prefab (InventoryGrid.m_elementPrefab), exactly what renders with the unified UI off: its
         // sprite, image type / slicing, material and colour, untouched. Every grid cell and player-panel slot takes those, plus ONE change, a
         // 1 px faint kit-gold Outline. Each slot gets Core's KitLeaf marker so CraftingSkin.ApplyTo (it repainted every graphic under the grid
         // panel as Role.Raised: the near-black squares) skips it. A restore writes only when something changed a slot.
-        /// <summary>1.0.182: restore every grid cell + player-panel slot to the original right now (called right after Core's skin pass, which
+        /// <summary>Restore every grid cell + player-panel slot to the original right now (called right after Core's skin pass, which
         /// on the first open ran after the open-time restore and repainted the character panel's slots).</summary>
         internal static void RestoreNow(InventoryGui gui, string why)
         {
@@ -156,7 +155,7 @@ namespace VerdantsAscent.Managers
                 // The GREY squares themselves: an empty Misc cell and an empty Explorer Bag cell
                 ProbePoint(when, "grey Misc cell", new Vector2(1053f * Screen.width / 3440f, Screen.height - 654f * Screen.height / 1440f));
                 ProbePoint(when, "grey bag cell", new Vector2(912f * Screen.width / 3440f, Screen.height - 1015f * Screen.height / 1440f));
-                // the black box left of the crafting panel in R-1015I
+                // the black box left of the crafting panel
                 // The remaining tab: its centre
                 ProbePoint(when, "black tab", new Vector2(2632f * Screen.width / 3440f, Screen.height - 495f * Screen.height / 1440f));
             }
@@ -200,7 +199,7 @@ namespace VerdantsAscent.Managers
             return $"{s.GetType().Name} target={(s.targetGraphic == img)} transition {s.transition} normal {c.normalColor} mult {c.colorMultiplier:0.00} interactable {s.interactable}";
         }
 
-        /// <summary>1.0.186: every visible graphic under the screen point, in draw order (last = on top).</summary>
+        /// <summary>Every visible graphic under the screen point, in draw order (last = on top).</summary>
         static void ProbePoint(string when, string what, Vector2 screen)
         {
             var sb = new System.Text.StringBuilder($"panels: probe {when} {what} at {screen.x:0},{screen.y:0}:");

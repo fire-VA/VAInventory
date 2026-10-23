@@ -20,7 +20,7 @@ namespace VerdantsAscent.Managers
  try
  {
  if (!Directory.Exists(OldBackgroundsDir)) return;
- // 1.0.154 (the lead: "copies exactly once"): a marker in the new folder records the carry; later starts never copy again (an
+ // A marker in the new folder records the carry; later starts never copy again (an
  // image the player deletes from the new folder stays deleted)
  string marker = Path.Combine(BackgroundsDir, ".carried_from_config");
  if (File.Exists(marker)) return;
@@ -59,7 +59,7 @@ namespace VerdantsAscent.Managers
  if (sprite != null)
  _backgroundSprites[Path.GetFileName(file)] = sprite;
  }
- // 1.0.154 (the lead: point-of-use): the folder the images are actually read from, and what was loaded
+ // The folder the images are actually read from, and what was loaded
  Debug.Log($"[VAInventory] backgrounds: {_backgroundSprites.Count} image(s) read from {BackgroundsDir}{(_backgroundSprites.Count > 0 ? " (" + string.Join(", ", new List<string>(_backgroundSprites.Keys).ToArray()) + ")" : "")}");
  }
 
@@ -212,7 +212,7 @@ namespace VerdantsAscent.Managers
  var loadImageMethod = imageConversionType.GetMethod("LoadImage", BindingFlags.Static | BindingFlags.Public, null, [typeof(Texture2D), typeof(byte[]), typeof(bool)], null);
  if (loadImageMethod != null)
  {
- bool loaded = (bool)loadImageMethod.Invoke(null, [tex, fileData, true]);   // 1.0.134 (memory plan): non-readable - no CPU copy of the pixels next to the GPU one (nothing reads them back)
+ bool loaded = (bool)loadImageMethod.Invoke(null, [tex, fileData, true]);   // non-readable - no CPU copy of the pixels next to the GPU one (nothing reads them back)
  if (!loaded)
  {
  Debug.LogWarning($"{VAInventory.PluginName}: Failed to load image data from file: {filePath}");

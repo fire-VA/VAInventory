@@ -26,12 +26,12 @@ namespace VerdantsAscent.Managers
             public bool VanillaClicks = true;
             /// <summary>Optional scroll: true keeps the cloned ScrollRect (if any) on the grid.</summary>
             public bool Scroll = true;
-            /// <summary>1.0.156: the inventory to show (the open container, a companion's, ...). Null = the local player's.
+            /// <summary>The inventory to show (the open container, a companion's, ...). Null = the local player's.
             /// Read every frame; when it returns null the grid keeps its last draw.</summary>
             public Func<Inventory> Inventory;
-            /// <summary>1.0.200: show only the first N rows (0 = the inventory's own rule). A companion's backing grid also holds its section rows.</summary>
+            /// <summary>Show only the first N rows (0 = the inventory's own rule). A companion's backing grid also holds its section rows.</summary>
             public int MaxRows;
-            /// <summary>1.0.157: false = right clicks raise ItemRightClicked only (vanilla's right click uses/equips on the LOCAL player,
+            /// <summary>False = right clicks raise ItemRightClicked only (vanilla's right click uses/equips on the LOCAL player,
             /// wrong for a companion's or a container's grid). Default true.</summary>
             public bool VanillaRightClick = true;
         }
@@ -289,7 +289,7 @@ namespace VerdantsAscent.Managers
             EquipmentPanel.PanelLog?.LogDebug(sb.ToString());
         }
 
-        /// <summary>1.0.188: vanilla UpdateGui's per-cell drawing (assembly_valheim 1.0.15 InventoryGrid.UpdateGui), for a mounted grid.</summary>
+        /// <summary>Vanilla UpdateGui's per-cell drawing (InventoryGrid.UpdateGui), for a mounted grid.</summary>
         static void DrawCells(InventoryGrid grid, Inventory inv, Player player)
         {
             var drag = InventoryGui.instance != null ? InventoryGui.instance.m_dragItem : null;
@@ -333,12 +333,12 @@ namespace VerdantsAscent.Managers
             }
         }
 
-        /// <summary>1.0.188: once per mount, the references vanilla's UpdateGui dereferences, so the NRE's owner can be named.</summary>
+        /// <summary>Once per mount, the references vanilla's UpdateGui dereferences, so an NRE's owner can be named.</summary>
         static void LogNulls(InventoryGrid grid)
         {
             var nulls = new List<string>();
             if (grid.m_uiGroup == null) nulls.Add("m_uiGroup");
-            if (grid.CanDropDragOntoItem == null) nulls.Add("CanDropDragOntoItem");   // 1.0.190: the R-1015L NRE
+            if (grid.CanDropDragOntoItem == null) nulls.Add("CanDropDragOntoItem");   // a null here caused an NRE in UpdateGui
             if (grid.m_gridRoot == null) nulls.Add("m_gridRoot");
             if (grid.m_elementPrefab == null) nulls.Add("m_elementPrefab");
             if (UnityEngine.EventSystems.EventSystem.current == null) nulls.Add("EventSystem.current");

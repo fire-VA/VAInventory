@@ -45,9 +45,8 @@ namespace VerdantsAscent.Managers
             return root0;
         }
 
-        // 1.0.298 (Unified ON, shot "Gear | Stats | Appe..": "move these buttons to the left of the character under armor so
-        // they have the room to show their text, and they should also use a rounded skin just like everything else"): the pills stack in a
-        // column under the Armor label, left of the preview, each as wide as the widest label, every face a rounded kit pill.
+        // The pills stack in a column under the Armor label, left of the preview, so each has room for its text; each is as wide as
+        // the widest label, every face a rounded kit pill like everything else.
         static void Column(RectTransform parent, RectTransform root, RectTransform under)
         {
             var c = new Vector3[4]; under.GetWorldCorners(c);

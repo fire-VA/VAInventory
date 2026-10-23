@@ -78,8 +78,7 @@ namespace VerdantsAscent.Managers
         private static readonly char[] CurrencySplit = [',', ';'];
         private const string DefaultCurrencyPrefabs = "Coins,Ruby,Amber,AmberPearl";
 
-        // ── 1.0.305 ("override on force for the first time to migrate, but so help me god if i try to then adjust my positions
-        // and they get forced back i will flip my lid") ── ONE-TIME migration, written to the cfg: the first time VAInventory sees Core's
+        // ── ONE-TIME migration, written to the cfg (positions the player adjusts later must never be forced back): the first time VAInventory sees Core's
         // Fires UI override ON while [UI] UnifiedMigrated is false, it sets the approved v6b values - Layout Panels, EquipmentPanelRows 3,
         // ExtraRows 3, the six panel backgrounds on - then UnifiedMigrated = true, one log line. After that nothing here reads or forces
         // those keys again (no read-time overrides), and no Core dock / layout position is ever touched. Run from the main menu
@@ -103,7 +102,7 @@ namespace VerdantsAscent.Managers
 
         private ConfigFile _cfgFile;
         private static System.Reflection.PropertyInfo s_overrideProp; private static bool s_overrideLooked;
-        /// <summary>1.0.307: Core's Fires UI override, read safely (no Core = false); ContainerGridPlate stands down under Panels when ON.</summary>
+        /// <summary>Core's Fires UI override, read safely (no Core = false); ContainerGridPlate stands down under Panels when ON.</summary>
         internal static bool UiOverrideOnForChest() => UiOverrideOn();
         private static bool UiOverrideOn()
         {
@@ -312,9 +311,9 @@ namespace VerdantsAscent.Managers
                 "Show ammo slots in the equipment panel.");
 
             // Was [CoinPouch], migrated below.
-            // The default "Coins,Ruby,Amber,AmberPearl" sat INSIDE the comment on this line
-            // since 1.0.116, so every fresh install got the DESCRIPTION as the value - the pouch's first currency was a sentence and plain
-            // Coins never went in. The default is real again, and a stored value that is that description is put back (RepairCurrencyPrefabs).
+            // The default "Coins,Ruby,Amber,AmberPearl" must stay OUTSIDE the comment on this line: inside it, every fresh install got
+            // the DESCRIPTION as the value - the pouch's first currency was a sentence and plain Coins never went in. A stored value that
+            // is that description is put back (RepairCurrencyPrefabs).
             configCurrencyPrefabs = config.Bind("ExtraSlots", "CurrencyPrefabs", DefaultCurrencyPrefabs,
                 "Comma-separated PREFAB names the coin pouch holds as separate stacks. The first is the " +
                 "default displayed currency. Add modded currency prefab ids here (e.g. 'Coins,Ruby,Amber,AmberPearl,Peningar') " +

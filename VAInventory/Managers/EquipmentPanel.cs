@@ -92,7 +92,7 @@
             // separate copies, so they get the same tint here - from the cell's OWN item. 1.0.118 copied the hidden vanilla
             // element at the same index instead, and a backpack-storage cell's index is a different vanilla cell: saw an
             // empty Explorer Bag cell filled olive (a Rare item's yellow at 22 %) that way. Colours = FRC's RarityInfo.
-            const string RarityTintName = "flo_rarity_tint", RarityKey = "flo_rarity";   // 1.0.135: FiresRPGCrafting renamed to Fires Loot Overhaul (FLO)
+            const string RarityTintName = "flo_rarity_tint", RarityKey = "flo_rarity";   // Fires Loot Overhaul (FLO), formerly FiresRPGCrafting
             const float RarityTintAlpha = 0.22f;
             static readonly Color[] RarityColours = BuildRarityColours();
             static readonly Dictionary<Image, int> rarityShown = [];
@@ -165,14 +165,14 @@
 
             // The Unified layout was rebuilt (UnifiedScreen.BuildCellMap: an inventory open re-creates the rails, pouch
             // popups and bag sections, and destroys the slot elements inside them). The next update re-creates the elements into
-            // the new cells. R-1012J: the rebuild on open left every pouch popup empty and the old elements dangling.
+            // the new cells, so no pouch popup is left empty with the old elements dangling.
             private static bool elementsStale;
             internal static void RequestElementRebuild() => elementsStale = true;
 
             private static GameObject elementPrefab;
             private static readonly List<object> sidePanelElements = [];
             private static readonly List<Slots.Slot> sidePanelSlots = [];
-            // 1.0.132 (perf audit): reused per-frame buffers of UpdateInventorySlots (it runs every frame the inventory is open)
+            // Reused per-frame buffers of UpdateInventorySlots (it runs every frame the inventory is open)
             private static readonly List<Slots.Slot> s_gridToolSlots = [];
             private static readonly List<object> s_elementsCopy = [];
             private static readonly List<object> s_sidePanelCopy = [];
@@ -261,10 +261,9 @@
             // Backpack, Ring, TeleportBypass) this is 4 × 4 = 16 max.
             // We use a generous EQUIPMENT_PANEL_SLOTS to future-proof.
             private const int EQUIPMENT_PANEL_SLOTS = 32;
-            // The index window of the slots the side panel shows. 1.0.72 (Fire, hand test 4: the Explorer Bag read "7 × 4"
-            // but drew 20 cells): it was a fixed 64, the slot array's first size. The array grows (144 with a bag on), and
-            // the equipment/misc/pouch/class slots take 44, so a 28-cell bag lost its last 8 cells to the window. It now
-            // spans the whole array; the bag sections are part of the Unified panel.
+            // The index window of the slots the side panel shows. It spans the whole slot array: the array grows (144 with a bag on) and
+            // the equipment/misc/pouch/class slots take 44, so a fixed window of the array's first size (64) would cut off a bag's last
+            // cells. The bag sections are part of the Unified panel.
             private static int SidePanelMaxSlots => Math.Max(64, Slots.slots?.Length ?? 0);
 
             private static bool IsItemInEquipmentPanel(ItemDrop.ItemData item)
@@ -309,7 +308,7 @@
                 // row must not show under the carry grid as well. Only cell-less tool slots stay in the grid.
                 // under Unified the Tools row lives only in the character panel - never fall back to the
                 // grid row (TryGetCell is false before the cells are built). Same inventory cells, so nothing moves.
-                // 1.0.132 (perf audit): this runs every frame the inventory is open; the lists are reused instead of new ones.
+                // This runs every frame the inventory is open, so the lists are reused instead of new ones.
                 var gridToolSlots = s_gridToolSlots; gridToolSlots.Clear();
                 if (Slots.toolHotbarSlots != null && !UnifiedScreen.Enabled)
                     foreach (var s in Slots.toolHotbarSlots) if (s != null && s.IsActive && !UnifiedScreen.TryGetCell(s, out _)) gridToolSlots.Add(s);
@@ -341,8 +340,7 @@
                 var sidePanelCopy = s_sidePanelCopy; sidePanelCopy.Clear(); sidePanelCopy.AddRange(sidePanelElements);
                 var sideSlotsCopy = s_sideSlotsCopy; sideSlotsCopy.Clear(); sideSlotsCopy.AddRange(sidePanelSlots);
 
-                // The vanilla grid's cell icons back to their own material and scale (1.0.123: Lightened Slots removed; it never
-                // lit a row, so this is what always ran).
+                // The vanilla grid's cell icons back to their own material and scale.
                 for (int i =0; i < Math.Min(inventorySizePlayer, elementsCopy.Count); i++)
                     SetInventorySlotBackgroundImage(elementsCopy[i], false);
 
@@ -921,9 +919,8 @@
                             if (dragItem != null && slot.IsFree)
                             {
                                 var dragInventory = (Inventory)AccessTools.Field(typeof(InventoryGui), "m_dragInventory").GetValue(InventoryGui.instance);
-                                // 1.0.318 ("picking the hammer from the slot is refused if our grid is full regardless of if we have
-                                // room in the backpack"): an item carried from a bag SPECIAL slot (BagSpecialRail's hidden carry) dropped on a
-                                // free bag / storage cell was refused here (not from the player inventory) and went back to its slot. It moves in
+                                // An item carried from a bag SPECIAL slot (BagSpecialRail's hidden carry) and dropped on a free bag / storage cell is
+                                // accepted even when the player grid is full (it is not from the player inventory, so the grid's room doesn't matter). It moves in
                                 // through vanilla's MoveItemToThis (the same instance, removed from the carry).
                                 if (BagSpecialRail.IsCarry(dragInventory) && slot.ItemFits(dragItem))
                                 {
@@ -1962,8 +1959,8 @@
             // slots into a relocate list, which can drop them on the ground when the
             // free-slot lookup races the freshly re-initialised slot binding. Equip/unequip
             // never changes the slot layout, so migration is unnecessary and item-loss-prone.
-            // 1.0.133 (perf audit #1): an equip that leaves the slot set as it was (Slots.LayoutSignature) keeps the panel's elements
-            // and only re-reads the items: about 40 Instantiate/Destroy per weapon swap before. A bag, a bought row, a config or
+            // An equip that leaves the slot set as it was (Slots.LayoutSignature) keeps the panel's elements and only re-reads the items
+            // (a rebuild costs about 40 Instantiate/Destroy per weapon swap). A bag, a bought row, a config or
             // class-bar change still rebuilds everything. The two counts are logged at most once a minute.
             private static int s_lightRefreshes, s_fullRefreshes;
             private static float s_nextRefreshLog;
@@ -2000,8 +1997,8 @@
             /// </summary>
             private static void MigrateEquipmentPanelItems()
             {
-                // 1.0.146 (R_INV run 2: on a cfg change this pass ran AFTER Relayout and unequipped the worn items it "collected" from
-                // hidden cells): once Relayout carries the items by address, this legacy pass stands down
+                // Once Relayout carries the items by address, this legacy pass stands down (run after Relayout on a cfg change, it would
+                // unequip the worn items it "collected" from hidden cells)
                 if (Relayout.Carries(Slots.CurrentPlayer)) { Debug.Log("[VAInventory] legacy panel migrate skipped: relayout carried the items (worn state kept)"); return; }
                 EquipmentPanel.IsMigrating = true;
                 var inventory = Slots.PlayerInventory;

@@ -89,7 +89,7 @@ namespace VerdantsAscent.Managers
 
             Walk(gui.m_inventoryRoot, 0, sb);
 
-            // 1.0.154 (team rule "no files in BepInEx/config"): the debug dump goes to BepInEx/cache/VAInventory
+            // The debug dump goes to BepInEx/cache/VAInventory (nothing is written to BepInEx/config)
             var dir = Path.Combine(BepInEx.Paths.BepInExRootPath, "cache", "VAInventory");
             Directory.CreateDirectory(dir);
             var clean = string.IsNullOrEmpty(suffix) ? null : new string(suffix.Where(char.IsLetterOrDigit).ToArray());

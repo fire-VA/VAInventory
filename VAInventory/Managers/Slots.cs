@@ -58,7 +58,7 @@ namespace VerdantsAscent
         public const string frontOffhandSlotID = "FrontOffhand";
         public const string backWeaponSlotID   = "BackWeapon";
         public const string backOffhandSlotID  = "BackOffhand";
-        // Fire, 2026-09-30: the equipment grid's one free cell holds a torch or lantern, toggled by a double-tapped hotkey.
+        // The equipment grid's one free cell holds a torch or lantern, toggled by a double-tapped hotkey.
         public const string torchSlotID = "Torch";
         private const string ClassesPluginGuid = "com.Fire.FiresRPGClasses";
         // Prefix for the dynamic backpack-storage block. The block is appended
@@ -491,8 +491,8 @@ namespace VerdantsAscent
         public static bool TryPutInTorchSlot(ItemDrop.ItemData item) => TryPutInSlot(s => s.IsTorchSlot, item);
 
         /// <summary>
-        /// For FiresNPCs (by reflection, 10-07; Fire: "using the pet item from the inventory moves it into the Pet
-        /// slot AND equips it"): moves a pet item from the player's inventory into the Pet slot; an item in the Pet slot is
+        /// For FiresNPCs (by reflection), so using the pet item from the inventory both moves it into the Pet
+        /// slot AND equips it: moves a pet item from the player's inventory into the Pet slot; an item in the Pet slot is
         /// out. A pet already there goes to this item's old cell. Reports the change through PetApi.OnPetSlotChanged, as a
         /// drop on the slot does. False when it is not a pet, the slot is not shown, the item is not in the inventory, it
         /// is already in the slot, or there is no room for the swap.
@@ -708,7 +708,7 @@ namespace VerdantsAscent
         {
             if (item?.m_dropPrefab == null) return false;
             string n = item.m_dropPrefab.name?.ToLowerInvariant() ?? string.Empty;
-            if (n.StartsWith("floring_") || n.StartsWith("frcring_")) return true;   // 1.0.110 rings ([fgn] contract); 1.0.135: FLO names, FRC names kept for old items
+            if (n.StartsWith("floring_") || n.StartsWith("frcring_")) return true;   // rings (FLO names; FRC names kept for old items)
             if (RingItemMatcher != null) return RingItemMatcher(item);
             // Common naming conventions: "Ring*", "*_ring*", "ring_*".
             return n.StartsWith("ring") || n.Contains("_ring") || n.Contains("ringof");
@@ -722,11 +722,11 @@ namespace VerdantsAscent
         /// </summary>
         public static System.Func<ItemDrop.ItemData, bool> RingItemMatcher;
 
-        /// <summary>1.0.110: the Necklace cell takes FiresRPGCrafting's necklaces ("FrcNecklace_*").</summary>
+        /// <summary>The Necklace cell takes Fires Loot Overhaul's necklaces ("FloNecklace_*", older "FrcNecklace_*").</summary>
         public static bool IsNecklaceSlotItem(ItemDrop.ItemData item) =>
-            item?.m_dropPrefab != null && ((item.m_dropPrefab.name ?? "").StartsWith("FloNecklace_", StringComparison.OrdinalIgnoreCase) || (item.m_dropPrefab.name ?? "").StartsWith("FrcNecklace_", StringComparison.OrdinalIgnoreCase));   // 1.0.135: FLO + old FRC
+            item?.m_dropPrefab != null && ((item.m_dropPrefab.name ?? "").StartsWith("FloNecklace_", StringComparison.OrdinalIgnoreCase) || (item.m_dropPrefab.name ?? "").StartsWith("FrcNecklace_", StringComparison.OrdinalIgnoreCase));   // FLO + old FRC
 
-        // ── Jewelry API (1.0.110, for FiresRPGCrafting by reflection) ─────────────────────────────────────────────────
+        // ── Jewelry API (for Fires Loot Overhaul by reflection) ─────────────────────────────────────────────────
         /// <summary>[necklace, left ring, right ring] for the local player; null = empty. Any other player: all null
         /// (only the local player's VAInventory slots are loaded).</summary>
         public static ItemDrop.ItemData[] GetJewelry(Player p)
@@ -906,7 +906,7 @@ namespace VerdantsAscent
         // Tool hotbar slots are managed separately
         public static List<Slot> toolHotbarSlots = [];
 
-        // 1.0.133 (perf audit #1, the lead GO): every input InitializeSlots builds the slot set from, folded into one number. An
+        // Every input InitializeSlots builds the slot set from, folded into one number. An
         // equip that leaves it unchanged has the same slots, so the panel need not be torn down and rebuilt (RefreshPanelOnly).
         // Bags count by identity and size: a bag equipped, removed or resized changes it.
         internal static int LayoutSignature()
@@ -979,8 +979,7 @@ namespace VerdantsAscent
             for (int r = 0; r < rowDefinitions.Count; r++)
             {
                 bool isRow4 = (r == rowDefinitions.Count - 1);
-                // 1.0.260 (HOWTO limits row 157: hiding Food also hid the Left ring, hiding Ammo also hid Teleport bypass): the food and ammo
-                // COLUMNS are always in the layout; only the Food / Ammo CELLS switch off with ShowFoodSlots / ShowAmmoSlots (isActive below),
+                // The food and ammo COLUMNS are always in the layout; only the Food / Ammo CELLS switch off with ShowFoodSlots / ShowAmmoSlots (isActive below),
                 // so the Ring and TeleportBypass cells in row 4 always exist. (Default on = the same layout as before.)
                 rowDefinitions[r].Add(isRow4 ? ringSlotID : foodSlotID);
                 rowDefinitions[r].Add(isRow4 ? teleportBypassSlotID : ammoSlotID);
@@ -1119,7 +1118,7 @@ namespace VerdantsAscent
                     createdSlots++;
                 }
             }
-            // 1.0.260 proof (HOWTO limits row 157): the row-4 cells under the food / ammo columns stay active whatever the toggles
+            // Proof: the row-4 cells under the food / ammo columns stay active whatever the toggles
             {
                 bool A(string id) { foreach (var s in slots) if (s != null && s.ID == id) return s.IsActive; return false; }
                 bool foodOn = false, ammoOn = false; foreach (var s in slots) { if (s == null) continue; if (s.IsFoodSlot && s.IsActive) foodOn = true; if (s.IsAmmoSlot && s.IsActive) ammoOn = true; }
@@ -1202,7 +1201,7 @@ namespace VerdantsAscent
                             slotID,
                             index,
                             () => capturedName,
-                            item => !BackpackBridge.IsBackpack(item),   // 1.0.320 (Fire 10-23: "we can put a backpack in its own grid"): anything but a bag
+                            item => !BackpackBridge.IsBackpack(item),   // anything but a bag (a backpack can't go in its own grid)
                             () => BackpackBridge.IsAvailable // hidden if bridge died
                         );
                         slots[index].SetGridPosition(new Vector2i(col, bpCurrentY + row));

@@ -7,10 +7,8 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.282 (shot 20261021_0010/4: the chest drags right now but "still LOOKS like shit - elements hanging off the edges, the
-    /// grid and the border the same size, tabs overlapping"). VAInventory owns the chest panel's LAYOUT under Panels (split with
-    /// Core 0.2.649 CraftingSkin draws the look - kit pills, the gold rule under the name, the inset gold-edged well for any KitWell_*, and
-    /// places Tags 8 px right of Place stacks). Fire's spec, outside in:
+    /// VAInventory owns the chest panel's LAYOUT under Panels; Core's CraftingSkin draws the look (kit pills, the gold rule under the
+    /// name, the inset gold-edged well for any KitWell_*, Tags 8 px right of Place stacks). Outside in:
     ///   panel background | Pad1 | gold border (KitWell_ChestFrame) | Pad2 | name (header) | row: Take all . Place stacks . Tags |
     ///   the grid | "[weight icon] Container weight: X" (no box) | Pad2 | gold border | Pad1 | edge; the same padding left and right.
     /// The panel's size follows its content (the grid's DRAWN size and the button row's width), so nothing can hang off an edge; each
@@ -57,9 +55,9 @@ namespace VerdantsAscent.Managers
             if (grid == null || !grid.gameObject.activeInHierarchy) return;
             if (!s_hierLogged) { s_hierLogged = true; LogHierarchy(root); }
 
-            // 1.0.283 (shot 20261021_0040/01: "starts at a decent size and grows the whole time it's open"; log: 'chest layout:
-            // panel 606' -> 642 -> ... -> 4890, +36 a tick): ContainerGrid/Root is STRETCHED across the panel, so its rect = the panel's width
-            // and every resize fed the next. The grid is measured by its CELLS (the union of Root's active children), which never stretch.
+            // ContainerGrid/Root is STRETCHED across the panel, so its rect = the panel's width, and measuring it would feed every resize
+            // into the next (the panel would grow the whole time it's open). The grid is measured by its CELLS (the union of Root's
+            // active children), which never stretch.
             Rect g = CellsBounds(root, grid);
             Vector2 takeS = Size(root, take), stackS = Size(root, stack);
             float rowH = Mathf.Max(takeS.y, stackS.y, 30f);
@@ -77,9 +75,8 @@ namespace VerdantsAscent.Managers
             var bkg = root.Find("Bkg") as RectTransform;
             if (bkg != null && (bkg.anchorMin != Vector2.zero || bkg.anchorMax != Vector2.one || bkg.offsetMin != Vector2.zero || bkg.offsetMax != Vector2.zero))
             { bkg.anchorMin = Vector2.zero; bkg.anchorMax = Vector2.one; bkg.offsetMin = bkg.offsetMax = Vector2.zero; }
-            // 1.0.312 (from golden_chest [ChestDiag]: "Container/Darken [-3,313..553,767]" - vanilla's container Darken, kit-skinned,
-            // larger than the panel and offset = the dark outer plate / "two frames" Fire saw): under Panels it covers exactly the panel,
-            // like Bkg, so it sits hidden behind Bkg instead of framing it.
+            // Vanilla's container Darken (kit-skinned) is larger than the panel and offset, so it reads as a dark outer plate / a second
+            // frame. Under Panels it covers exactly the panel, like Bkg, so it sits hidden behind Bkg instead of framing it.
             var darken = root.Find("Darken") as RectTransform;
             if (darken != null && (darken.anchorMin != Vector2.zero || darken.anchorMax != Vector2.one || darken.offsetMin != Vector2.zero || darken.offsetMax != Vector2.zero))
             { darken.anchorMin = Vector2.zero; darken.anchorMax = Vector2.one; darken.offsetMin = darken.offsetMax = Vector2.zero; }
@@ -87,25 +84,24 @@ namespace VerdantsAscent.Managers
             Rect r = root.rect;   // local space, after the resize
             float left = r.xMin + Pad1 + Pad2, top = r.yMax - Pad1 - TopPad, cx = r.center.x;
 
-            // 1.0.308 (hand-over shot chest_fire_placement_layout_broken: "fix the messed-up layout of the chest" - an inner box
-            // offset inside the outer frame): ONE frame, the panel's own. The inner gold well (KitWell_ChestFrame) is no longer drawn; an
-            // already-built one is switched off.
+            // ONE frame, the panel's own: the inner gold well (KitWell_ChestFrame) drew a box offset inside the outer frame, so it is no
+            // longer drawn; an already-built one is switched off.
             var oldFrame = root.Find("KitWell_ChestFrame"); if (oldFrame != null && oldFrame.gameObject.activeSelf) oldFrame.gameObject.SetActive(false);
-            var oldWell = root.Find("KitWell_ChestGrid"); if (oldWell != null && oldWell.gameObject.activeSelf) oldWell.gameObject.SetActive(false);   // 1.0.281's grid-sized well (Fire: "same size as the grid")
+            var oldWell = root.Find("KitWell_ChestGrid"); if (oldWell != null && oldWell.gameObject.activeSelf) oldWell.gameObject.SetActive(false);   // an older grid-sized well, switched off
 
             // header: the name, centred, filling the inner width
             if (name != null)
             {
-                gui.m_containerName.alignment = TextAlignmentOptions.Center;   // 1.0.313; 1.0.308 had it top-left
+                gui.m_containerName.alignment = TextAlignmentOptions.Center;   // the name is centred
                 gui.m_containerName.enableWordWrapping = false;
                 gui.m_containerName.enableAutoSizing = true; gui.m_containerName.fontSizeMax = Mathf.Max(gui.m_containerName.fontSizeMax, 30f); gui.m_containerName.fontSizeMin = 14f;
                 SetSize(name, inner, HeaderH);
                 Move(root, name, new Vector2(left, top));
             }
             float y = top - HeaderH - Gap;
-            // 1.0.313 ("chest" centered, then padding, then the decorative divider, then padding, then the tabs and the grid -
-            // "right now the divider sits with the tabs overlapping it"): Core's divider (KitChestRule* under the title) is measured by its
-            // DRAWN bottom (line + centre diamond) and the row starts Gap below it; the panel height reserves its height (s_ruleH, last tick)
+            // Order: the title centred, padding, the decorative divider, padding, then the tabs and the grid, so the tabs never overlap the
+            // divider. Core's divider (KitChestRule* under the title) is measured by its DRAWN bottom (line + centre diamond) and the row
+            // starts Gap below it; the panel height reserves its height (s_ruleH, last tick)
             {
                 Transform rule = null;
                 if (name != null) foreach (Transform c in name) if (c.name.StartsWith("KitChestRule", System.StringComparison.Ordinal) && c.gameObject.activeInHierarchy) { rule = c; break; }
@@ -129,9 +125,9 @@ namespace VerdantsAscent.Managers
             float rowBottom = RowDrawnBottom(root, grid, take, stack, y);
             y = rowBottom - RowGridGap;
 
-            // the grid, centred - by its CELLS. 1.0.308:
+            // the grid, centred - by its CELLS:
             // Move() places the root's own drawn rect, but vanilla draws the cells 110 units inside the root, so centring the ROOT on the
-            // cells' width put the cells 110 too far right and the last columns past the mask. The cells' top-left now lands on the spot.
+            // cells' width would put the cells 110 too far right and the last columns past the mask. The cells' top-left lands on the spot.
             {
                 Vector2 want = new Vector2(left, y);   // Left-aligned with the buttons, directly under them
                 Rect now = CellsBounds(root, grid);   // re-measured: the panel resize above shifts root-local coordinates
@@ -200,12 +196,11 @@ namespace VerdantsAscent.Managers
             return any ? u : CraftSections.Bounds(root, gridRoot);
         }
 
-        // ── 1.0.311 the gap held in SCREEN pixels, right before the canvas draws ──
-        // golden_chest 10-22 04:13 ([ChestDiag]): the layout math said "gap 10 (panel space), re-applied 4x" while the screen said
-        // "row bottom 592, grid top 593, gap -1 px" - something moves the grid between the 4x/s layout and the frame being drawn. Now, every
-        // frame in Canvas.willRenderCanvases (after every Update / LateUpdate, before the draw), the gap is measured exactly as panels_shot
-        // measures it (drawn Graphics, TMP glyphs, screen px) and the grid is moved by the screen difference. Who moved it in between is
-        // logged once per chest opening ([ChestDiag] moved-by).
+        // ── The gap held in SCREEN pixels, right before the canvas draws ──
+        // Something can move the grid between the 4x/s layout pass and the frame being drawn, so a gap that is right in panel space
+        // can still be off on screen. Every frame in Canvas.willRenderCanvases (after every Update / LateUpdate, before the draw), the
+        // gap is measured on screen (drawn Graphics, TMP glyphs, screen px) and the grid is moved by the screen difference. Who moved it
+        // in between is logged once per chest opening ([ChestDiag] moved-by).
         static InventoryGui s_gui;
         static bool s_hooked, s_movedLogged;
         static Vector3 s_snapPos; static bool s_snapValid;
@@ -393,7 +388,7 @@ namespace VerdantsAscent.Managers
             rt.position += root.TransformVector(new Vector3(d.x, d.y, 0f));
         }
 
-        // Fire: "no box, just a mini weight icon and the words". The weight group's own background images go; an image named *icon* stays,
+        // No box, just a small weight icon and the words: the weight group's own background images go; an image named *icon* stays,
         // made small; the text is left-aligned beside it.
         static void Boxless(RectTransform weight, TMP_Text text)
         {

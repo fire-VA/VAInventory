@@ -139,7 +139,7 @@ namespace VerdantsAscent.Managers
                 _readStorage   = AccessTools.Method(_apiType, "ReadStorage", [typeof(ItemDrop.ItemData)]);
                 _writeStorage  = AccessTools.Method(_apiType, "WriteStorage", [typeof(ItemDrop.ItemData), typeof(string)]);
                 _getConfig     = AccessTools.Method(_apiType, "GetConfig", [typeof(ItemDrop.ItemData)]);
-                _getBonus      = AccessTools.Method(_apiType, "GetBonus", [typeof(ItemDrop.ItemData)]);   // 1.0.120: VABackpacks 1.0.49+
+                _getBonus      = AccessTools.Method(_apiType, "GetBonus", [typeof(ItemDrop.ItemData)]);   // needs VABackpacks 1.0.49+
                 _bonusProvider = AccessTools.Field(_apiType, "BonusProvider");
 
                 _onEquippedField   = AccessTools.Field(_apiType, "OnEquipped");
@@ -236,7 +236,7 @@ namespace VerdantsAscent.Managers
 
         // ── Public accessors (safe when bridge is unavailable) ───────
 
-        // 1.0.120 (VABackpacks 1.0.49 bag bonuses, FRC section 15): optional; older VABackpacks leaves both null.
+        // Optional bag bonuses (VABackpacks 1.0.49+); older VABackpacks leaves both null.
         private static System.Reflection.MethodInfo _getBonus;
         private static System.Reflection.FieldInfo _bonusProvider;
 

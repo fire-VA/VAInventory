@@ -5,8 +5,7 @@ using UnityEngine;
 
 namespace VerdantsAscent
 {
-    // 1.0.144 ("the inventory needs to change fluidly between all settings - new rows from the traders, a backpack /
-    // hobo stick / Fires staff with storage equipped or not, the configs - and it all needs to be completely clean"). Every slot rebuild
+    // The inventory must change cleanly between all settings (trader rows, storage bags equipped or not, the configs). Every slot rebuild
     // (Slots.InitializeSlots, whatever asked for it) and the trader row purchase go through ONE path:
     //   1. capture each player item's ADDRESS in the old layout: "S:<slot id>" for a cell (Helmet, Ammo_n, Misc_c_r,
     //      BackpackStorage_<bag>_..., class bars ...), "M:x,y" for the main grid - a region + a local cell, never one global y;
@@ -23,14 +22,13 @@ namespace VerdantsAscent
         // that cell comes back (the setting turned on again) the item returns there; cleared once it is home
         internal const string HomeKey = "vainv_home";
         private static bool s_inside;
-        // 1.0.145 (R_INV run 1 on vafirecopy: at load the bags' equip rebuilt the slots while the DEFAULT 4-row layout was still set, so
-        // the items - saved under the character's 5-row layout - were "carried" from wrong addresses: the Hammer at main (0,8) looked
-        // gone and went to Misc_0_0, and AdoptSavedLayout then carried that). Until this player's saved layout is adopted, a rebuild is
-        // only a rebuild; Adopt itself is a plain rebuild (it sets the layout the items were SAVED in).
+        // Until this player's saved layout is adopted, a rebuild is only a rebuild: a bag equip at load can rebuild the slots while the
+        // DEFAULT layout is still set, and carrying items then would read them from wrong addresses. Adopt itself is a plain rebuild
+        // (it sets the layout the items were SAVED in).
         private static int s_readyFor;
         internal static void MarkLayoutAdopted(Player p) { s_readyFor = p != null ? p.GetInstanceID() : 0; }
         private static bool Ready(Player p) => p != null && s_readyFor == p.GetInstanceID();
-        /// <summary>1.0.146: true once relayouts carry this player's items by address (the legacy panel migrate then stands down).</summary>
+        /// <summary>True once relayouts carry this player's items by address (the legacy panel migrate then stands down).</summary>
         internal static bool Carries(Player p) => Ready(p);
 
         private static string AddressOf(ItemDrop.ItemData it)
@@ -38,8 +36,8 @@ namespace VerdantsAscent
             var s = Slots.GetSlotInGrid(it.m_gridPos);
             if (s != null)
             {
-                // 1.0.146 (R_INV run 2: every ammo cell is "Ammo", so the legs' "S:Ammo" resolved to the arrows' cell): a repeated slot ID
-                // carries its ordinal among the slots of that ID ("Ammo#2")
+                // A repeated slot ID carries its ordinal among the slots of that ID ("Ammo#2"), so items in different cells of the same ID
+                // don't all resolve to the first one
                 var same = Slots.AllSlots().Where(o => o != null && o.ID == s.ID).ToList();
                 int n = same.IndexOf(s);
                 return same.Count > 1 && n > 0 ? $"S:{s.ID}#{n}" : "S:" + s.ID;
@@ -108,8 +106,7 @@ namespace VerdantsAscent
                     {
                         var xy = addr.Substring(2).Split(',');
                         var p = new Vector2i(int.Parse(xy[0]), int.Parse(xy[1]));
-                        // 1.0.146 (R_INV run 2: the Eye at (0,10), between the main grid and the equipment rows, read "gone"): an orphan cell
-                        // inside the inventory that is not a slot keeps its item
+                        // An orphan cell inside the inventory that is not a slot keeps its item
                         if (p.x >= 0 && p.y >= 0 && p.y < inv.GetHeight() && p.x < Slots.InventoryWidth && Slots.GetSlotInGrid(p) == null) target = p;
                     }
                     if (target != Slots.emptyPosition && CellFree(inv, target, it))
@@ -132,7 +129,7 @@ namespace VerdantsAscent
                 foreach (var (it, addr, from) in pending)
                 {
                     string region = addr.StartsWith("S:") ? RegionOf(addr.Substring(2)) : null;
-                    // 1.0.145 (R_INV run 1: the Hammer landed in TeleportBypass): TeleportBypass and Misc take ANY item, so they are a role only
+                    // TeleportBypass and Misc take ANY item, so they are a role only
                     // for an item that came from that region; a main-grid item goes back to the main grid first
                     if (addr.StartsWith("M:") && FreeMainCell(inv, out Vector2i mainFirst)) { it.m_gridPos = mainFirst; moved.Add($"{Name(it)} ({from.x},{from.y})->({mainFirst.x},{mainFirst.y}) '{addr}' gone, main grid"); continue; }
                     var role = Slots.AllSlots().Where(s => s != null && s.IsActive && s.GridPosition != Slots.emptyPosition && s.ItemFits(it) && CellFree(inv, s.GridPosition, it)

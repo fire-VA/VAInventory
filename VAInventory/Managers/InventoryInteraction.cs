@@ -251,7 +251,7 @@ namespace VerdantsAscent
                 var slot = Slots.GetEquipmentSlots()
                     .FirstOrDefault(s => s != null
                                       && !s.IsMiscSlot
-                                      && !s.IsTeleportBypassSlot   // 1.0.146 (R_INV run 2: worn legs auto-moved to TeleportBypass - it takes anything)
+                                      && !s.IsTeleportBypassSlot   // TeleportBypass takes anything, so worn items never auto-move there
                                       && !s.IsBackpackStorageSlot
                                       && s.ItemFits(item)
                                       && (s.IsFree || s.Item == item));
@@ -272,8 +272,7 @@ namespace VerdantsAscent
                         slot = held;
                     }
                 }
-                // 1.0.147 (R_INV run 3: the chest re-equipped into the GRID because its Chest cell held the worn legs and its Helmet cell
-                // held nothing it could use - a chain of off-role items): with "Remap misplaced slot items" ON, a fitting cell held by a WORN item
+                // With "Remap misplaced slot items" ON, a fitting cell held by a WORN item
                 // that does not fit that cell sends that item to its own cell first (chained, up to 4 deep), then this item takes the cell
                 if (slot == null && __instance == Player.m_localPlayer)   // A fix, always on
                 {
@@ -325,8 +324,8 @@ namespace VerdantsAscent
                  }
                  return;
              }
-             // 1.0.147 (R_INV run 3: the worn Eye on the orphan cell (0,10), between the main grid and the equipment rows, was "returned
-             // from slot" to (7,7) on unequip): with "Remap misplaced slot items" ON, an item on a cell that is no slot at all stays put
+             // With "Remap misplaced slot items" ON, an item on a cell that is no slot at all (an orphan cell between the main grid and the
+             // equipment rows) stays put instead of being "returned from slot" on unequip
              if (__instance == Player.m_localPlayer && Slots.GetSlotInGrid(item.m_gridPos) == null)   // A fix, always on
              {
                  Debug.Log($"[VAInventory] unequip: {item.m_shared.m_name} is on ({item.m_gridPos.x},{item.m_gridPos.y}), no slot cell; left in place");

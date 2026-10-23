@@ -142,7 +142,7 @@ namespace VerdantsAscent.Managers.HotBars
                 // Unified: the CharacterPanel's Hotbars rows show these slots while the inventory is open, so the
                 // HUD bar steps aside only then.
                 if (UnifiedScreen.Enabled && InventoryGui.IsVisible()) return false;
-                if (HotBarController.MapOpen) return false;   // 1.0.177; vanilla hides its hotbar there too
+                if (HotBarController.MapOpen) return false;   // vanilla hides its hotbar there too
             }
             catch { return false; }
             return Slots.toolHotbarSlots != null && Slots.toolHotbarSlots.Count > 0
@@ -229,10 +229,10 @@ namespace VerdantsAscent.Managers.HotBars
             try
             {
                 if (hotBarRect == null || ConfigManager.Instance == null) return;
-                if (HotbarHudDock.Manage(barName, "Tools hotbar", hotBarRect)) return;   // 1.0.165: Core's HUD dock owns it while the override is ON
+                if (HotbarHudDock.Manage(barName, "Tools hotbar", hotBarRect)) return;   // Core's HUD dock owns it while the override is ON
                 HotBarPlacement.Apply(hotBarRect, ConfigManager.Instance.configToolHotbarPosition,
                     ConfigManager.Instance.configToolHotbarScale.Value);
-                HotbarHudDock.Manage(barName, "Tools hotbar", hotBarRect);   // 1.0.220 ([generator]: the bars never registered - the first Manage call only lets the placement run, and no second call came): register right here, at the placed spot
+                HotbarHudDock.Manage(barName, "Tools hotbar", hotBarRect);   // register right here, at the placed spot: the first Manage call only lets the placement run
             }
             catch (Exception ex)
             {

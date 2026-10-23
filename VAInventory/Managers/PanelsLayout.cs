@@ -53,7 +53,7 @@ namespace VerdantsAscent.Managers
         {
             var gui = InventoryGui.instance;
             bool on = UnifiedScreen.PanelsMode && gui != null && InventoryGui.IsVisible() && root != null;
-            try { PanelsChrome.Tick(gui, UnifiedScreen.CharacterPanel); } catch (Exception e) { LogOnce("panels: chrome tick failed: " + e.Message); }   // 1.0.161: Fire's armour/weight, header, repair, info row, trash (Panels only; restores when left)
+            try { PanelsChrome.Tick(gui, UnifiedScreen.CharacterPanel); } catch (Exception e) { LogOnce("panels: chrome tick failed: " + e.Message); }   // armour/weight, header, repair, info row, trash (Panels only; restores when left)
             VanillaStatTabs(gui, on);   // 1.0.170
             PanelsGridLook.Placeholders(on);   // Grey slot names in empty equipment cells (Panels only)
             if (on && !PanelsDock.Registered) SeedHide(true);   // The first-open seeding hide BEFORE the crafting header check (it ran first and measured a frame DockTick hid later)
@@ -65,8 +65,7 @@ namespace VerdantsAscent.Managers
             Slots.RegisterCoreCatalog();   // Once, the first open the slots exist (Core 0.2.563 FiresSlotCatalog)
             // Core's skin styles what exists when ApplyTo runs; vanilla rebuilds grid elements between opens. Re-run it once on
             // EVERY open (idempotent; Core 0.2.558 Role.Slot), after registration, so the first and every later open look the same.
-            // 1.0.186 (R-1015I: on the FIRST open the Misc / bag cells were built AFTER this ran - "bag section ..." / "panel refresh" come
-            // later - so Core never styled them until the next open): ALSO re-run whenever the character panel or a grid is (re)built,
+            // On the first open vanilla can build the Misc / bag cells AFTER this ran, so ALSO re-run whenever the character panel or a grid is (re)built,
             // i.e. its hierarchy count or a grid's cell count changes. Core's ApplyTo is idempotent (one reused KitSlotOutline).
             var cp = UnifiedScreen.CharacterPanel;
             int sig = (cp != null ? cp.hierarchyCount : 0) * 31 + (gui.m_playerGrid != null && gui.m_playerGrid.m_gridRoot != null ? gui.m_playerGrid.m_gridRoot.childCount : 0) * 7
@@ -81,7 +80,7 @@ namespace VerdantsAscent.Managers
             // 1.0.227 laid the look on EVERY frame for 1 s after each re-create, and
             // EquipmentPanel re-creates often, so it ran nearly always; now exactly twice per re-create burst (2 and 15 frames later)
             if ((Time.frameCount == reapplyA || Time.frameCount == reapplyB) && UnifiedScreen.CharacterPanel != null) UnifiedScreen.ForceSlotLook(UnifiedScreen.CharacterPanel);   // Forced (same count, new objects)
-            if (dumpAfterRecreate && Time.frameCount > reapplyB) { dumpAfterRecreate = false; dumpsLeft--; UnifiedScreen.DumpEmptyRails("after an element re-create"); }   // 1.0.228: at most 3 per session
+            if (dumpAfterRecreate && Time.frameCount > reapplyB) { dumpAfterRecreate = false; dumpsLeft--; UnifiedScreen.DumpEmptyRails("after an element re-create"); }   // at most 3 per session
             if (skinnedThisOpen && sig != skinSignature && PanelsDock.Registered)
             {
                 skinnedThisOpen = false;
@@ -93,7 +92,7 @@ namespace VerdantsAscent.Managers
                 skinSignature = sig;
                 int faces = UnifiedScreen.SyncEmptyCellFaces();   // Empty Misc / bag cells keep a face on the FIRST open
                 if (faces > 0) EquipmentPanel.PanelLog?.LogDebug($"panels: {faces} empty-cell face(s) switched (on while a cell holds no element)");
-                foreach (var r in new[] { gui.m_player, gui.m_container, UnifiedScreen.CharacterPanel, gui.m_crafting, CompanionPanel.Current?.Root }) PanelsDock.Skin(r);   /* 1.0.270 ([ghost]/[lead]: the companion copy kept the stock parchment + title font): its root takes the same skin */   /* 1.0.226: no m_info (hidden under Panels) */   // plates; every slot face carries KitLeaf (1.0.210, [lead] accepted)
+                foreach (var r in new[] { gui.m_player, gui.m_container, UnifiedScreen.CharacterPanel, gui.m_crafting, CompanionPanel.Current?.Root }) PanelsDock.Skin(r);   // plates; the companion copy's root takes the same skin; m_info is hidden under Panels; every slot face carries KitLeaf
                 // The companion panel is NOT re-skinned: it is a clone of the already-skinned player panel, and Core's kit skin repainted its own plate / grid / Stats page
                 int frames = UnifiedScreen.StyleCellFramesLikeGrid();   // Every Cell_ frame face = the main grid's Core slot look
                 if (frames > 0) EquipmentPanel.PanelLog?.LogDebug($"panels: {frames} Cell_ frame face(s) styled like the main grid's slots");
@@ -122,8 +121,7 @@ namespace VerdantsAscent.Managers
             var character = UnifiedScreen.CharacterPanel;
             if (player == null || crafting == null) return;
 
-            // 1.0.288 (Unified OFF, shot 20261021_0040/12: the roster's Stats opened "a naked view of the companion floating above a
-            // broken ui"): with the Fires UI override OFF VAInventory does not take over the companion screen - no companion column, so
+            // With the Fires UI override OFF VAInventory does not take over the companion screen - no companion column, so
             // VAInventoryApi.OwnsCompanionColumn stays false and FiresCompanions shows its own original stats / inventory screen
             var src = FiresCore.UI.Shell.FiresShell.OverrideOn ? CompanionSource() : null;
             if (src != null) EnsureCompanion(src); else if (CompanionColumnShown) HideCompanion();
@@ -134,14 +132,12 @@ namespace VerdantsAscent.Managers
             columns.RemoveAll(c => c == null);
             int n = columns.Count;
 
-            // 1.0.159 (R-FULL1: the character panel, 440 wide native, was scaled UP to 1.9 to fill an 833 column: 1637 tall, over the grid and
-            // past the screen, so hit tests and cells broke; Fire: panels covered the grid's weight tab and crafting's repair button). Each
-            // column is measured by what it DRAWS (its visible graphics, clipped by masks: side tabs and overhangs included), never by its
-            // rect. The shared width is the narrowest column's native width, capped to the screen: no column is ever scaled above 1.
+            // Each column is measured by what it DRAWS (its visible graphics, clipped by masks: side tabs and overhangs included), never by its
+            // rect. The shared width is the narrowest column's native width, capped to the screen: no column is ever scaled above 1 (a
+            // scaled-up panel runs over the grid and past the screen, and its hit tests and cells break).
             float user = UserScale();
             Rect canvas = root.rect;
-            // 1.0.242 (Fire: the player + companion panels stretched nearly full screen; golden layout_4panel_companion_v6b_1920: both ~860 of
-            // 1080 tall = 80 %): a column is at most GoldenPanelHeight of the canvas by default (shrunk to fit, never stretched)
+            // A column is at most GoldenPanelHeight of the canvas by default (shrunk to fit, never stretched toward full screen)
             float maxHeight = Mathf.Min(canvas.height - 2f * Outer, canvas.height * GoldenPanelHeight);
             var m = new List<Measured>();
             foreach (var col in columns) m.Add(Measure(col, col == player ? character : null, col == crafting ? GripName : null));
@@ -306,8 +302,7 @@ namespace VerdantsAscent.Managers
 
         void DockTick(InventoryGui gui)
         {
-            // 1.0.288 (Unified OFF, shot 20261021_0040/12: the roster's Stats opened "a naked view of the companion floating above a
-            // broken ui"): with the Fires UI override OFF VAInventory does not take over the companion screen - no companion column, so
+            // With the Fires UI override OFF VAInventory does not take over the companion screen - no companion column, so
             // VAInventoryApi.OwnsCompanionColumn stays false and FiresCompanions shows its own original stats / inventory screen
             var src = FiresCore.UI.Shell.FiresShell.OverrideOn ? CompanionSource() : null;
             if (src != null) EnsureCompanion(src); else if (CompanionColumnShown) HideCompanion();
@@ -322,9 +317,9 @@ namespace VerdantsAscent.Managers
                 Layout(gui);
                 if (++dockSeedFrames < 3) return;
                 PanelsDock.MigrateCraftingRightOnce();   // Before Core loads the saved layout
-                PanelsDock.MigrateDropSavedOnce("companion_panel_1198", "vainv.companion");   // 1.0.198: the old column / 1.0.196 panel saved spot goes once
+                PanelsDock.MigrateDropSavedOnce("companion_panel_1198", "vainv.companion");   // an older column / panel saved spot goes once
                 PanelsDock.MigrateDropSavedOnce("character_own_group_1218", "vainv.character");
-                PanelsDock.MigrateDropSavedOnce("companion_own_element_1238", "vainv.companion");   // 1.0.238: the old "docked right of character" spot goes once   // 1.0.218: the old "docked to the grid" spot goes once
+                PanelsDock.MigrateDropSavedOnce("companion_own_element_1238", "vainv.companion");   // the older "docked right of character" / "docked to the grid" spots go once
                 PanelsDock.Register("vainv.grid", "Inventory", gui.m_player, null, null, null);
                 // NOT a dock element. Vanilla's Container is a CHILD of the Player panel (vainv.grid), so Core moving the grid moved it
                 // and then Core placed it again: the offsets compounded. It rides the grid until
@@ -337,8 +332,8 @@ namespace VerdantsAscent.Managers
                 // 1.0.218's standalone registration is replaced; the old saved spot goes once so the dock default applies
                 PanelsDock.MigrateDropSavedOnce("character_docked_grid_1241", "vainv.character");
                 PanelsDock.MigrateDropSavedOnce("companion_docked_character_1241", "vainv.companion");
-                PanelsDock.MigrateDropSavedOnce("character_compact_1242", "vainv.character");   // 1.0.242: the old (near full screen) size goes once
-                PanelsDock.MigrateDropSavedOnce("companion_compact_1242", "vainv.companion");   // 1.0.241: before Core loads the saved layout
+                PanelsDock.MigrateDropSavedOnce("character_compact_1242", "vainv.character");   // an older (near full screen) saved size goes once
+                PanelsDock.MigrateDropSavedOnce("companion_compact_1242", "vainv.companion");   // before Core loads the saved layout
                 // Those two register FREE (no dock-to);
                 // the player panel was docked to vainv.grid (Right), and a docked member has no corner grip of its own (Core scales the group).
                 // Now the identical call as vainv.grid (reused from this file, the vainv.grid Register above); the old docked saved spot goes
@@ -350,7 +345,7 @@ namespace VerdantsAscent.Managers
                 // THROUGH the hidden info panel - keeping the Bottom edge - onto the next shown panel. With the info buttons moved, the info
                 // panel isn't a dock element at all and crafting docks to the RIGHT of the character panel: one row, as Fire's mock.
                 if (PanelsChrome.InfoMoved)
-                    PanelsDock.Register("vainv.crafting", "Crafting", gui.m_crafting, null, null, null, false, () => PanelsDock.CraftingRightDefault(gui.m_crafting));   // 1.0.178: flush right, centred, NOT docked to the character panel
+                    PanelsDock.Register("vainv.crafting", "Crafting", gui.m_crafting, null, null, null, false, () => PanelsDock.CraftingRightDefault(gui.m_crafting));   // flush right, centred, NOT docked to the character panel
                 else
                 {
                     PanelsDock.Register("vainv.info", "Player info", gui.m_info, "vainv.character", "Right", null);
@@ -366,8 +361,8 @@ namespace VerdantsAscent.Managers
                 // Core's CraftingSkin styles the grid, chest, character panel, info and
                 // crafting again; Core 0.2.558 gives every slot face its own Role.Slot (lighter face + faint outline) instead of the flat Raised
                 // pill that made the squares vanish. VAInventory does no slot styling of its own any more.
-                foreach (var r in new[] { gui.m_player, gui.m_container, character, gui.m_crafting, CompanionPanel.Current?.Root }) PanelsDock.Skin(r);   /* 1.0.270 */   /* 1.0.226: no m_info */
-                UnifiedScreen.RemoveResizeGrip("registered with Core's dock");   // 1.0.272: Core's grip only
+                foreach (var r in new[] { gui.m_player, gui.m_container, character, gui.m_crafting, CompanionPanel.Current?.Root }) PanelsDock.Skin(r);   // m_info is hidden under Panels
+                UnifiedScreen.RemoveResizeGrip("registered with Core's dock");   // Core's grip only
                 s_seedUnhideFrame = Time.frameCount + 2;
                 LogOnce($"panels: registered with Core FiresDock (grid, character, {(PanelsChrome.InfoMoved ? "crafting at the right screen edge" : "info; crafting at the right screen edge")}); Core places them from here");
             }
@@ -380,20 +375,18 @@ namespace VerdantsAscent.Managers
                 // 
                 // the player and companion panels' bottom stays >= BottomInsetPx above the screen edge, whatever a saved layout or an
                 // edge snap says (only moved up, only while no mouse button is held, never over the top edge). Position only, no scale.
-                // 1.0.275 (proof round 249: Core re-places a live dock element from its stored spot every frame, so this lift was undone at once
-                // and re-logged every 0.5 s): with Core's dock the inset is Core's placement; this lift is for the no-Core layout only
+                // With Core's dock the inset is Core's placement (Core re-places a live dock element from its stored spot every frame, undoing
+                // any lift); this lift is for the no-Core layout only
                 if (!PanelsDock.Available && !Input.GetMouseButton(0) && !Input.GetMouseButton(1))
                 {
                     LiftOffBottom(character, "vainv.character");
                     if (CompanionColumnShown && companion != null) LiftOffBottom(companion, "vainv.companion");
                 }
             }
-            // 1.0.238 (Fire: the player and companion panels scaled TOGETHER in the layout editor and the companion's corner handle did
-            // nothing): AlignCompanion forced the companion to the player panel's size, scale and spot EVERY frame, and it was docked to
-            // vainv.character (Core scales a docked group). Now it is seated next to the player panel ONCE (its default spot), then
-            // registered as its OWN element (no dock-to) and never re-aligned: its own grip drags / resizes it, saved separately.
+            // The companion is seated next to the player panel ONCE (its default spot), then registered as its OWN element (no dock-to)
+            // and never re-aligned, so it doesn't scale together with the player panel: its own grip drags / resizes it, saved separately.
             // 
-            // the chest (vanilla Container, a CHILD of the Player panel) is lifted off the grid like the character panel (1.0.169's note: as a
+            // the chest (vanilla Container, a CHILD of the Player panel) is lifted off the grid like the character panel (as a
             // child, Core moving the grid moved it too), seated once just below the grid's drawn bottom, and registered as its own live element
             // "vainv.chest": header-strip drag + Core's corner resize, saved separately, shown only while a chest is open. Kit skin + pouch-cell
             // slot faces as before (PanelsDock.Skin / ApplySlotLook). Reused: DetachCharacter's lift, PanelsDock.Register + LiveHandle.
@@ -411,25 +404,22 @@ namespace VerdantsAscent.Managers
                 Vector3 want = new Vector3(g[0].x, drawnBottom, g[0].z) - root.TransformVector(new Vector3(0f, Gap * UserScale(), 0f));   // grid's drawn bottom-left, one Gap below
                 chestRt.position += want - k[1];
                 chestRt.SetParent(root, true);   // world position and size kept
-                // 1.0.315 (shot chest_ui_massive: "opening the chest ui this time caused it to be massive"; log: "vainv.chest restored
-                // saved spot 53,730 scale 1.36", "registered ... base scale 1.244"): the lift kept the chest's WORLD size, so whatever scale the
-                // Player panel (and an earlier Core scale on the chest) carried became the chest's base scale, and Core's saved scale went on
-                // top of it. The chest now starts at the player grid's own scale (the same cells), and the saved chest spot made on the
-                // inflated base goes once, so Core starts it from its default.
+                // The chest starts at the player grid's own scale (the same cells): keeping its WORLD size on the lift would make the Player
+                // panel's scale (and any earlier Core scale on the chest) its base scale, with Core's saved scale on top. A saved chest spot
+                // made on such an inflated base goes once, so Core starts it from its default.
                 var before = chestRt.localScale;
                 chestRt.localScale = gui.m_player.localScale;
                 PanelsDock.MigrateDropSavedOnce("chest_scale_1315", "vainv.chest");
                 EquipmentPanel.PanelLog?.LogDebug($"panels: chest scale on the lift {before.x:0.###} -> {chestRt.localScale.x:0.###} (the player grid's)");
                 PanelsDock.MigrateDropSavedOnce("chest_own_element_1239", "vainv.chest");
-                PanelsDock.MigrateDropSavedOnce("chest_seat_1280", "vainv.chest");   // 1.0.280: the spot saved while the old hold fought every drag goes once
+                PanelsDock.MigrateDropSavedOnce("chest_seat_1280", "vainv.chest");   // a spot saved while an older hold fought every drag goes once
                 PanelsDock.Register("vainv.chest", "Chest", chestRt, null, null, () => gui.m_container != null && gui.m_container.gameObject.activeInHierarchy);
                 PanelsDock.Skin(chestRt);
                 EquipmentPanel.PanelLog?.LogDebug("panels: chest lifted off the grid, seated below it, registered as vainv.chest (drag + resize, saved separately)");
             }
             // One line every time the companion panel shows, as its own element
             bool compShown = CompanionColumnShown && companion != null;
-            // 1.0.242 (R-1019B: the proof line never logged - DockTick only runs while the inventory is open, so a re-open with the companion
-            // still "shown" never saw a change): a new inventory open (no tick last frame) counts as "not shown before"
+            // DockTick only runs while the inventory is open, so a new inventory open (no tick last frame) counts as "not shown before"
             if (Time.frameCount - lastDockTickFrame > 1) companionWasShown = false;
             lastDockTickFrame = Time.frameCount;
             if (compShown && !companionWasShown) EquipmentPanel.PanelLog?.LogDebug($"panels: companion panel shown as its own element ({companion.rect.width:0}x{companion.rect.height:0}, scale {companion.localScale.x:0.00})");
@@ -456,7 +446,7 @@ namespace VerdantsAscent.Managers
                 companionDocked = true;
                 // Seated ONCE at the player panel's size + scale (AlignCompanion, first seat only), then DOCKED to the
                 // RIGHT of the player panel through Core's dock (same rules as above); never re-aligned per frame
-                PanelsDock.MigrateDropSavedOnce("companion_free_1273", "vainv.companion");   // 1.0.273: free like the player panel (seated beside it once by AlignCompanion)
+                PanelsDock.MigrateDropSavedOnce("companion_free_1273", "vainv.companion");   // free like the player panel (seated beside it once by AlignCompanion)
                 PanelsDock.Register("vainv.companion", "Companion", companion, null, null, () => CompanionColumnShown);
                 EquipmentPanel.PanelLog?.LogDebug("panels: vainv.companion seated at the player panel's size once, docked right of vainv.character (Core dock: magnet, Shift = free, group scale while docked)");
                 // No Core skin on the clone (see LateUpdate)
@@ -624,7 +614,7 @@ namespace VerdantsAscent.Managers
                 var api = Type.GetType("VerdantsAscent.Modules.Companions.CompanionPanelApi, FiresCompanions");
                 s_current = api?.GetProperty("Current", BindingFlags.Public | BindingFlags.Static);
                 EquipmentPanel.PanelLog?.LogDebug(s_current != null ? "panels: FiresCompanions CompanionPanelApi found" : "panels: no CompanionPanelApi (FiresCompanions older than 0.1.56 or absent); no companion column");
-                // 1.0.198 ('s root cause: "opened for '<name>' (0 listener(s))"): VAInventory LISTENS to Opened / Closed
+                // VAInventory LISTENS to Opened / Closed
                 Listen(api, "Opened", nameof(OnCompanionOpened));
                 Listen(api, "Closed", nameof(OnCompanionClosed));
             }
@@ -772,9 +762,8 @@ namespace VerdantsAscent.Managers
             return n;
         }
 
-        // 1.0.215 (R-1015AB: with the companion column up, the Inventory key never reached vanilla's Hide - no "[CompanionInventoryScreen]
-        // Hidden" in the log; FiresCompanions reads no Tab). Vanilla's Update closes only when Menu / TextViewer / Minimap / chat /
-        // console are all clear and the craft timer is idle; something there stays set while FiresCompanions' (invisible) screen is registered.
+        // Vanilla's Update closes the inventory only when Menu / TextViewer / Minimap / chat / console are all clear and the craft timer
+        // is idle; something there can stay set while FiresCompanions' (invisible) screen is registered, so the Inventory key may never close it.
         // Fallback, reusing vanilla's own Hide: the inventory still open in LateUpdate after the Inventory / Use / Escape key (vanilla's own
         // close keys) while the companion column shows = close it here, and log which of vanilla's conditions held it.
         int companionShownFrames;

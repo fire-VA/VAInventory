@@ -57,7 +57,7 @@ namespace VerdantsAscent.Managers.HotBars
                 LogOnChange(name, $"[Hotbars] {name}: no bar ({hiddenWhy})");
                 return;
             }
-            // 1.0.97 (round 41: "screen rect (13360,29)-(14096,115)" on a 3440 screen): the nearest Canvas can be the bar's own
+            // The nearest Canvas can be the bar's own
             // nested one, whose worldCamera is null while the HUD's root canvas renders through a camera; the screen point must
             // come from the ROOT canvas and its camera (null only for an overlay canvas).
             var canvas = bar.GetComponentInParent<Canvas>()?.rootCanvas;
@@ -76,8 +76,7 @@ namespace VerdantsAscent.Managers.HotBars
                     EquipmentPanel.PanelLog?.LogDebug($"[Hotbars] {name}: screen rect ({min.x:0},{min.y:0})-({max.x:0},{max.y:0}) was off the {Screen.width}x{Screen.height} screen; moved {before} -> {after}");
                 }
             }
-            // 1.0.133 (perf audit): the raw values are compared first; the line is only formatted (a large string, every HUD frame
-            // before) when one of them changed.
+            // The raw values are compared first; the line (a large string, every HUD frame) is only formatted when one of them changed.
             var key = (bar.gameObject.activeInHierarchy, items, bar.anchoredPosition, bar.localScale.x, canvas != null ? canvas.scaleFactor : 0f,
                        Mathf.RoundToInt(min.x), Mathf.RoundToInt(min.y), Mathf.RoundToInt(max.x), Mathf.RoundToInt(max.y), Screen.width, Screen.height);
             if (lastKey.TryGetValue(name, out var was) && was.Equals(key)) return;
@@ -92,7 +91,7 @@ namespace VerdantsAscent.Managers.HotBars
         const float GlobeClearance = 8f;
         static float lastShift = float.NaN;
         static readonly string[] VitalFields = { "m_healthPanel", "m_staminaBar2Root", "m_eitrBarRoot" };
-        // 1.0.132 (perf audit): KeepAboveVitals runs every HUD frame - the FieldInfos are looked up once and the Graphic lists reuse
+        // KeepAboveVitals runs every HUD frame - the FieldInfos are looked up once and the Graphic lists reuse
         // one buffer instead of a new array per root per frame.
         static readonly System.Collections.Generic.Dictionary<string, System.Reflection.FieldInfo> s_vitalFields = new System.Collections.Generic.Dictionary<string, System.Reflection.FieldInfo>();
         static readonly System.Collections.Generic.List<UnityEngine.UI.Graphic> s_graphics = new System.Collections.Generic.List<UnityEngine.UI.Graphic>();

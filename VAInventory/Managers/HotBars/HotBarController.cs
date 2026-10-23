@@ -35,7 +35,7 @@ namespace VerdantsAscent.Managers.HotBars
 {
     public static class HotBarController
     {
-        /// <summary>1.0.177: the large map (M) is open; the Tool / Food / Ammo bars hide like vanilla's hotbar.</summary>
+        /// <summary>The large map (M) is open; the Tool / Food / Ammo bars hide like vanilla's hotbar.</summary>
         internal static bool MapOpen => Minimap.instance != null && Minimap.IsOpen();
 
         // ── Bar instantiation ────────────────────────────────────────

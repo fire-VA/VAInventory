@@ -32,7 +32,7 @@ namespace VerdantsAscent.Managers
             return runOriginal;
         }
 
-        [HarmonyAfter("com.Fire.FiresLootOverhaul", "com.Fire.FiresRPGCrafting")]   // 1.0.118: FRC's rarity tint is on the vanilla element before we mirror it
+        [HarmonyAfter("com.Fire.FiresLootOverhaul", "com.Fire.FiresRPGCrafting")]   // FLO/FRC's rarity tint is on the vanilla element before we mirror it
         private static void Postfix(InventoryGrid __instance, int __state)
             => EquipmentPanel.AfterUpdateGui(__instance, __state);
 

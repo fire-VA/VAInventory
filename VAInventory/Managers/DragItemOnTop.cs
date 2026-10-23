@@ -41,7 +41,7 @@ namespace VerdantsAscent.Managers
             foreach (var g in go.GetComponentsInChildren<Graphic>(true)) g.raycastTarget = false;
             EquipmentPanel.PanelLog?.LogDebug($"panels: tooltip on top (own canvas, sortingOrder {TooltipOrder}) - '{go.name}' under '{(go.transform.parent != null ? go.transform.parent.name : "-")}'");
             // Once, every active canvas that could
-            // draw over it - its sorting layer, order, override, root render mode - so the next shot names the one that wins
+            // draw over it - its sorting layer, order, override, root render mode - is logged, so the log names the one that wins
             var tipRoot = cv.rootCanvas;
             var sb = new System.Text.StringBuilder($"panels: tooltip canvas: layer '{cv.sortingLayerName}' order {cv.sortingOrder}, root '{(tipRoot != null ? tipRoot.name : "-")}' {(tipRoot != null ? tipRoot.renderMode.ToString() : "?")}; rivals:");
             int n = 0;

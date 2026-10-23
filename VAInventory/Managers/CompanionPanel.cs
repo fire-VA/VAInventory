@@ -107,7 +107,7 @@ namespace VerdantsAscent.Managers
             {
                 // HP / Stamina / Eitr read as labels on the RIGHT of the head, stacked under
                 // Weight, in the Armor / Weight label style (clones of the Weight footer)
-                vitals = PanelsChrome.MakeVitals(weightText, "CompanionVital");   // 1.0.313: the one shared implementation (the player panel uses it too)
+                vitals = PanelsChrome.MakeVitals(weightText, "CompanionVital");   // the one shared implementation (the player panel uses it too)
             }
             pillMount = mount;
             BuildPills();
@@ -131,7 +131,7 @@ namespace VerdantsAscent.Managers
             gridHost.anchorMin = new Vector2(0f, 1f); gridHost.anchorMax = new Vector2(1f, 1f); gridHost.pivot = new Vector2(0.5f, 1f);   // Placed under the bag section each tick
             gridHost.offsetMin = new Vector2(14f, 0f); gridHost.offsetMax = new Vector2(-14f, 0f);
             gridHost.anchoredPosition = new Vector2(0f, -900f);
-            invLabel = Text(Root, "CompanionInventoryLabel", 14f, new Color(0.941f, 0.706f, 0.298f), FontStyles.Bold, font);   // 1.0.202: "Inventory", like a bag header
+            invLabel = Text(Root, "CompanionInventoryLabel", 14f, new Color(0.941f, 0.706f, 0.298f), FontStyles.Bold, font);   // "Inventory", like a bag header
             var ilr = invLabel.rectTransform; ilr.anchorMin = new Vector2(0f, 1f); ilr.anchorMax = new Vector2(1f, 1f); ilr.pivot = new Vector2(0f, 1f);
             ilr.offsetMin = new Vector2(16f, 0f); ilr.offsetMax = new Vector2(-16f, 0f); ilr.sizeDelta = new Vector2(ilr.sizeDelta.x, 20f);
             invLabel.text = "Inventory"; invLabel.alignment = TextAlignmentOptions.BottomLeft; invLabel.enableWordWrapping = false;
@@ -141,7 +141,7 @@ namespace VerdantsAscent.Managers
             BindRail(UnifiedScreen.LeftRail, LeftKeys);
             BindRail(UnifiedScreen.RightRail, RightKeys);
             BindPouchFaces();
-            { var vg = FindDeep(Root, "VAInventoryResizeGrip"); if (vg != null) { vg.gameObject.SetActive(false); UnityEngine.Object.Destroy(vg.gameObject); } }   // 1.0.272: the copy never carries VAInventory's old grip (Core's dock grip resizes it)
+            { var vg = FindDeep(Root, "VAInventoryResizeGrip"); if (vg != null) { vg.gameObject.SetActive(false); UnityEngine.Object.Destroy(vg.gameObject); } }   // the copy never carries VAInventory's old grip (Core's dock grip resizes it)
             PanelsDock.Skin(Root);   // The copy can be made before Core skins the player panel; skin the copy itself
             EquipmentPanel.PanelLog?.LogDebug($"panels: companion panel built as a copy of the {(live != null ? "live player panel" : "prefab")} ({secCells.Count} section cell(s), {rails.Count} rail cell(s), {pouchFaces.Count} pouch face(s), title '{title.name}', armour {(armorText != null)}, weight {(weightText != null)})");
             return true;
@@ -263,8 +263,8 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             foreach (var t in Root.GetComponentsInChildren<RectTransform>(true))
             {
                 if (!t.name.StartsWith("Pouch_", StringComparison.Ordinal)) continue;
-                // 1.0.262 (HOWTO limits: the companion's jewelry cells stayed empty; FiresCompanions 0.1.66 serves Pouch("Jewelry") =
-                // Necklace + Ring + RingRight): the Jewelry face shows the companion's first jewelry item, and a click opens its popup
+                // FiresCompanions serves Pouch("Jewelry") = Necklace + Ring + RingRight: the Jewelry face shows the companion's first
+                // jewelry item, and a click opens its popup
                 string kind = t.name.Substring(6) switch { "Tools" => "Tool", "Ammo" => "Ammo", "Food" => "Food", "Jewelry" => "Jewelry", _ => null };
                 if (kind == null) continue;   // Coin purse: its own section cell
                 if (kind == "Jewelry") { var jt = t.gameObject.GetComponent<JewelryToggle>() ?? t.gameObject.AddComponent<JewelryToggle>(); jt.Root = Root; var fimg = t.GetComponentInChildren<Image>(); if (fimg != null) fimg.raycastTarget = true; }
@@ -301,7 +301,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
                 {
                     Owner = "VAInventory.CompanionPanel", VanillaRightClick = false,
                     Inventory = () => Storage(source),
-                    MaxRows = StorageRows(),   // 1.0.200: the backing grid is 8 x 18; storage = Core's first rows
+                    MaxRows = StorageRows(),   // the backing grid is 8 x 18; storage = Core's first rows
                 });
             }
             var inv = Storage(src);
@@ -313,7 +313,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             EquipmentPanel.PanelLog?.LogDebug($"panels: companion panel for '{title.text}' (body {(body != null ? body.name : "none")}, storage {(inv != null ? inv.GetWidth() + "x" + inv.GetHeight() : "none")})");
         }
 
-        // 0.1.59: Storage() = the storage grid only; older: Inventory
+        // Storage() = the storage grid only (FiresCompanions 0.1.59+); older: Inventory
         static Inventory Storage(object src)
         {
             var f = Get<Func<Inventory>>(src, "Storage");
@@ -399,8 +399,8 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             }
         }
 
-        // ── 1.0.199: every section = Core's CompanionGridLayout cell on the companion's backing grid (Core 0.2.563) ──
-        // 's 8 x 18 map; read from Core at runtime when present (CompanionGridLayout.Sections: Name + Cells)
+        // ── Every section = Core's CompanionGridLayout cell on the companion's backing grid (Core 0.2.563+) ──
+        // The 8 x 18 map is read from Core at runtime when present (CompanionGridLayout.Sections: Name + Cells)
         static readonly Dictionary<string, Vector2i[]> StaticLayout = new Dictionary<string, Vector2i[]>
         {
             { "Tools", Row(4, 8) }, { "Ammo", Row(5, 4) }, { "Food", Row(6, 4) },   // Core 0.2.564 widths
@@ -753,8 +753,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
         {
             if (sc == null || source == null) return;
             var gui = InventoryGui.instance;
-            // 1.0.319 ("our companions grid needs the proper fixes to allow us to grab items from it properly as well like we did
-            // with ours"): a plain LEFT click on a filled section cell (Tools / Ammo / Food / Coin purse ...) puts its item ON THE CURSOR -
+            // A plain LEFT click on a filled section cell (Tools / Ammo / Food / Coin purse ...) puts its item ON THE CURSOR -
             // taken through FiresCompanions' Take into the companion's storage, then vanilla's own drag from there, so it drops anywhere
             // (either panel's cells, the grids, a chest, the world) like the player's special slots; with an item already on the cursor, an
             // occupied cell SWAPS (the held one goes in, the old one comes onto the cursor). Right click still sends it back to storage.
@@ -863,7 +862,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             {
                 float dmg = P<float>(st, "Damage");
                 int level = P<int>(st, "Level"); string role = P<string>(st, "Role") ?? ""; string weapon = P<string>(st, "Weapon") ?? "";
-                string R(string label, string value) => $"<color=#9C8F78>{label}</color><pos=45%>{value}\n";   // 1.0.203: label | value rows
+                string R(string label, string value) => $"<color=#9C8F78>{label}</color><pos=45%>{value}\n";   // label | value rows
                 text = R("Level", level.ToString()) + (role.Length > 0 && role != "None" ? R("Role", role) : "") + R("Health", $"{hp:0} / {maxHp:0}")
                        + R("Stamina", $"{sta:0} / {maxSta:0}") + R("Eitr", $"{eitr:0} / {maxEitr:0}") + R("Armor", $"{armor:0.#}");
                 if (weapon.Length > 0) text += R("Weapon", weapon) + R("Damage", $"{dmg:0}");
@@ -872,7 +871,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
                 if (skills != null)
                 {
                     var parts = new List<string>();
-                    foreach (var kv in skills) { var k = (kv.GetType().GetProperty("Key")?.GetValue(kv) ?? kv.GetType().GetField("Key")?.GetValue(kv))?.ToString();   /* 1.0.206: enum / any key (a string-only cast dropped them) */ var v = kv.GetType().GetProperty("Value")?.GetValue(kv) ?? kv.GetType().GetField("Value")?.GetValue(kv); if (k != null) parts.Add(R(k, $"{Convert.ToSingle(v):0}")); }
+                    foreach (var kv in skills) { var k = (kv.GetType().GetProperty("Key")?.GetValue(kv) ?? kv.GetType().GetField("Key")?.GetValue(kv))?.ToString();   /* enum / any key (a string-only cast would drop them) */ var v = kv.GetType().GetProperty("Value")?.GetValue(kv) ?? kv.GetType().GetField("Value")?.GetValue(kv); if (k != null) parts.Add(R(k, $"{Convert.ToSingle(v):0}")); }
                     if (parts.Count > 0) text += "\n<b>Skills</b>\n" + string.Join("", parts.ToArray());
                     else text += NoSkills;   // 1.0.207
                 }
@@ -887,7 +886,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             if (fill == null) return;
             float f = max > 0f ? Mathf.Clamp01(v / max) : 0f;
             if (!Mathf.Approximately(fill.fillAmount, f)) fill.fillAmount = f;
-            var label = fill.transform.parent.Find("Value")?.GetComponent<TMP_Text>();   // 1.0.201: the value on the bar
+            var label = fill.transform.parent.Find("Value")?.GetComponent<TMP_Text>();   // the value on the bar
             if (label != null) { string s = max > 0f ? $"{v:0} / {max:0}" : "-"; if (label.text != s) label.text = s; }
         }
         bool logStats = true, logSkills = true;

@@ -244,12 +244,10 @@ namespace VerdantsAscent
             }
 
             if (current == null) return;
-            // 1.0.316 ("trying to click and move things from our backpack special slots just auto moves them to our player grid
-            // rather than picking them up to the cursor like vanilla"): a plain left click PICKS THE ITEM UP onto the cursor (vanilla's own
-            // drag, from the player inventory it is handed to); shift / ctrl click keeps the quick move to the grid
-            // The item leaves the
+            // A plain left click PICKS THE ITEM UP onto the cursor like vanilla (vanilla's own drag, from the player inventory it is
+            // handed to); shift / ctrl click keeps the quick move to the grid. The item leaves the
             // special slot into a hidden 1x1 CARRY inventory and vanilla's own drag starts from there - nothing appears in the player grid,
-            // and vanilla's drop / swap / world-drop code moves it wherever he clicks (player grid, bag cell, chest, or another special slot
+            // and vanilla's drop / swap / world-drop code moves it wherever the player clicks (player grid, bag cell, chest, or another special slot
             // via OnLeftClick above). A cancelled drag or a swap's leftover goes back to the special slot it came from (else the player grid).
             bool quick = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) || Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
             if (quick) { TakeOut(kind); }

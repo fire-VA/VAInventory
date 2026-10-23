@@ -5,8 +5,7 @@ using UnityEngine;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.278 (V4/V5: crafting + Chunk Seed "look cheap and thrown together"; split agreed with Core 0.2.637
-    /// CraftingSkin draws the look, VAInventory the layout/content). Under Panels the crafting panel gets two named section rects that
+    /// Core's CraftingSkin draws the look, VAInventory the layout/content. Under Panels the crafting panel gets two named section rects that
     /// Core's CraftingSkin turns into inset gold-edged wells:
     ///   KitWell_Description  behind the item description (the top-level child of m_crafting holding m_recipeDecription), Pad around it;
     ///   KitWell_Requirements behind the requirement row (the union of the requirement cells + the station slot), Pad around it;

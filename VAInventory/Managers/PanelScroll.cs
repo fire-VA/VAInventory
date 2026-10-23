@@ -14,10 +14,10 @@ namespace VerdantsAscent.Managers
     internal static class PanelScroll
     {
         const float BottomMargin = 8f;
-        // "add a tiny bit of padding below the lowest grid squares on our player panel". The layout's
-        // bottom padding (UnifiedScreen.PanelPadTopBottom) sits under the frame's border art, so the last row ran into the
-        // frame. 1.0.72: the frame's bottom
-        // border is thicker than its top, and 20 left ~21 px against the top's ~15 px; [UI] PanelBottomGap (default 14) matches
+        // A little padding below the lowest grid squares on the player panel. The layout's
+        // bottom padding (UnifiedScreen.PanelPadTopBottom) sits under the frame's border art, so the last row would run into the
+        // frame. The frame's bottom
+        // border is thicker than its top; [UI] PanelBottomGap (default 14) matches
         // them. Only as much as the room allows: the Explorer Bag fills the panel to within a few units, and the gap must never
         // make it scroll.
         static int BottomGap => ConfigManager.Instance?.configPanelBottomGap?.Value ?? 14;
@@ -120,7 +120,7 @@ namespace VerdantsAscent.Managers
             float viewport = 0f;
             WheelOnlyScrollRect scrollRect = null;
 
-            // on 1.0.68: "Why is Misc pushed down so far?" Wrapping Misc took it out of the centre column (under the
+            // Misc is not wrapped: that would take it out of the centre column (under the
             // pouch row) and put it below the rails, a dead band beside Shoulder/Pet/Bypass. Misc stays in its column; only the
             // bag sections scroll. Misc scrolls only when there is no bag section to take the overflow.
             var lower = new List<RectTransform>();
@@ -307,8 +307,7 @@ namespace VerdantsAscent.Managers
             if (fixedCount > 0) EquipmentPanel.PanelLog?.LogDebug($"panel scroll: {fixedCount} of {graphics.Length} graphic(s) made maskable");
         }
 
-        // 1.0.91 (round 34: the second bag section's header and a row of cells drew past the frame although they sit under
-        // Content < Viewport, so the RectMask2D did not clip them): a hard guard that does not rely on the mask. Every part of a
+        // A hard guard that does not rely on the mask (the RectMask2D does not always clip bag sections under Content < Viewport). Every part of a
         // bag section (cells, header, info, rule, rail) that is not entirely inside the viewport is hidden through its own
         // CanvasGroup (alpha 0, no raycasts) and shown again as it scrolls in. The mask state and any nested Canvas under the
         // content are logged once.

@@ -30,9 +30,9 @@ namespace VerdantsAscent.Managers
         {
             // Under Panels the grid keeps vanilla's OWN panel (wood Bkg + item_background cells, as with
             // the unified UI off). No plate, nothing hidden; whatever an earlier Tick built is taken down once.
-            // The 1.0.182 Panels early-out is gone; the plate is part of the pre-unified look Fire wants back (as with the unified UI off)
+            // The old Panels early-out is gone; the plate is part of the pre-unified look (as with the unified UI off)
             // 
-            // under Panels with Core's Fires UI override ON, ChestSections (1.0.282) lays the chest out and draws its own gold frame
+            // under Panels with Core's Fires UI override ON, ChestSections lays the chest out and draws its own gold frame
             // (KitWell_ChestFrame) around a panel sized to the grid, and Core's CraftingSkin draws the kit look. This plate was a SECOND
             // frame + inner, sized to the cells and placed by its own rule, and re-ordered siblings around the grid every frame. It stands
             // down there (taken down once if an earlier Tick built it); the pre-Panels layouts keep it as before.

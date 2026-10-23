@@ -27,9 +27,8 @@ namespace VerdantsAscent
             Debug.Log($"[VAInventory] saved layout adopted for {player.GetPlayerName()}: vanilla rows {savedRows}; relayouts carry items from now on");
         }
 
-        // 1.0.141 (R12B Fire's character: every equipped item sat one ROW above its cell - the helmet in the main grid,
-        // the chest in the Helmet cell, the belt in Shoulder, the bag in Trinket - because the slot block moved when the vanilla row count
-        // changed and the items were not moved with it). On spawn: the equipped items not on a cell that fits them, and any slot-area
+        // When the vanilla row count changes the slot block moves, and items not moved with it sit one ROW off their cells. On spawn:
+        // the equipped items not on a cell that fits them, and any slot-area
         // item on a cell that does not fit it, are checked for ONE row offset (+-1..3) that puts them on fitting cells. With a consistent
         // offset each one moves there; a cell already taken by a fitting item sends it to another free fitting cell, else a free main
         // cell. Nothing is dropped. Every move is logged; the character's layout key is then written so the next load matches.
@@ -106,8 +105,7 @@ namespace VerdantsAscent
                 // A worn
                 // equipment item sitting in TeleportBypass or Misc counts as off its role too
                 var wrong = inv.GetAllItems().Where(it => { var s = Slots.GetSlotInGrid(it.m_gridPos); return s != null && s.IsEquipmentSlot && (!s.ItemFits(it) || (player.IsItemEquiped(it) && Slots.IsEquipmentSlotItem(it) && (s.IsTeleportBypassSlot || s.IsMiscSlot))); }).ToList();
-                // 1.0.150 (Fire's hand-test 10-14: his worn Eye of the Beholder stayed on the orphan cell (0,10) with the Helmet slot free): a
-                // WORN equipment item on a cell below the main grid that is no slot at all is off its role too
+                // A WORN equipment item on a cell below the main grid that is no slot at all is off its role too
                 var orphans = inv.GetAllItems().Where(it => Slots.GetSlotInGrid(it.m_gridPos) == null && it.m_gridPos.y >= Slots.InventoryHeightPlayer && player.IsItemEquiped(it) && Slots.IsEquipmentSlotItem(it)).ToList();
                 if (orphans.Count > 0) Debug.Log($"[VAInventory] layout remap: {orphans.Count} worn item(s) on an orphan cell (no slot there)");
                 wrong.AddRange(orphans);
@@ -115,8 +113,7 @@ namespace VerdantsAscent
                 foreach (var it in wrong)
                 {
                     var from = it.m_gridPos; var was = Slots.GetSlotInGrid(from);
-                    // 1.0.148 (R_INV run 4: the chest went to TeleportBypass because its Chest cell still held the off-role legs, moved one
-                    // line later): an item already moved by a chain is skipped; the role cell is never TeleportBypass / Misc / bag storage,
+                    // An item already moved by a chain is skipped; the role cell is never TeleportBypass / Misc / bag storage,
                     // and a role cell held by a WORN item off ITS role is freed first by moving that one to its own cell (the equip chain)
                     bool orphan = was == null && orphans.Contains(it) && Slots.GetSlotInGrid(it.m_gridPos) == null;
                     if ((was == null && !orphan) || (was != null && was.ItemFits(it) && !(player.IsItemEquiped(it) && Slots.IsEquipmentSlotItem(it) && (was.IsTeleportBypassSlot || was.IsMiscSlot)))) continue;

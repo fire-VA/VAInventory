@@ -383,9 +383,8 @@ namespace VerdantsAscent.Managers
                 if (item == null) continue;
                 // Ownership filter: only capture items genuinely tagged
                 // for this bag (or untagged items, which get auto-adopted).
-                // A foreign-tagged item parked at our slot position means
-                // we hit the bug from May 2026: HoboStick block allocated
-                // over StaffFiresWizard's undrained items. Skipping here
+                // A foreign-tagged item parked at our slot position means another
+                // bag's block was allocated over its undrained items. Skipping here
                 // keeps us from sucking those items into our blob; the
                 // EvictForeignItems pass on equip moves them elsewhere.
                 if (!IsOwnedByOrUntagged(item, prefab)) continue;
@@ -586,7 +585,7 @@ namespace VerdantsAscent.Managers
                 return;
             }
 
-            // R-1013L: vanilla Inventory.Load skips only the y >= height check (skipValidPositionCheck); an item at x >= width is
+            // Vanilla Inventory.Load skips only the y >= height check (skipValidPositionCheck); an item at x >= width is
             // REFUSED and gone. A bag shrunk narrower lost every item past the new width before the placement below ever saw it.
             // The temporary inventory is as wide and tall as any bag can be, so every saved item loads at its saved cell.
             var backpackInv = new Inventory("Backpack", null, Mathf.Max(maxLocalX + 1, LoadGridSize), Mathf.Max(maxLocalY + 1, LoadGridSize));
@@ -644,7 +643,7 @@ namespace VerdantsAscent.Managers
                     placed = true;
                     reseated++;
                 }
-                // R-1013L: a FREE main cell only. TryMakeFreeSpaceInPlayerInventory makes room by moving a main item into ANY free
+                // A FREE main cell only. TryMakeFreeSpaceInPlayerInventory makes room by moving a main item into ANY free
                 // slot, including another worn bag's block that isn't restored yet; that bag then captured it too: duplicates.
                 if (!placed && FreeMainCell(inv, out var overflowPos))
                 {
@@ -837,7 +836,7 @@ namespace VerdantsAscent.Managers
         /// tag mismatches the slot's prefab. Those are foreign items
         /// parked at this bag's grid positions — they must be evicted
         /// or the panel will render them as belonging to the wrong bag
-        /// (the May 2026 "empty HoboStick shows FiresStaff items" bug).
+        /// (e.g. an empty bag showing another bag's items).
         ///
         /// Eviction strategy: relocate to the first free main-inventory
         /// position. If the player's main grid is full, leave the item
@@ -871,7 +870,7 @@ namespace VerdantsAscent.Managers
                 // Move it out of this bag's slot. RemoveItem first so the
                 // inventory's tracking stays consistent, then re-add at a
                 // free main-inventory position.
-                // R-1013L: a free main cell only (TryMakeFreeSpace would shove another item into some other bag's block).
+                // A free main cell only (TryMakeFreeSpace would shove another item into some other bag's block).
                 if (!FreeMainCell(inv, out var freePos))
                 {
                     Debug.LogWarning($"[VAInventory] EvictForeignItems: no free main-inventory slot for '{item.m_shared?.m_name}' (owner={owner}); leaving in place.");

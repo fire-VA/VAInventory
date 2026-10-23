@@ -31,7 +31,7 @@ namespace VerdantsAscent.Managers
         static MethodInfo s_register, s_skin;
         internal static bool Registered { get; private set; }
 
-        /// <summary>1.0.170: a new InventoryGui = register everything again (Core drops elements whose rect was destroyed).</summary>
+        /// <summary>A new InventoryGui = register everything again (Core drops elements whose rect was destroyed).</summary>
         internal static void ResetForNewGui()
         {
             if (Available)
@@ -77,8 +77,8 @@ namespace VerdantsAscent.Managers
             EquipmentPanel.PanelLog?.LogDebug("panels: character panel lifted off vanilla's Player panel for docking");
         }
 
-        /// <summary>1.0.160: the grid's first row (the 1-8 slots) as a Passive element (Core 0.2.525: no handles, never dragged,
-        /// not saved, moved by its parent); the HUD hotbar follows it (FollowId, HUD layout part 2). A rect over row 0 inside the grid root.</summary>
+        /// <summary>The grid's first row (the 1-8 slots) as a Passive element (no handles, never dragged,
+        /// not saved, moved by its parent); the HUD hotbar follows it (FollowId). A rect over row 0 inside the grid root.</summary>
         internal static void RegisterGridRow1(InventoryGrid grid)
         {
             if (!Available || grid == null || grid.m_gridRoot == null || s_ids.Contains("vainv.grid.row1")) return;
@@ -143,7 +143,7 @@ namespace VerdantsAscent.Managers
         /// <summary>
         /// ONCE per install, drop the saved "vainv.crafting" spot (and anything docked to it) from
         /// every saved inventory dock layout, before Core loads them, so the new right-edge default applies. A marker in
-        /// BepInEx\cache\VAInventory records that it ran; later moves Fire makes are saved and kept as usual.
+        /// BepInEx\cache\VAInventory records that it ran; later moves the player makes are saved and kept as usual.
         /// </summary>
         internal static void MigrateCraftingRightOnce()
         {
@@ -181,7 +181,7 @@ namespace VerdantsAscent.Managers
             catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"panels: crafting layout migration failed: {e.Message}"); }
         }
 
-        /// <summary>1.0.196: ONCE per install (marker in BepInEx\cache\VAInventory), drop the saved spot of these element ids (and anything
+        /// <summary>ONCE per install (marker in BepInEx\cache\VAInventory), drop the saved spot of these element ids (and anything
         /// docked to them) from every saved inventory dock layout, then have Core re-read the files. Same steps as MigrateCraftingRightOnce.</summary>
         internal static void MigrateDropSavedOnce(string marker, params string[] ids)
         {

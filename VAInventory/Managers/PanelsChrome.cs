@@ -31,7 +31,7 @@ namespace VerdantsAscent.Managers
         const string TitleName = "VAInventoryPanelsTitle", TitleLineName = "VAInventoryPanelsTitleLine_NoKitSkin";
         static readonly Color MockGold = new Color(0.941f, 0.706f, 0.298f), MockMuted = new Color(0.702f, 0.631f, 0.506f), MockText = new Color(0.937f, 0.886f, 0.769f);
         static readonly Color MockHairline = new Color(0.29f, 0.22f, 0.14f);
-        const float Slot = 48f, Small = 40f, InfoIcon = 30f, TopRow = 32f, TopPad = 8f, TitleH = 30f;   // Fire's order = button row, then title, then tabs   // 1.0.171: the info icons sit in crafting's footer at 30   // 1.0.167: the stat boxes a little smaller, the info icons larger
+        const float Slot = 48f, Small = 40f, InfoIcon = 30f, TopRow = 32f, TopPad = 8f, TitleH = 30f;   // button row, then title, then tabs; the info icons sit in crafting's footer at 30
 
         static readonly List<CanvasGroup> s_hidden = new List<CanvasGroup>();
         static readonly List<GameObject> s_ours = new List<GameObject>();
@@ -48,8 +48,8 @@ namespace VerdantsAscent.Managers
             if (!want) { if (s_active && !UnifiedScreen.PanelsMode) Restore(); return; }
             if (!s_active) Build(gui, character);
             Mirror(gui);
-            // 1.0.225 (Fire, r167_vanilla_info_panel: vanilla's info panel - texts, trophies, the variant squares, PvP - showed at the top
-            // centre): hidden once at build, something put its CanvasGroup back; it is now held hidden every frame while Panels shows
+            // Vanilla's info panel (texts, trophies, the variant squares, PvP) is held hidden every frame while Panels shows: something puts
+            // its CanvasGroup back after a one-time hide
             if (InfoMoved && gui.m_info != null)
             {
                 var cg = gui.m_info.GetComponent<CanvasGroup>() ?? gui.m_info.gameObject.AddComponent<CanvasGroup>();
@@ -72,11 +72,8 @@ namespace VerdantsAscent.Managers
             // 1 armour + weight
             if (gui.m_armor != null && gui.m_weight != null)
             {
-                // 1.0.170 (mock v4): plain labels in the GRID panel's footer, "Armor 73.75" bottom-left, "Weight 142 / 300"
-                // bottom-right of InventoryGui.m_player; the two stat boxes are gone.
-                // Under the GRID itself (m_playerGrid), not m_player's bottom
-                // 1.0.180 (shot 0886e386: still drawn over the grid's 6th row; the grid's own transform is a scroll view taller than its
-                // cells): OFF the grid entirely. In the PLAYER panel, either side of the character's head: Armor LEFT, Weight RIGHT.
+                // Plain labels, no stat boxes: "Armor 73.75" and "Weight 142 / 300" sit OFF the grid (its transform is a scroll view taller
+                // than its cells), in the PLAYER panel either side of the character's head: Armor LEFT, Weight RIGHT.
                 s_armorText = MakeFooter(ArmorName, anchor, true, font);
                 s_weightText = MakeFooter(WeightName, anchor, false, font);
                 s_playerVitals = MakeVitals(s_weightText, "PlayerVital");   // 1.0.313
@@ -88,7 +85,7 @@ namespace VerdantsAscent.Managers
 
             // 3 header
             {
-                // 1.0.170 (mock v4): the name centred at the TOP of the preview plate, full size, Gold serif, no box
+                // The name centred at the TOP of the preview plate, full size, Gold serif, no box
                 var go = new GameObject(HeaderName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
                 go.GetComponent<LayoutElement>().ignoreLayout = true;
                 var prt = (RectTransform)go.transform; prt.SetParent(character, false); prt.SetAsLastSibling();   // The panel's top band, above the preview
@@ -180,8 +177,7 @@ namespace VerdantsAscent.Managers
                 // from the start screen) is only used while it is still alive - a destroyed one falls back to the red ×.
                 var cellImg = b.GetComponent<Image>();
                 if (cellImg != null && cellImg.sprite == null) cellImg.color = new Color(0.227f, 0.165f, 0.071f, 1f);   // FiresTokens.SlotFace #3A2A12
-                // 1.0.290 (non-unified round, shots 20261021_0120_nonunified/3,4: "trashcan is still white; when clicked it faintly
-                // shows"): the cell HAS a sprite but keeps MakeButton's white colour - with Unified ON Core's kit skin tints it like every slot,
+                // The cell HAS a sprite but keeps MakeButton's white colour - with Unified ON Core's kit skin tints it like every slot,
                 // with it OFF nothing does, so the white face covered the icon. TrashLook gives it the Tools pouch cell's look (UnifiedScreen.
                 // ApplyLook, what every slot face uses) on each enable, ONLY while the override is OFF - Unified is left exactly as it is.
                 b.gameObject.AddComponent<TrashLook>();
@@ -207,7 +203,7 @@ namespace VerdantsAscent.Managers
         static Image s_pvpCheck;
         static int s_recipeCount = -1;
 
-        // ── 1.0.313: ONE
+        // ── ONE
         // implementation for both panels - three clones of the Weight label stacked under it (22 px apart), "HP" red, "Stamina" yellow,
         // "Eitr" purple, label muted like Armor / Weight; a pool with no max (e.g. 0 eitr) shows nothing. CompanionPanel uses the same two. ──
         internal static TMP_Text[] MakeVitals(TMP_Text weightText, string namePrefix)
@@ -470,7 +466,7 @@ namespace VerdantsAscent.Managers
         static Transform s_statsGrid;
         static float s_nextStatsCheck;
 
-        /// <summary>1.0.180: Armor / Weight must never overlap the inventory grid's cells. Checked twice a second; a hit is
+        /// <summary>Armor / Weight must never overlap the inventory grid's cells. Checked twice a second; a hit is
         /// logged as a warning with both rects, once per layout.</summary>
         static void CheckStatsOffGrid()
         {
@@ -613,7 +609,7 @@ namespace VerdantsAscent.Managers
             s_hidden.Add(cg);
         }
 
-        /// <summary>1.0.170: the old screen's mirrors died with it; the next screen builds its own (no CanvasGroup restore: those objects are gone).</summary>
+        /// <summary>The old screen's mirrors died with it; the next screen builds its own (no CanvasGroup restore: those objects are gone).</summary>
         internal static void ResetForNewGui()
         {
             s_hidden.Clear(); s_ours.Clear();

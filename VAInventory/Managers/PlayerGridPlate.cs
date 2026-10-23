@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // (1.0.85), the main inventory grid built like the character panel: "a dark background with a slightly smaller lighter
+    // The main inventory grid built like the character panel: "a dark background with a slightly smaller lighter
     // background inside of that, with a little padding around all sides, and then a little padding inside of that lighter background
     // is our inventory grid squares." Three layers behind the vanilla cells, measured from the cells outward so nothing crosses a
     // frame edge:
@@ -13,8 +13,8 @@ namespace VerdantsAscent.Managers
     //      exactly as the panel itself is layered. It sits Pad inside the frame.
     //   3. The vanilla cells, Pad inside the inner plate, untouched (the same element and tint as the panel's backpack/Misc cells).
     // Pad is the panel's own inset (UnifiedScreen.UnderlayInset, 6). The grid panel's vanilla Bkg and Darken are hidden while the
-    // Unified layout is up and put back when it is left. The panel is the PlayerGrid's own parent (1.0.83: a name lookup under
-    // m_inventoryRoot found nothing, so 1.0.72-1.0.81 never ran).
+    // Unified layout is up and put back when it is left. The panel is the PlayerGrid's own parent (a name lookup under
+    // m_inventoryRoot finds nothing).
     internal static class PlayerGridPlate
     {
         const float Pad = 6f;
@@ -38,7 +38,7 @@ namespace VerdantsAscent.Managers
         {
             // Under Panels the grid keeps vanilla's OWN panel (wood Bkg + item_background cells, as with
             // the unified UI off). No plate, nothing hidden; whatever an earlier Tick built is taken down once.
-            // The 1.0.182 Panels early-out is gone; the plate is part of the pre-unified look Fire wants back (as with the unified UI off)
+            // The old Panels early-out is gone; the plate is part of the pre-unified look (as with the unified UI off)
             var gui = InventoryGui.instance;
             var grid = gui != null ? gui.m_playerGrid : null;
             var gridRoot = grid != null ? grid.m_gridRoot : null;
@@ -105,9 +105,9 @@ namespace VerdantsAscent.Managers
             }
 
             // The colour the main grid's empty cells
-            // render at, measured from round 31's shot (docs_vainventory_full_panel 18:45, RGB 45/39/28), opaque, so the panel's
+            // render at (RGB 45/39/28), opaque, so the panel's
             // cells show the same square whatever is under them.
-            GridCellFace = UnifiedScreen.PanelsMode ? (Color?)null : new Color(45f / 255f, 39f / 255f, 28f / 255f, 1f);   // 1.0.184: none under Panels (Core styles the slots)
+            GridCellFace = UnifiedScreen.PanelsMode ? (Color?)null : new Color(45f / 255f, 39f / 255f, 28f / 255f, 1f);   // none under Panels (Core styles the slots)
 
             var signature = new Vector4(cells.xMin, cells.yMin, cells.width, cells.height);
             if (signature != lastSignature)

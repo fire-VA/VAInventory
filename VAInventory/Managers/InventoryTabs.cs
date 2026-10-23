@@ -220,10 +220,9 @@ namespace VerdantsAscent.Managers
             float right = row.InverseTransformPoint(corners[TopRightCorner]).x - FrameInset - EdgeGap;
 
             HubTabsOff(row);   // 1.0.237
-            // 1.0.318 (at the Tinkerer bench: "shows nothing and the ui is broken with overlapping tabs"; log "tab row: 2 tabs
-            // [Craft, FATI]"): the row takes only tabs on the Craft tab's exact anchors + y, and vanilla's Upgrade tab was off that line, so
-            // it kept its own spot ON TOP of Craft - a click on "Craft" hit Upgrade, and the empty Upgrade view looked like a bench with no
-            // recipes. Vanilla's Upgrade and every other active tab button already in the row (FATI's) are put on Craft's line first.
+            // The row takes only tabs on the Craft tab's exact anchors + y; vanilla's Upgrade tab sits off that line and would keep its own
+            // spot ON TOP of Craft (a click on "Craft" would hit Upgrade, whose empty view looks like a bench with no recipes). Vanilla's
+            // Upgrade and every other active tab button already in the row (FATI's) are put on Craft's line first.
             foreach (Transform child in row)
             {
                 if (!child.gameObject.activeSelf || !(child is RectTransform t) || t == craft || t.GetComponent<Button>() == null) continue;
@@ -368,9 +367,8 @@ namespace VerdantsAscent.Managers
             if (gui == null || tab == null) return;
 
             // A LAUNCHER tab hands off to the owning mod and touches nothing here: vanilla's recipe list
-            // stays as it was, no view is built, and the tab row stays clickable. Fire: "these buttons are
-            // supposed to open up the actual ui they are attached to, not clamp it to the size of the
-            // crafting menue".
+            // stays as it was, no view is built, and the tab row stays clickable: these buttons open the owning mod's own UI instead of
+            // clamping it to the size of the crafting menu.
             if (tab.Open != null)
             {
                 HideAll();

@@ -24,7 +24,7 @@ namespace VerdantsAscent.Managers
             try
             {
                 var candidates = new List<(Sprite sprite, string path, int score)>();
-                // /Fire: the trash can is the delete button on each WORLD in the world list, so the world-list element PREFAB (an asset,
+                // The trash can is the delete button on each WORLD in the world list, so the world-list element PREFAB (an asset,
                 // not under FejdStartup's children) and the world-list panel are searched first, at the highest score
                 var sources = new List<(Image img, int bonus)>();
                 if (__instance.m_worldListElement != null) foreach (var i in __instance.m_worldListElement.GetComponentsInChildren<Image>(true)) sources.Add((i, 20));

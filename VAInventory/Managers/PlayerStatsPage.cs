@@ -96,8 +96,7 @@ namespace VerdantsAscent.Managers
         // PlayerStatsPage.OpenForCompanion() -> FiresShell.Open("vainv.player.stats", "companion").
         Humanoid _companion;
         internal static bool Registered => s_handle != null;
-        // 1.0.291 (Unified ON: the hub Companions > Stats "opens the companion inventory and our inventory, no stat screen,
-        // and closes our hub"): VAInventoryApi.OpenCompanionStats(Humanoid) hands the companion here and opens THIS page on it - no inventory.
+        // VAInventoryApi.OpenCompanionStats(Humanoid) hands the companion here and opens THIS page on it - no inventory.
         static Humanoid s_pendingCompanion;
         internal static bool OpenFor(Humanoid companion)
         {
@@ -122,7 +121,7 @@ namespace VerdantsAscent.Managers
         public override void OnShow(string subView)
         {
             _shown = true; _refreshN = 0;   // 1.0.261
-            _companion = string.Equals(subView, "companion", StringComparison.OrdinalIgnoreCase) ? (s_pendingCompanion != null ? s_pendingCompanion : CompanionStats.Target()) : null;   // 1.0.291: a companion handed in by OpenCompanionStats first
+            _companion = string.Equals(subView, "companion", StringComparison.OrdinalIgnoreCase) ? (s_pendingCompanion != null ? s_pendingCompanion : CompanionStats.Target()) : null;   // a companion handed in by OpenCompanionStats first
             s_pendingCompanion = null;
             var p = Player.m_localPlayer;
             if (_preview == null && _sink != null) { _preview = new PlayerPreview(); _preview.Initialize(_left, _sink); }
@@ -264,7 +263,7 @@ namespace VerdantsAscent.Managers
             y = -s.Root.anchoredPosition.y + s.Y + 14f;
 
             _rightBody.sizeDelta = new Vector2(0f, y);
-            // 1.0.261 (HOWTO limits row 155 proof): the first 10 refreshes of every show log their live row count - an empty flash = 0 rows
+            // The first 10 refreshes of every show log their live row count - an empty flash = 0 rows
             if (_refreshN < 10) { _refreshN++; int rows = 0; foreach (Transform sec in _rightBody) if (sec.gameObject.activeInHierarchy) rows += sec.GetComponentsInChildren<TMPro.TMP_Text>(false).Length; EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] Player > Stats rows {rows} (refresh #{_refreshN}, live children {_rightBody.childCount})"); }
             int sig = (int)y;
             if (sig != _lastSig) { _lastSig = sig; EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] Player > Stats refreshed: {p.GetPlayerName()}, HP {F(p.GetMaxHealth())} (base {F(p.m_baseHP)} + food {F(fH)}), armor {F(p.GetBodyArmor())}, {(ses != null ? ses.Count : 0)} effect(s)"); }
@@ -284,7 +283,7 @@ namespace VerdantsAscent.Managers
             return -s.Root.anchoredPosition.y + s.Y + 14f;
         }
 
-        // ---- companion view (1.0.276, V3) ------------------------------------------------------------------------------------------
+        // ---- companion view ------------------------------------------------------------------------------------------------------
         void RefreshCompanion()
         {
             var c = _companion;
@@ -626,7 +625,7 @@ namespace VerdantsAscent.Managers
             if (!s_floLooked)
             {
                 s_floLooked = true;
-                var api = Type.GetType("FiresLootOverhaul.Api.FloApi, FiresLootOverhaul", false) ?? Type.GetType("FiresLootOverhaul.FloApi, FiresLootOverhaul", false);   // 1.0.277: [fgn]'s 0.1.28 name first, the 0.1.27 one as fallback
+                var api = Type.GetType("FiresLootOverhaul.Api.FloApi, FiresLootOverhaul", false) ?? Type.GetType("FiresLootOverhaul.FloApi, FiresLootOverhaul", false);   // the current FLO name first, the older one as fallback
                 s_floRarity = api?.GetMethod("GetRarity", new[] { typeof(ItemDrop.ItemData) });
                 s_floColor = api?.GetMethod("GetRarityColor", new[] { typeof(ItemDrop.ItemData) });
                 s_floName = api?.GetMethod("GetDisplayName", new[] { typeof(ItemDrop.ItemData) });
@@ -681,7 +680,7 @@ namespace VerdantsAscent.Managers
             exit.callback.AddListener(_ => HideTip());
             et.triggers.Add(enter); et.triggers.Add(exit);
         }
-        // 1.0.267 (the lead: find WHY the hover raised no PointerEnter before any workaround): once per show, the EventSystem's full raycast
+        // Diagnostic for a hover that raises no PointerEnter: once per show, the EventSystem's full raycast
         // at the FIRST Equipped row's centre is logged, top hit first, with each hit's path, graphic type and raycastTarget, and whether
         // the row (or a child) is in the list. A blocker shows as an unrelated graphic above the row; an empty list = no raycaster sees it.
         internal void RaycastProbe()
@@ -741,7 +740,7 @@ namespace VerdantsAscent.Managers
             TipProof(target, title);
         }
 
-        // 1.0.271 (the 1.0.268 probe: the row IS the top raycast hit, so nothing covers it): the first 3 tooltips per session log where they
+        // Diagnostic for a missing tooltip: the first 3 tooltips per session log where they
         // went - screen rect, active, the canvas that draws them, and every clipping ancestor (RectMask2D / Mask / ScrollRect viewport)
         // with whether the tooltip lies inside it. No line on hover = PointerEnter never reached the row's EventTrigger.
         static int s_tipLogs;
