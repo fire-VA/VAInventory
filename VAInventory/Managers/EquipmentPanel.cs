@@ -92,7 +92,7 @@
             // separate copies, so they get the same tint here - from the cell's OWN item. 1.0.118 copied the hidden vanilla
             // element at the same index instead, and a backpack-storage cell's index is a different vanilla cell: Fire 10-13 saw an
             // empty Explorer Bag cell filled olive (a Rare item's yellow at 22 %) that way. Colours = FRC's RarityInfo.
-            const string RarityTintName = "frc_rarity_tint", RarityKey = "frc_rarity";
+            const string RarityTintName = "flo_rarity_tint", RarityKey = "flo_rarity";   // 1.0.135: FiresRPGCrafting renamed to Fires Loot Overhaul (FLO)
             const float RarityTintAlpha = 0.22f;
             static readonly Color[] RarityColours = BuildRarityColours();
             static readonly Dictionary<Image, int> rarityShown = [];
@@ -200,8 +200,7 @@
                 get
                 {
                     int columns = 2;
-                    if (ConfigManager.Instance.configShowFoodSlots.Value) columns++;
-                    if (ConfigManager.Instance.configShowAmmoSlots.Value) columns++;
+                    columns += 2;   // 1.0.260: the food + ammo columns are always in the layout (their cells switch off instead)
                     // FiresRPGClasses' bar column (Slots.InitializeSlots adds it last when that mod is loaded).
                     if (Slots.ClassBarSlotsActive) columns++;
                     // The Torch column, always last (1.0.50).
@@ -521,6 +520,7 @@
                                     break;
                                 case "equiped":
                                     shouldEnable = player != null && player.IsItemEquiped(item);
+                                    EquippedBorder.Ensure(sideOverlay.GetComponent<Image>());   // 1.0.236: border, not fill
                                     break;
                                 case "selected":
                                     shouldEnable = false;
@@ -621,6 +621,7 @@
 
             // Add new grid for equipment panel
             public static InventoryGrid equipmentGrid;
+            internal static int s_rebuiltForUnplaced;   // 1.0.174
 
             // Small clickable "cycle currency" badge in the top-left of the coin pouch slot.
             // Plain Unity UI (VAInventory doesn't reference FUC's helpers). The icon is a
@@ -842,6 +843,7 @@
                     if (unifiedCell != null) panelInCells++;
                     else if (UnifiedScreen.Enabled && !slot.IsBackpackStorageSlot) panelUnplaced++;
                     GameObject go = UnityEngine.Object.Instantiate(elementPrefab, slotParent);
+                    PanelsLayout.SkinDirty = true;   // 1.0.193: a fresh prefab element (grey vanilla tint) - Core's slot skin re-runs on it this frame
                     HideOverlays(go);
                     var rect = go.GetComponent<RectTransform>();
                     // In Unified the prefab cell owns the geometry, so the element just fills it; Legacy
@@ -919,6 +921,28 @@
                             if (dragItem != null && slot.IsFree)
                             {
                                 var dragInventory = (Inventory)AccessTools.Field(typeof(InventoryGui), "m_dragInventory").GetValue(InventoryGui.instance);
+                                // 1.0.318 (Fire 10-23: "picking the hammer from the slot is refused if our grid is full regardless of if we have
+                                // room in the backpack"): an item carried from a bag SPECIAL slot (BagSpecialRail's hidden carry) dropped on a
+                                // free bag / storage cell was refused here (not from the player inventory) and went back to its slot. It moves in
+                                // through vanilla's MoveItemToThis (the same instance, removed from the carry).
+                                if (BagSpecialRail.IsCarry(dragInventory) && slot.ItemFits(dragItem))
+                                {
+                                    int amount = (int)AccessTools.Field(typeof(InventoryGui), "m_dragAmount").GetValue(InventoryGui.instance);
+                                    bool moved = Slots.PlayerInventory.MoveItemToThis(dragInventory, dragItem, amount > 0 ? amount : dragItem.m_stack, pos.x, pos.y);
+                                    PanelLog.LogDebug($"[VAInventory] cell drop from a bag special slot: {dragItem.m_shared.m_name} -> {slot.ID} {pos} {(moved ? "moved" : "REFUSED (back to its slot)")}");
+                                    Slots.ClearCachedItems();
+                                    ClearDragState();
+                                    MarkDirty();
+                                    UpdatePanel();
+                                    return;
+                                }
+                                // 1.0.320: a bag dropped on a bag cell is refused the vanilla way - it STAYS on the cursor, with a message
+                                if (slot.IsBackpackStorageSlot && BackpackBridge.IsBackpack(dragItem))
+                                {
+                                    Player.m_localPlayer?.Message(MessageHud.MessageType.Center, "A bag can't go inside a bag");
+                                    PanelLog.LogDebug($"[VAInventory] drop refused: {dragItem.m_shared.m_name} into bag cell {slot.ID} (a bag never goes into a bag; it stays on the cursor)");
+                                    return;
+                                }
                                 if (dragInventory != Slots.PlayerInventory || !slot.ItemFits(dragItem))
                                 {
                                     ClearDragState();
@@ -951,6 +975,41 @@
                                 return;
                             }
 
+                            // 1.0.175 ([lead] R-NIGHT5 '3 swap: item 1 at 0,15, item 2 at 1,15', no inventory change): a held item dropped on an
+                            // OCCUPIED storage cell (misc, pouch, ...) went to vanilla's OnSelectedItem and was swallowed - the item stayed on the
+                            // cursor, nothing swapped. A whole held stack on a different item swaps here, in place (same ItemData, no clone), when each
+                            // fits the other's place and neither place is worn (worn slots equip; those keep vanilla's path). Same-name stacks still
+                            // merge through vanilla.
+                            if (dragItem != null && itemAt != null && itemAt != dragItem && !WornOnDrop(slot, dragItem)
+                                && !(ZInput.GetKey(KeyCode.LeftShift) || ZInput.GetKey(KeyCode.RightShift) || ZInput.GetKey(KeyCode.LeftControl) || ZInput.GetKey(KeyCode.RightControl)))
+                            {
+                                var dragInventory = (Inventory)AccessTools.Field(typeof(InventoryGui), "m_dragInventory").GetValue(InventoryGui.instance);
+                                int dragAmount = (int)AccessTools.Field(typeof(InventoryGui), "m_dragAmount").GetValue(InventoryGui.instance);
+                                var fromPos = dragItem.m_gridPos;
+                                var fromSlot = Slots.GetSlotInGrid(fromPos);
+                                bool merge = itemAt.m_shared.m_name == dragItem.m_shared.m_name && itemAt.m_shared.m_maxStackSize > 1;
+                                string why = dragInventory != Slots.PlayerInventory ? "held from another inventory"
+                                    : dragAmount != dragItem.m_stack ? "a split stack"
+                                    : merge ? "same stackable item (vanilla merges)"
+                                    : !slot.ItemFits(dragItem) ? "the held item does not fit this cell"
+                                    : fromSlot != null && (!fromSlot.ItemFits(itemAt) || WornOnDrop(fromSlot, itemAt)) ? "the cell's item does not fit where the held one came from"
+                                    : Player.m_localPlayer != null && (Player.m_localPlayer.IsItemEquiped(itemAt) || Player.m_localPlayer.IsItemEquiped(dragItem)) ? "an equipped item"
+                                    : null;
+                                if (why == null)
+                                {
+                                    PanelLog.LogDebug($"[VAInventory] cell swap: {dragItem.m_shared.m_name} {fromPos} <-> {itemAt.m_shared.m_name} {slot.ID} {pos}");
+                                    itemAt.m_gridPos = fromPos;
+                                    dragItem.m_gridPos = pos;
+                                    Slots.ClearCachedItems();
+                                    Slots.PlayerInventory.m_onChanged?.Invoke();
+                                    ClearDragState();
+                                    MarkDirty();
+                                    UpdatePanel();
+                                    return;
+                                }
+                                PanelLog.LogDebug($"[VAInventory] cell swap: not here ({why}), vanilla handles {dragItem.m_shared.m_name} -> {slot.ID} {pos}");
+                            }
+
                             InventoryGrid.Modifier modifier = InventoryGrid.Modifier.Select;
                             if (ZInput.GetKey(KeyCode.LeftShift) || ZInput.GetKey(KeyCode.RightShift))
                                 modifier = InventoryGrid.Modifier.Split;
@@ -976,6 +1035,11 @@
                 // Fire 10-06 (blank panel after a drag): how many slots found their Unified cell this rebuild.
                 if (UnifiedScreen.Enabled)
                     PanelLog.LogDebug($"[VAInventory] panel refresh: {extraSlots.Length} slot(s), {panelInCells} placed in cells, {panelUnplaced} unplaced");
+                // 1.0.174 ([lead] R-NIGHT3 '3 swap ... K = 15 unplaced'): a bag (the Wizard Staff) moved between cells mid-drag added its 15 storage
+                // slots, but the open panel had no bag section for them. Unplaced slots after a refresh = the cell map is rebuilt once, next
+                // frame (UnifiedScreen.Tick), bag sections included, and the panel refreshes into it. Once per new unplaced count, so it can't loop.
+                if (UnifiedScreen.Enabled && panelUnplaced > 0 && panelUnplaced != s_rebuiltForUnplaced) { s_rebuiltForUnplaced = panelUnplaced; UnifiedScreen.RequestCellRebuild(); }
+                else if (panelUnplaced == 0) s_rebuiltForUnplaced = 0;
                 if (UnifiedScreen.Enabled && UnifiedScreen.ConsumeCellDump())
                     DumpCells(unplacedIds);
             }
@@ -1380,9 +1444,29 @@
                 SetSlotColor(button, unfit);
             }
 
+            // 1.0.189 (Fire: open #1 brown, every later open GREY): under Panels, Core's CraftingSkin Role.Slot styles the panel's elements
+            // (brown face, NEUTRAL white button tint). This method then rewrote normalColor every panel update with the cached vanilla grey
+            // (0.132 @ 0.502), which multiplied the face to grey. Under Panels: the button's own (Core) colours stay; only the red "doesn't
+            // fit" tint is laid over while dragging and the Core colours come back after.
+            static readonly Dictionary<Button, ColorBlock> s_coreColours = new Dictionary<Button, ColorBlock>();
+
             internal static void SetSlotColor(Button button, bool useUnfitColor)
             {
                 if (!button) return;
+                if (UnifiedScreen.PanelsMode)
+                {
+                    if (useUnfitColor)
+                    {
+                        if (!s_coreColours.ContainsKey(button)) s_coreColours[button] = button.colors;
+                        var core = s_coreColours[button];
+                        var red = core;
+                        red.normalColor = core.normalColor * new Color(1f, 0.6f, 0.6f, 1f);
+                        red.highlightedColor = core.highlightedColor * new Color(1f, 0.6f, 0.6f, 1f);
+                        if (button.colors.normalColor != red.normalColor) button.colors = red;
+                    }
+                    else if (s_coreColours.TryGetValue(button, out var back)) { button.colors = back; s_coreColours.Remove(button); }
+                    return;
+                }
 
                 if (normalColor == Color.clear) normalColor = button.colors.normalColor;
                 if (highlightedColor == Color.clear) highlightedColor = button.colors.highlightedColor;
@@ -1485,6 +1569,7 @@
                         icon.color = Color.clear;
                         icon.enabled = true;
                     }
+                    RarityTint(icon, slot, item);   // 1.0.143 (Fire: no rarity backgrounds in the panel): the 1.0.119 tint was only on the side-icon path
                 }
 
                 // Amount text
@@ -1844,6 +1929,11 @@
 
             public static void RefreshSlotsAndPanel()
             {
+                // 1.0.306 ([lead], Fire's proof-round log: "TargetException: Non-static field requires a target" at the main menu): the
+                // 1.0.305 Fires UI migration writes Layout / EquipmentPanelRows / ExtraRows / the backgrounds at the MAIN MENU, and each of
+                // their SettingChanged handlers lands here with no InventoryGui and no player - GetValue(null) on the instance field threw.
+                // Outside a world there is nothing to refresh: the slots and the panel are built from the cfg on spawn.
+                if (InventoryGui.instance == null || Player.m_localPlayer == null) return;
                 // Use reflection to check if a container is open (prevents migration on chest transfer)
                 var fi_currentContainer = AccessTools.Field(typeof(InventoryGui), "m_currentContainer");
                 var currentContainer = fi_currentContainer?.GetValue(InventoryGui.instance);
@@ -1910,6 +2000,9 @@
             /// </summary>
             private static void MigrateEquipmentPanelItems()
             {
+                // 1.0.146 (R_INV run 2: on a cfg change this pass ran AFTER Relayout and unequipped the worn items it "collected" from
+                // hidden cells): once Relayout carries the items by address, this legacy pass stands down
+                if (Relayout.Carries(Slots.CurrentPlayer)) { Debug.Log("[VAInventory] legacy panel migrate skipped: relayout carried the items (worn state kept)"); return; }
                 EquipmentPanel.IsMigrating = true;
                 var inventory = Slots.PlayerInventory;
                 if (inventory == null) { EquipmentPanel.IsMigrating = false; return; }
@@ -1927,7 +2020,7 @@
 
                 bool showFood = ConfigManager.Instance.configShowFoodSlots.Value;
                 bool showAmmo = ConfigManager.Instance.configShowAmmoSlots.Value;
-                int numColumns =2 + (showFood ?1 :0) + (showAmmo ?1 :0);
+                int numColumns = 4;   // 1.0.260: food + ammo columns always present (cells switch off)
 
                 // Gather all new active slots
                 var allSlots = Slots.AllSlots()

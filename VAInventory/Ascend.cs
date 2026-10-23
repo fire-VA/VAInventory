@@ -26,7 +26,7 @@ namespace VerdantsAscent
 
         public const string PluginGUID = "com.Fire.VAInventory";
         public const string PluginName = "VAInventory";
-        public const string PluginVersion = "1.0.134";
+        public const string PluginVersion = "1.0.320";
         public const string SyncMinimumVersion = "1.0.116";
 
         public static AssetBundle assetBundle;
@@ -78,7 +78,7 @@ namespace VerdantsAscent
             // The Torch slot's key; idle without a local player, so harmless on a server.
             RootObject.AddComponent<TorchSlotHotkey>();
 
-            // Shared help panel (FiresCore) — SOFT dependency; no-ops when Core is absent.
+            // Shared help panel (FiresCore) Ã¢â‚¬â€ SOFT dependency; no-ops when Core is absent.
             Utilities.VaInventoryHelpContent.TryRegister();
 
             if (ZNet.instance && ZNet.instance.IsDedicated())
@@ -93,7 +93,13 @@ namespace VerdantsAscent
         {
             if (Slots.ClassBarsAvailable() && !Slots.ClassBarSlotsActive)
                 Slots.InitializeSlots();
+            // 1.0.248: the F1 hub's Player > Stats page (Core 0.2.606+; an older Core = logged, skipped). Clients only.
+            if (!SystemInfo.graphicsDeviceType.Equals(UnityEngine.Rendering.GraphicsDeviceType.Null))
+                try { RegisterStatsPage(); } catch (Exception e) { Debug.LogWarning("[VAInventory] Player > Stats page skipped: " + e.GetType().Name + ": " + e.Message); }
         }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private static void RegisterStatsPage() => Managers.PlayerStatsPage.Register();
 
         private IEnumerator DelayedDedicatedServerInit()
         {
@@ -116,7 +122,7 @@ namespace VerdantsAscent
             // Force immediate panel rebuild now that slots are ready
             EquipmentPanel.UpdatePanel();
 
-            Debug.Log($"{PluginName}: Initialized — Ready to cause Trouble");
+            Debug.Log($"{PluginName}: Initialized Ã¢â‚¬â€ Ready to cause Trouble");
 
             StartCoroutine(WaitForZNetReady());
         }
@@ -196,7 +202,7 @@ namespace VerdantsAscent
 
                 if (assetBundle == null)
                 {
-                    Debug.Log($"{PluginName}: No asset bundle found — this is fine if no custom assets yet.");
+                    Debug.Log($"{PluginName}: No asset bundle found Ã¢â‚¬â€ this is fine if no custom assets yet.");
                     return;
                 }
 
@@ -284,7 +290,7 @@ namespace VerdantsAscent
             VAPieceManager.AddPiecesToHammer();
             VARecipeManager.UpdatePieceRequirements();
 
-            Debug.Log($"{PluginName}: Systems fully initialized — ready!");
+            Debug.Log($"{PluginName}: Systems fully initialized Ã¢â‚¬â€ ready!");
 
             // mark and notify subscribers that systems are ready
             SystemsReadyFlag = true;

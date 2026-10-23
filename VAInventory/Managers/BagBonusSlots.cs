@@ -16,10 +16,34 @@ namespace VerdantsAscent.Managers
         private static string s_lastLine;
         private static readonly BepInEx.Logging.ManualLogSource Log = BepInEx.Logging.Logger.CreateLogSource("VAInventory.Panel");
 
+        private static Inventory s_watched;
+        private static bool s_dirty = true;
+        private static int s_recomputed, s_cached;
+        private static float s_prevCut;
+        private static float s_nextForce, s_nextStat;
+        private static void MarkDirty() => s_dirty = true;
+
+        // 1.0.140 ([fgn]/R6: the per-frame BagsKey reflection call cost as much as the walk it saved): worn-bag changes arrive as
+        // BackpackBridge's equip/unequip events (subscribed once) and mark the cache dirty; HasBonus (a reflection read) once per frame.
+        private static bool s_eventsHooked;
+        private static int s_bonusFrame = -1;
+        private static bool s_bonus;
+        private static bool Bonus { get { if (s_bonusFrame != Time.frameCount) { s_bonusFrame = Time.frameCount; s_bonus = BackpackBridge.HasBonus; } return s_bonus; } }
+        private static void OnBagEvent(Player p, ItemDrop.ItemData bag) => s_dirty = true;
+
         private static void Refresh(Player player)
         {
+            // 1.0.139 ([fgn] R5 perf: the bag walk ran every frame): recomputed only when the player inventory changed (m_onChanged),
+            // the worn bags changed, or 1 s passed; otherwise the cached cut/speed stand. Debug every 30 s: "recomputed N, cached M".
             if (Time.frameCount == s_frame) return;
             s_frame = Time.frameCount;
+            var inv = player != null ? player.GetInventory() : null;
+            if (inv != null && !ReferenceEquals(inv, s_watched)) { if (s_watched != null) s_watched.m_onChanged -= MarkDirty; s_watched = inv; inv.m_onChanged += MarkDirty; s_dirty = true; }
+            if (!s_eventsHooked) { s_eventsHooked = true; BackpackBridge.OnBackpackEquipped += OnBagEvent; BackpackBridge.OnBackpackUnequipped += OnBagEvent; Log.LogDebug("[VAInventory] bag weight cache: watching VABackpacks equip/unequip events"); }
+            float t = Time.unscaledTime;
+            if (t >= s_nextStat) { if (s_nextStat > 0f) Log.LogDebug($"[VAInventory] bag weight cache: last 30 s recomputed {s_recomputed}, cached {s_cached}"); s_nextStat = t + 30f; s_recomputed = s_cached = 0; }
+            if (!s_dirty && t < s_nextForce) { s_cached++; return; }
+            s_dirty = false; s_nextForce = t + 1f; s_recomputed++;
             s_weightCut = 0f; s_speed = 0f;
             if (player == null || !BackpackBridge.IsAvailable || !BackpackBridge.SlotStorageActive || !BackpackBridge.HasBonus) return;
             var bags = BackpackBridge.GetEquippedBackpacks(player);
@@ -44,6 +68,7 @@ namespace VerdantsAscent.Managers
                 if (items > 0) s_speed += b[2];
                 parts.Add($"{prefab}: {items} item(s) {weight:0.#} kg x{factor:0.##}, speed {(items > 0 ? b[2] : 0f):+0.###;-0.###;0}");
             }
+            if (Mathf.Abs(s_weightCut - s_prevCut) > 0.01f) { Log.LogDebug($"[VAInventory] bag weight cache: weight cut {s_prevCut:0.##} -> {s_weightCut:0.##} kg (recomputed after a change; cached until the next)"); s_prevCut = s_weightCut; }
             string line = string.Join("; ", parts.ToArray());
             if (line != s_lastLine) { s_lastLine = line; if (line.Length > 0) Log.LogDebug("[VAInventory] bag bonus: " + line); }
         }
@@ -53,7 +78,7 @@ namespace VerdantsAscent.Managers
         {
             private static void Postfix(Inventory __instance, ref float __result)
             {
-                if (!BackpackBridge.HasBonus || __instance == null || __instance != Slots.PlayerInventory) return;
+                if (!Bonus || __instance == null || __instance != Slots.PlayerInventory) return;
                 Refresh(Player.m_localPlayer);
                 if (s_weightCut > 0f) __result = Mathf.Max(0f, __result - s_weightCut);
             }
@@ -64,7 +89,7 @@ namespace VerdantsAscent.Managers
         {
             private static void Postfix(Player __instance, ref float __result)
             {
-                if (!BackpackBridge.HasBonus || __instance == null || __instance != Player.m_localPlayer) return;
+                if (!Bonus || __instance == null || __instance != Player.m_localPlayer) return;
                 Refresh(__instance);
                 __result += s_speed;
             }

@@ -216,6 +216,25 @@ namespace VerdantsAscent
             /// <summary>Set by the panel's drop-to-equip: the item already sits in the slot the player chose.</summary>
             internal static bool KeepDroppedSlot;
 
+            // frees cell s for 'incoming': true when s is free (or holds incoming), or its occupant is a worn item that does not fit s and
+            // could be moved to a cell of its own role (freeing that one the same way, up to 4 deep)
+            internal static bool EvictOffRole(Humanoid h, Slots.Slot s, ItemDrop.ItemData incoming, int depth)
+            {
+                var occ = s.Item;
+                if (occ == null || occ == incoming) return true;
+                if (depth > 4 || !h.IsItemEquiped(occ) || s.ItemFits(occ)) return false;
+                foreach (var own in Slots.GetEquipmentSlots().Where(o => o != null && o != s && !o.IsMiscSlot && !o.IsTeleportBypassSlot && !o.IsBackpackStorageSlot && o.ItemFits(occ)).ToList())
+                {
+                    if (!EvictOffRole(h, own, occ, depth + 1)) continue;
+                    Vector2i was = occ.m_gridPos;
+                    occ.m_gridPos = own.GridPosition;
+                    Slots.ClearCachedItems();
+                    Debug.Log($"[VAInventory] remap on equip: worn {occ.m_shared.m_name} was off its role on {s.Name} ({was.x},{was.y}); moved to its own cell {own.Name} ({own.GridPosition.x},{own.GridPosition.y}), still worn");
+                    return true;
+                }
+                return false;
+            }
+
             private static void Postfix(Humanoid __instance, ItemDrop.ItemData item, bool __result)
             {
                 if (KeepDroppedSlot || !__result ||!Slots.IsValidPlayer(__instance) || item == null) return;
@@ -232,9 +251,35 @@ namespace VerdantsAscent
                 var slot = Slots.GetEquipmentSlots()
                     .FirstOrDefault(s => s != null
                                       && !s.IsMiscSlot
+                                      && !s.IsTeleportBypassSlot   // 1.0.146 (R_INV run 2: worn legs auto-moved to TeleportBypass - it takes anything)
                                       && !s.IsBackpackStorageSlot
                                       && s.ItemFits(item)
                                       && (s.IsFree || s.Item == item));
+                // 1.0.143 (Fire 10-14: "equipping over a filled slot left the old one sitting in the panel"): when the only fitting cells
+                // are held by items that are NOT worn (the one just replaced, or one left there), the first such item moves to a free
+                // main-grid cell and the new item takes its cell; local player only, logged
+                if (slot == null && __instance == Player.m_localPlayer)
+                {
+                    var held = Slots.GetEquipmentSlots().FirstOrDefault(s => s != null && !s.IsMiscSlot && !s.IsTeleportBypassSlot && !s.IsBackpackStorageSlot && s.ItemFits(item)
+                                                                            && s.Item != null && s.Item != item && !__instance.IsItemEquiped(s.Item));
+                    if (held != null && Slots.TryMakeFreeSpaceInPlayerInventory(true, out Vector2i free))
+                    {
+                        var old = held.Item;
+                        Vector2i was = old.m_gridPos;
+                        old.m_gridPos = free;
+                        Slots.ClearCachedItems();
+                        Debug.Log($"[VAInventory] replace: {old.m_shared.m_name} (not worn) moved from {held.Name} ({was.x},{was.y}) to the grid ({free.x},{free.y}) for {item.m_shared.m_name}");
+                        slot = held;
+                    }
+                }
+                // 1.0.147 (R_INV run 3: the chest re-equipped into the GRID because its Chest cell held the worn legs and its Helmet cell
+                // held nothing it could use - a chain of off-role items): with "Remap misplaced slot items" ON, a fitting cell held by a WORN item
+                // that does not fit that cell sends that item to its own cell first (chained, up to 4 deep), then this item takes the cell
+                if (slot == null && __instance == Player.m_localPlayer)   // 1.0.151: a fix, always on (Fire's rule)
+                {
+                    foreach (var s in Slots.GetEquipmentSlots().Where(s => s != null && !s.IsMiscSlot && !s.IsTeleportBypassSlot && !s.IsBackpackStorageSlot && s.ItemFits(item)).ToList())
+                        if (EvictOffRole(__instance, s, item, 0)) { slot = s; break; }
+                }
                 if (slot != null)
                 {
                     list.Remove(item);
@@ -265,7 +310,28 @@ namespace VerdantsAscent
              if (suppressUnequipReturnToInventory) return;
              if (!__state) return;
              if (!Slots.IsValidPlayer(__instance) || item == null) return;
-             if (!Slots.IsItemInSlot(item)) return;
+             if (!Slots.IsItemInSlot(item))
+             {
+                 // 1.0.143: an unequipped item left on an equipment cell it does not fit (a shifted layout) goes to the main grid too
+                 var at = Slots.GetSlotInGrid(item.m_gridPos);
+                 if (__instance == Player.m_localPlayer && at != null && at.IsEquipmentSlot && !at.ItemFits(item) && Slots.TryMakeFreeSpaceInPlayerInventory(true, out Vector2i spot))
+                 {
+                     Vector2i was = item.m_gridPos;
+                     item.m_gridPos = spot;
+                     Slots.ClearCachedItems();
+                     __instance.GetInventory().m_onChanged?.Invoke();
+                     Debug.Log($"[VAInventory] replace: unequipped {item.m_shared.m_name} was on the {at.Name} cell ({was.x},{was.y}), which does not fit it; moved to the grid ({spot.x},{spot.y})");
+                     EquipmentPanel.RefreshPanelOnly();
+                 }
+                 return;
+             }
+             // 1.0.147 (R_INV run 3: the worn Eye on the orphan cell (0,10), between the main grid and the equipment rows, was "returned
+             // from slot" to (7,7) on unequip): with "Remap misplaced slot items" ON, an item on a cell that is no slot at all stays put
+             if (__instance == Player.m_localPlayer && Slots.GetSlotInGrid(item.m_gridPos) == null)   // 1.0.151: a fix, always on
+             {
+                 Debug.Log($"[VAInventory] unequip: {item.m_shared.m_name} is on ({item.m_gridPos.x},{item.m_gridPos.y}), no slot cell; left in place");
+                 return;
+             }
 
              var inv = __instance.GetInventory();
              var oldPos = item.m_gridPos;
@@ -337,6 +403,7 @@ namespace VerdantsAscent
  {
  if (item != null && !slot.ItemFits(item))
  {
+ if (slot.IsBackpackStorageSlot && BackpackBridge.IsBackpack(item)) { Player.m_localPlayer?.Message(MessageHud.MessageType.Center, "A bag can't go inside a bag"); EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] drop refused: {item.m_shared.m_name} into bag cell {slot.ID} (a bag never goes into a bag; it stays on the cursor)"); }
  return false; // block drop
  }
  }
@@ -495,8 +562,10 @@ namespace VerdantsAscent
         public static bool PassDropItem(Inventory fromInventory, ItemDrop.ItemData item, Vector2i pos)
         {
             // Block if dropping a custom slot item into a container
-            if (fromInventory != Slots.PlayerInventory && Slots.IsGridPositionASlot(item.m_gridPos))
-                return false;
+            // 1.0.319: the old first rule ("block a custom slot item dropped into a container": fromInventory != the player's and
+            // item.m_gridPos on a player slot) read ANOTHER inventory's coordinates as player-slot positions, so companion / chest items in
+            // rows 4+ could not be moved at all. Removed; callers now run this only for drops on the player grid, where the target-slot
+            // fit and the bounds below decide.
             // Block if dropping into a custom slot and item doesn't fit
             var slot = Slots.GetSlotInGrid(pos);
             if (slot != null && !slot.ItemFits(item))
@@ -524,10 +593,17 @@ namespace VerdantsAscent
  public static class InventoryGui_OnSelectedItem_Robust
  {
  [HarmonyPriority(Priority.LowerThanNormal)]
- private static bool Prefix(Vector2i pos)
+ private static bool Prefix(InventoryGrid grid, Vector2i pos)
  {
                 if (fi_dragItem.GetValue(InventoryGui.instance) is not ItemDrop.ItemData dragItem || fi_dragInventory.GetValue(InventoryGui.instance) is not Inventory dragInventory)
                     return true;
+                // 1.0.319 (Fire 10-23, "Both": the companion's big Inventory grid would not take / give items properly): these rules use the
+                // PLAYER grid's slot layout (custom slots from row 4 down), but this prefix ran for EVERY grid's clicks - a drop on the companion
+                // grid (or a chest) at a cell whose coordinates match a player slot was judged by that slot's rule and refused (drag cleared),
+                // and an item from a companion / chest row 4+ counted as "a custom slot item". They now apply only to drops on the player grid,
+                // and the "slot item" rule only to items dragged FROM the player inventory.
+                var gui = InventoryGui.instance;
+                if (grid == null || gui == null || grid != gui.m_playerGrid) return true;
                 bool allowed = InventoryInteraction.PassDropItem(dragInventory, dragItem, pos);
  if (!allowed)
  {

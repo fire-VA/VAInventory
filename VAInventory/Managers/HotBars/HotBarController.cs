@@ -35,6 +35,9 @@ namespace VerdantsAscent.Managers.HotBars
 {
     public static class HotBarController
     {
+        /// <summary>1.0.177: the large map (M) is open; the Tool / Food / Ammo bars hide like vanilla's hotbar.</summary>
+        internal static bool MapOpen => Minimap.instance != null && Minimap.IsOpen();
+
         // ── Bar instantiation ────────────────────────────────────────
 
         /// <summary>
@@ -162,21 +165,79 @@ namespace VerdantsAscent.Managers.HotBars
         [HarmonyPatch(typeof(Hud), "Update")]
         private static class Hud_Update_BarController
         {
+            // 1.0.138 ([fgn] R4 perf: 45 us EVERY frame): the hotkeys still every frame (input must not lag); the bars' Refresh + icons only
+            // when the player's inventory changed (its m_onChanged), the inventory screen opened/closed or the screen size changed, else
+            // at most 4x/s; the placement block (Report/StackFromAmmo/KeepAboveVitals) on the same changes, else at most 2x/s.
+            // Debug once a minute: the inventory the bars watch + how many refreshes/placements ran.
+            private static Inventory s_watched;
+            private static bool s_dirty = true, s_wasOpen;
+            private static int s_screenW, s_screenH;
+            private static float s_nextIcons, s_nextPlace, s_nextLog;
+            private static int s_frames, s_icons, s_places;
+            // 1.0.139 ([fgn]: split the ~250-300 µs refresh): Stopwatch ticks per part, averaged per run in the per-minute line
+            private static long s_tRefresh, s_tIcons, s_tPlace;
+            private static double Us(long ticks, int runs) => runs <= 0 ? 0d : ticks * 1e6 / System.Diagnostics.Stopwatch.Frequency / runs;
+
             private static void Postfix()
             {
                 var player = Player.m_localPlayer;
                 if (player == null) return;
+                var inv = player.GetInventory();
+                if (inv != null && !ReferenceEquals(inv, s_watched))
+                {
+                    if (s_watched != null) s_watched.m_onChanged -= MarkDirty;
+                    s_watched = inv; inv.m_onChanged += MarkDirty; s_dirty = true;
+                    EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] hotbars: watching {player.GetPlayerName()}'s inventory for changes (refresh on change, else 4x/s; placement on change, else 2x/s)");
+                }
+                bool invOpen = InventoryGui.IsVisible() || MapOpen;   // 1.0.177: the large map opening / closing re-runs placement + visibility at once
+                bool layout = invOpen != s_wasOpen || Screen.width != s_screenW || Screen.height != s_screenH;
+                if (layout) { s_wasOpen = invOpen; s_screenW = Screen.width; s_screenH = Screen.height; }
+                float now = Time.unscaledTime;
+                s_frames++;
+                bool doIcons = s_dirty || layout || now >= s_nextIcons;
+                bool doPlace = s_dirty || layout || now >= s_nextPlace;
+                if (now >= s_nextLog)
+                {
+                    if (s_nextLog > 0f) EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] hotbars: last minute {s_frames} frames, {s_icons} refreshes, {s_places} placements; avg µs: Refresh {Us(s_tRefresh, s_icons):0} / UpdateBarIcons {Us(s_tIcons, s_icons):0} / placement {Us(s_tPlace, s_places):0}");
+                    s_nextLog = now + 60f; s_frames = s_icons = s_places = 0; s_tRefresh = s_tIcons = s_tPlace = 0;
+                }
+                if (!doIcons && !doPlace) { UpdateItemUse(); return; }
+                if (doIcons)
+                {
+                    s_nextIcons = now + 0.25f; s_icons++;
+                    // Each bar's IsEnabled() short-circuits when the new
+                    // path is disabled or the bar is configured off, so
+                    // calling Refresh() unconditionally is cheap.
+                    long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+                    ToolHotBar.Refresh();
+                    AmmoHotBar.Refresh();
+                    FoodHotBar.Refresh();
 
-                // Each bar's IsEnabled() short-circuits when the new
-                // path is disabled or the bar is configured off, so
-                // calling Refresh() unconditionally is cheap.
-                ToolHotBar.Refresh();
-                AmmoHotBar.Refresh();
-                FoodHotBar.Refresh();
-
-                UpdateBarIcons(ToolHotBar.GetHotkeyBar(), player);
-                UpdateBarIcons(AmmoHotBar.GetHotkeyBar(), player);
-                UpdateBarIcons(FoodHotBar.GetHotkeyBar(), player);
+                    s_tRefresh += System.Diagnostics.Stopwatch.GetTimestamp() - t0; long t1 = System.Diagnostics.Stopwatch.GetTimestamp();
+                    UpdateBarIcons(ToolHotBar.GetHotkeyBar(), player);
+                    UpdateBarIcons(AmmoHotBar.GetHotkeyBar(), player);
+                    UpdateBarIcons(FoodHotBar.GetHotkeyBar(), player);
+                    // 1.0.169: Core's hotbar kit draws the bars while the Fires UI override is ON (KitHotbars; vanilla look otherwise)
+                    KitHotbars.Paint(ToolHotBar.barName, ToolHotBar.GetHotkeyBar(), Slots.toolHotbarSlots, HotkeyInput.GetToolHotbarKeybindText);
+                    KitHotbars.Paint(AmmoHotBar.barName, AmmoHotBar.GetHotkeyBar(), Slots.GetAmmoSlots(), i => ConfigManager.Instance.GetAmmoHotbarKeybindText(i));
+                    KitHotbars.Paint(FoodHotBar.barName, FoodHotBar.GetHotkeyBar(), Slots.GetFoodSlots(), i => ConfigManager.Instance.GetFoodHotbarKeybindText(i));
+                    s_tIcons += System.Diagnostics.Stopwatch.GetTimestamp() - t1;
+                }
+                s_dirty = false;
+                // 1.0.228 (Fire: the hotbars vanished after a layout Save until the inventory was reopened): the edit-session hide/restore ran only
+                // inside the placement pass, which waits for a dirty flag; it now runs every tick, before that gate
+                HotbarHudDock.ApplyUserHidden(ToolHotBar.GetHotkeyBar()?.transform as RectTransform);
+                HotbarHudDock.ApplyUserHidden(FoodHotBar.GetHotkeyBar()?.transform as RectTransform);
+                HotbarHudDock.ApplyUserHidden(AmmoHotBar.GetHotkeyBar()?.transform as RectTransform);
+                if (!doPlace) { UpdateItemUse(); return; }
+                s_nextPlace = now + 0.5f; s_places++;
+                long t2 = System.Diagnostics.Stopwatch.GetTimestamp();
+                // 1.0.295 ([lead], Fire's live log: "fitted to 1 slot element(s): 92x92" - the bar registers while only its first element
+                // exists and was never re-fitted, so Core's drag area + corner grip covered ONE slot and the grip sat on slot 2): a docked
+                // bar re-fits to its current elements every placement tick (the fit is skipped when the element count is unchanged)
+                HotbarHudDock.Refit(ToolHotBar.GetHotkeyBar()?.transform as RectTransform);
+                HotbarHudDock.Refit(AmmoHotBar.GetHotkeyBar()?.transform as RectTransform);
+                HotbarHudDock.Refit(FoodHotBar.GetHotkeyBar()?.transform as RectTransform);
 
                 // 1.0.94: state + on-screen check per bar (HotBarPlacement.Report).
                 int tools = Slots.toolHotbarSlots?.Count(s => s != null && s.CacheItem() != null) ?? 0;
@@ -188,18 +249,27 @@ namespace VerdantsAscent.Managers.HotBars
                 HotBarPlacement.Report("Food", FoodHotBar.GetHotkeyBar()?.transform as RectTransform, open ?? (food == 0 ? "food pouch empty" : "not built yet / ShowHotbar off"), food);
                 HotBarPlacement.ReportDone();
                 var cfg = ConfigManager.Instance;
-                if (cfg != null)
+                // 1.0.221 ([generator]/Fire: the Food bar was forced back to its config spot after every drag): the old stack / clear-the-globes
+                // writers run only for bars Core's HUD dock does NOT own; an owned bar is placed by Core alone
+                bool docked = HotbarHudDock.AnyEverRegistered || HotbarHudDock.Owns(ToolHotBar.GetHotkeyBar()?.transform as RectTransform) || HotbarHudDock.Owns(FoodHotBar.GetHotkeyBar()?.transform as RectTransform) || HotbarHudDock.Owns(AmmoHotBar.GetHotkeyBar()?.transform as RectTransform);   // 1.0.250: once any bar is Core's, the stack + globe writers never run again
+                if (cfg != null && !docked)
                     HotBarPlacement.StackFromAmmo(ToolHotBar.GetHotkeyBar()?.transform as RectTransform,
                         FoodHotBar.GetHotkeyBar()?.transform as RectTransform, AmmoHotBar.GetHotkeyBar()?.transform as RectTransform,
                         cfg.configToolHotbarPosition.Value, cfg.configFoodHotbarPosition.Value, cfg.configAmmoHotbarPosition.Value,
                         Mathf.Abs(((Vector2)cfg.configFoodHotbarPosition.DefaultValue).y - ((Vector2)cfg.configToolHotbarPosition.DefaultValue).y));
-                HotBarPlacement.KeepAboveVitals(ToolHotBar.GetHotkeyBar()?.transform as RectTransform,
+                HotbarHudDock.ApplyUserHidden(ToolHotBar.GetHotkeyBar()?.transform as RectTransform);   // 1.0.221: Hide all, items or not
+                HotbarHudDock.ApplyUserHidden(FoodHotBar.GetHotkeyBar()?.transform as RectTransform);
+                HotbarHudDock.ApplyUserHidden(AmmoHotBar.GetHotkeyBar()?.transform as RectTransform);
+                if (!docked) HotBarPlacement.KeepAboveVitals(ToolHotBar.GetHotkeyBar()?.transform as RectTransform,
                     FoodHotBar.GetHotkeyBar()?.transform as RectTransform, AmmoHotBar.GetHotkeyBar()?.transform as RectTransform);
+                s_tPlace += System.Diagnostics.Stopwatch.GetTimestamp() - t2;
 
                 // 1.0.107 (Fire 10-12 #15): every slot hotkey, not only while the TOOL bar shows. Since 1.0.79 an empty
                 // tools pouch hides that bar, which also left Ctrl+1-3 (food) and the ammo keys dead.
                 UpdateItemUse();
             }
+
+            private static void MarkDirty() => s_dirty = true;
         }
 
         private static void UpdateBarIcons(HotkeyBar bar, Player player)
@@ -328,8 +398,28 @@ namespace VerdantsAscent.Managers.HotBars
                 var tmp = bindingT.GetComponent<TMPro.TMP_Text>();
                 if (rect == null || tmp == null || slot == null) return;
                 EquipmentPanel.SetSlotLabel(rect, tmp, slot, true);
+                PlaceBindingBelow(go, rect, tmp);   // 1.0.164
             }
             catch { }
+        }
+
+        // 1.0.164 (Fire via [wishbone]/[lead]: the key hint sat INSIDE the top of each square, over the icon and the count): the hint goes
+        // BELOW the square, centred, 2 px under its bottom edge and 15 px tall - the same spot as Core's KitHotbarSlot key chip, so these
+        // bars match the class bars. HotbarHintRoom is the room it needs under a row (for whoever places the bars; the Core kit port uses it).
+        internal const float HotbarHintRoom = 17f;
+
+        private static void PlaceBindingBelow(GameObject go, RectTransform rt, TMPro.TMP_Text tmp)
+        {
+            if (rt == null || tmp == null) return;
+            var parentRT = go.transform as RectTransform;
+            float slotW = parentRT != null ? parentRT.rect.width : 64f;
+            tmp.alignment = TMPro.TextAlignmentOptions.Top;
+            tmp.textWrappingMode = TMPro.TextWrappingModes.NoWrap;
+            tmp.overflowMode = TMPro.TextOverflowModes.Overflow;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.sizeDelta = new Vector2(slotW, 15f);
+            rt.anchoredPosition = new Vector2(0f, -2f);
         }
 
         private static void OverrideBindingLabel(GameObject go, int slotIndex)
@@ -370,6 +460,7 @@ namespace VerdantsAscent.Managers.HotBars
                     bindingRT.pivot = new Vector2(0.5f, 1f);
                     bindingRT.sizeDelta = new Vector2(slotW, bindingRT.sizeDelta.y);
                     bindingRT.anchoredPosition = new Vector2(0f, bindingRT.anchoredPosition.y);
+                    PlaceBindingBelow(go, bindingRT, tmp);   // 1.0.164: under the square, not over the icon
                 }
             }
             catch { /* binding label is cosmetic — never throw */ }

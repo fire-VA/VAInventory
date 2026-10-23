@@ -27,11 +27,12 @@ namespace VerdantsAscent.Managers
         {
             InventoryGridExtraSlots.ExtendGrid(__instance);
             bool runOriginal = SafeGuiPatches.AllowUpdateGui(__instance);
+            if (__instance != null) VAInventoryGridApi.NoteUpdateGui(__instance, runOriginal);   // 1.0.187: mounted-grid probe
             __state = EquipmentPanel.CaptureGridElementCount(__instance);
             return runOriginal;
         }
 
-        [HarmonyAfter("com.Fire.FiresRPGCrafting")]   // 1.0.118: FRC's rarity tint is on the vanilla element before we mirror it
+        [HarmonyAfter("com.Fire.FiresLootOverhaul", "com.Fire.FiresRPGCrafting")]   // 1.0.118: FRC's rarity tint is on the vanilla element before we mirror it
         private static void Postfix(InventoryGrid __instance, int __state)
             => EquipmentPanel.AfterUpdateGui(__instance, __state);
 
@@ -59,8 +60,29 @@ namespace VerdantsAscent.Managers
     [HarmonyPatch(typeof(InventoryGui), "Update")]
     internal static class InventoryGui_Update_Hook
     {
-        private static void Postfix()
+        // 1.0.193 perf probe ([lead]: InventoryGui.Update 88 ms/s with the inventory CLOSED; FDT LoginDiag: its patches called over
+        // 50,000 times/s = far more than one InventoryGui per frame). Every 30 s: how many InventoryGui exist and how many Update calls
+        // ran in that window, with each instance's path. Debug only; FindObjectsOfType once per 30 s.
+        private static int s_calls;
+        private static float s_nextCount;
+
+        private static void Postfix(InventoryGui __instance)
         {
+            s_calls++;
+            if (Time.unscaledTime >= s_nextCount)
+            {
+                float window = s_nextCount > 0f ? 30f : 0f;
+                s_nextCount = Time.unscaledTime + 30f;
+                try
+                {
+                    var all = UnityEngine.Object.FindObjectsOfType<InventoryGui>(true);
+                    var paths = new System.Collections.Generic.List<string>();
+                    for (int i = 0; i < all.Length && i < 5; i++) { var t = all[i].transform; string p = t.name; for (var x = t.parent; x != null; x = x.parent) p = x.name + "/" + p; paths.Add(p + (all[i] == InventoryGui.instance ? " (instance)" : "")); }
+                    EquipmentPanel.PanelLog?.LogDebug($"perf: {all.Length} InventoryGui object(s), {s_calls} Update call(s) in the last {window:0} s ({(window > 0f ? s_calls / window : 0f):0}/s); first: {string.Join(" | ", paths.ToArray())}");
+                }
+                catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug("perf: InventoryGui count failed: " + e.Message); }
+                s_calls = 0;
+            }
             if (Player.m_localPlayer) Slots.EvictBagFromBypass();   // 1.0.93: open or not, ~1/s
             if (!Player.m_localPlayer || !InventoryGui.IsVisible()) return;
             EquipmentPanel.UpdateEquipmentBackground();
@@ -76,6 +98,7 @@ namespace VerdantsAscent.Managers
     {
         private static void Prefix()
         {
+            VAInventoryGridApi.ReturnPlayerGrid();   // 1.0.191: a lent player grid goes home before the inventory closes (Esc / Tab)
             BackpackStorageSync.SaveEquippedBackpackContents(removeItems: false);
             InventoryGui_UpdateContainer_Patch.Reset();
             UnifiedScreen.Hide();
@@ -92,6 +115,8 @@ namespace VerdantsAscent.Managers
         {
             if (!CoinPurseStackPatch.DropItemDepositCoins(__instance, fromInventory, item, amount, pos)) return false;
             if (!InventoryInteraction.DropItemBlockInvalid(__instance, item, pos)) return false;
+            // 1.0.319: the player-grid slot rules only for the player grid (the companion grid / a chest has its own coordinates)
+            if (InventoryGui.instance == null || __instance != InventoryGui.instance.m_playerGrid) return true;
             return InventoryInteraction.DropItemRobust(fromInventory, item, pos);
         }
     }
@@ -161,6 +186,8 @@ namespace VerdantsAscent.Managers
             CoinPurseStackPatch.RestorePurseStackOnSpawn(__instance);
             Slots.CheckJewelryChanged(__instance);   // 1.0.110: the loaded jewelry, once, for FiresRPGCrafting
             InventoryInteraction.UpdatePlayerInventorySize();
+            PlayerInventoryRows.RepairRowShift(__instance);   // 1.0.141
+            PlayerInventoryRows.RemapMisplacedByRole(__instance);   // 1.0.144
         }
     }
 }

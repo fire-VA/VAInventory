@@ -101,6 +101,7 @@ namespace VerdantsAscent.Managers.HotBars
                 // Unified: the CharacterPanel's Hotbars rows show these slots while the inventory is open, so the
                 // HUD bar steps aside only then (Fire 10-06: the in-game HUD bar must still show them).
                 if (UnifiedScreen.Enabled && InventoryGui.IsVisible()) return false;
+                if (HotBarController.MapOpen) return false;   // 1.0.177 ([lead] shot 095958: the bars drew over the large map); vanilla hides its hotbar there too
                 if (!ConfigManager.Instance.configShowFoodHotbar.Value) return false;
             }
             catch { return false; }
@@ -154,6 +155,7 @@ namespace VerdantsAscent.Managers.HotBars
 
         internal static void ClearBar()
         {
+            HotbarHudDock.Release(barName);   // 1.0.165
             try
             {
                 if (hotBar != null) UnityEngine.Object.Destroy(hotBar.gameObject);
@@ -172,8 +174,10 @@ namespace VerdantsAscent.Managers.HotBars
             try
             {
                 if (hotBarRect == null || ConfigManager.Instance == null) return;
+                if (HotbarHudDock.Manage(barName, "Food hotbar", hotBarRect)) return;   // 1.0.165: Core's HUD dock owns it while the override is ON
                 HotBarPlacement.Apply(hotBarRect, ConfigManager.Instance.configFoodHotbarPosition,
                     ConfigManager.Instance.configFoodHotbarScale.Value);
+                HotbarHudDock.Manage(barName, "Food hotbar", hotBarRect);   // 1.0.220 ([generator]: the bars never registered - the first Manage call only lets the placement run, and no second call came): register right here, at the placed spot
             }
             catch (Exception ex)
             {

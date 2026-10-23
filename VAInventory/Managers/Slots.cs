@@ -82,6 +82,7 @@ namespace VerdantsAscent
 
         // Start with a reasonable default, but we'll resize dynamically
         public static Slot[] slots = new Slot[64];
+        internal static bool HasSlots => slots != null && slots.Any(s => s != null);   // 1.0.144: Relayout carries items only across a REbuild
 
         private static readonly Dictionary<Vector2i, ItemDrop.ItemData> cachedItems = [];
 
@@ -707,7 +708,7 @@ namespace VerdantsAscent
         {
             if (item?.m_dropPrefab == null) return false;
             string n = item.m_dropPrefab.name?.ToLowerInvariant() ?? string.Empty;
-            if (n.StartsWith("frcring_")) return true;   // 1.0.110: FiresRPGCrafting's rings (contract with [fgn])
+            if (n.StartsWith("floring_") || n.StartsWith("frcring_")) return true;   // 1.0.110 rings ([fgn] contract); 1.0.135: FLO names, FRC names kept for old items
             if (RingItemMatcher != null) return RingItemMatcher(item);
             // Common naming conventions: "Ring*", "*_ring*", "ring_*".
             return n.StartsWith("ring") || n.Contains("_ring") || n.Contains("ringof");
@@ -723,7 +724,7 @@ namespace VerdantsAscent
 
         /// <summary>1.0.110: the Necklace cell takes FiresRPGCrafting's necklaces ("FrcNecklace_*").</summary>
         public static bool IsNecklaceSlotItem(ItemDrop.ItemData item) =>
-            item?.m_dropPrefab != null && (item.m_dropPrefab.name ?? "").StartsWith("FrcNecklace_", StringComparison.OrdinalIgnoreCase);
+            item?.m_dropPrefab != null && ((item.m_dropPrefab.name ?? "").StartsWith("FloNecklace_", StringComparison.OrdinalIgnoreCase) || (item.m_dropPrefab.name ?? "").StartsWith("FrcNecklace_", StringComparison.OrdinalIgnoreCase));   // 1.0.135: FLO + old FRC
 
         // ── Jewelry API (1.0.110, for FiresRPGCrafting by reflection) ─────────────────────────────────────────────────
         /// <summary>[necklace, left ring, right ring] for the local player; null = empty. Any other player: all null
@@ -827,6 +828,54 @@ namespace VerdantsAscent
             EquipmentPanel.PanelLog?.LogDebug($"slots: {item.m_dropPrefab?.name} moved out of the Bypass slot and dropped (main grid full; no bags in Bypass)");
         }
 
+        // 1.0.199 ([generator], Core 0.2.563: companions get every player slot): VAInventory's slot ids + validators (item-only, no local
+        // player) go into Core's FiresSlotCatalog once the slots exist, so Core / FiresCompanions accept or reject by OUR rules.
+        static bool s_catalogDone;
+        internal static void RegisterCoreCatalog()
+        {
+            if (s_catalogDone) return;
+            var cat = Type.GetType("FiresCore.Npc.FiresSlotCatalog, FiresUnifiedCore");
+            if (cat == null) return;   // Core < 0.2.563 or not loaded yet: retried on the inventory open
+            var reg = cat.GetMethod("Register", new[] { typeof(string), typeof(string), typeof(Func<ItemDrop.ItemData, bool>), typeof(int) });
+            var cap = cat.GetMethod("RegisterBackpackCapacity", new[] { typeof(Func<ItemDrop.ItemData, int>) });
+            s_catalogDone = true;
+            if (reg == null) return;
+            // counts from the config (plugin start: the player's slots may not exist yet), as Slots builds them
+            var cfg = ConfigManager.Instance;
+            int miscCells = Mathf.Clamp(cfg != null ? cfg.configEquipmentPanelRows.Value : 0, 0, 3) * 8;
+            int tools = Math.Max(0, cfg != null ? cfg.configToolHotbarSlots.Value : 4);
+            int ammo = cfg == null || cfg.configShowAmmoSlots.Value ? 3 : 0, food = cfg == null || cfg.configShowFoodSlots.Value ? 3 : 0;
+            int n = 0;
+            void R(string id, string group, Func<ItemDrop.ItemData, bool> v, int count)
+            {
+                try { reg.Invoke(null, new object[] { id, group, v, count }); n++; }
+                catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"slots: catalog Register {id} failed: {(e.InnerException ?? e).Message}"); }
+            }
+            foreach (var id in new[] { helmetSlotID, shoulderSlotID, chestSlotID, utilitySlotID, legsSlotID, trinketSlotID, torchSlotID })
+                R(id, "rail", GetValidatorForID(id), 1);
+            R(extraUtilitySlotID, "rail", IsUtilitySlotItem, 1);
+            foreach (var id in new[] { frontWeaponSlotID, frontOffhandSlotID, backWeaponSlotID, backOffhandSlotID })
+                R(id, "bars", GetValidatorForID(id), 1);
+            foreach (var id in new[] { necklaceSlotID, ringSlotID, ringRightSlotID })
+                R(id, "jewelry", GetValidatorForID(id), 1);
+            R(coinPurseSlotID, "coin", IsCoinSlotItem, 1);
+            R(teleportBypassSlotID, "bag", IsTeleportBypassSlotItem, 1);
+            R(petSlotID, "bag", PetBridge.IsPet, 1);
+            R(backpackSlotID, "bag", IsBackpackSlotItem, 1);
+            R("Tools", "pouch", IsToolHotbarSlotItem, tools);
+            R(ammoSlotID, "pouch", IsAmmoSlotItem, ammo);
+            R(foodSlotID, "pouch", IsFoodSlotItem, food);
+            R(miscSlotID, "misc", item => item != null, miscCells);
+            R("BackpackStorage", "bag", item => item != null && !IsBackpackSlotItem(item), 32);
+            var size = cat.GetMethod("RegisterBackpackSize", new[] { typeof(Func<ItemDrop.ItemData, Vector2i>) });
+            if (size != null) cap = null;   // [generator]: prefer the (cols, rows) size, so bag items keep their place
+            try { size?.Invoke(null, new object[] { (Func<ItemDrop.ItemData, Vector2i>)(bag => { var (r, c) = BackpackBridge.GetConfigDimensions(bag); return new Vector2i(c, r); }) }); }
+            catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"slots: catalog backpack size failed: {(e.InnerException ?? e).Message}"); }
+            try { cap?.Invoke(null, new object[] { (Func<ItemDrop.ItemData, int>)(bag => { var (r, c) = BackpackBridge.GetConfigDimensions(bag); return Math.Max(0, r * c); }) }); }
+            catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"slots: catalog backpack capacity failed: {(e.InnerException ?? e).Message}"); }
+            EquipmentPanel.PanelLog?.LogDebug($"slots: {n} slot id(s) registered in Core's FiresSlotCatalog (misc {miscCells}, tools {tools}, ammo {ammo}, food {food}; backpack {(size != null ? "size" : cap != null ? "capacity" : "n/a")})");
+        }
+
         // Validator helper
         private static Func<ItemDrop.ItemData, bool> GetValidatorForID(string slotID)
         {
@@ -890,7 +939,17 @@ namespace VerdantsAscent
         internal static int LastLayoutSignature = int.MinValue;
         internal static int Generation;
 
+        // 1.0.144: every rebuild goes through Relayout, which carries each player item across it by address (slot id / main x,y)
         internal static void InitializeSlots()
+        {
+            string trigger = "rebuild";
+            try { var f = new System.Diagnostics.StackFrame(1, false).GetMethod(); if (f != null) trigger = f.DeclaringType?.Name + "." + f.Name; } catch { }
+            Relayout.Run(trigger, InitializeSlotsCore);
+        }
+
+        internal static void InitializeSlotsForRelayout() => InitializeSlotsCore();
+
+        private static void InitializeSlotsCore()
         {
             LastLayoutSignature = LayoutSignature();
             Generation++;   // 1.0.133: the Slot objects are new; a panel bound to the old ones must rebuild
@@ -920,14 +979,22 @@ namespace VerdantsAscent
             for (int r = 0; r < rowDefinitions.Count; r++)
             {
                 bool isRow4 = (r == rowDefinitions.Count - 1);
-                if (showFood) rowDefinitions[r].Add(isRow4 ? ringSlotID : foodSlotID);
-                if (showAmmo) rowDefinitions[r].Add(isRow4 ? teleportBypassSlotID : ammoSlotID);
+                // 1.0.260 (HOWTO limits row 157: hiding Food also hid the Left ring, hiding Ammo also hid Teleport bypass): the food and ammo
+                // COLUMNS are always in the layout; only the Food / Ammo CELLS switch off with ShowFoodSlots / ShowAmmoSlots (isActive below),
+                // so the Ring and TeleportBypass cells in row 4 always exist. (Default on = the same layout as before.)
+                rowDefinitions[r].Add(isRow4 ? ringSlotID : foodSlotID);
+                rowDefinitions[r].Add(isRow4 ? teleportBypassSlotID : ammoSlotID);
             }
 
             // FiresRPGClasses' bar column goes LAST, so every existing slot keeps its grid position (and the items
             // saved there). Only when FiresRPGClasses is loaded, so a plain VAInventory install looks as before.
+            // 1.0.144 ([seasons], Fire 10-14: "pants in the ammo slot", belt/legs one row off): the column used to exist only when
+            // FiresRPGClasses was ALREADY in Chainloader.PluginInfos at this moment. BepInEx fills that dictionary one plugin at a time, so
+            // a build before RPGClasses loaded had no bar column and a later one did: the Torch column moved x 4 -> 5 and every
+            // bag-storage block moved down a row (array 112 -> 116) INSIDE one session, and items saved under one layout were read under
+            // the other. The column is now ALWAYS reserved (its four cells inactive without RPGClasses, as the Torch column's unused
+            // cells are), so every x/y is the same whatever the load order.
             bool showBars = ClassBarsAvailable();
-            if (showBars)
             {
                 string[] barColumn = { frontWeaponSlotID, frontOffhandSlotID, backWeaponSlotID, backOffhandSlotID };
                 for (int r = 0; r < rowDefinitions.Count && r < barColumn.Length; r++) rowDefinitions[r].Add(barColumn[r]);
@@ -943,7 +1010,7 @@ namespace VerdantsAscent
 
             int numColumns = rowDefinitions[0].Count; // 3–6
             // The misc block keeps the old width: the bar and torch columns are not repeated under it.
-            int miscColumns = numColumns - (showBars ? 1 : 0) - 1;
+            int miscColumns = numColumns - 1 - 1;   // 1.0.144: the bar column is always there now (its width never counts toward misc)
             int miscRows = Mathf.Clamp(ConfigManager.Instance.configEquipmentPanelRows.Value, 0, 3);
 
             // Backpack-storage blocks: one block per equipped bag (e.g. shoulder
@@ -1001,10 +1068,15 @@ namespace VerdantsAscent
                     // Backpack slot only shows when VABackpacks is loaded.
                     // Other row-4 slots (CoinPurse, Ring, TeleportBypass)
                     // are always active when their column is enabled.
-                    Func<bool> isActive = slotID == backpackSlotID
+                    bool barSlot = slotID == frontWeaponSlotID || slotID == frontOffhandSlotID || slotID == backWeaponSlotID || slotID == backOffhandSlotID;
+                    Func<bool> isActive = barSlot ? (Func<bool>)ClassBarsAvailable
+                        : slotID == backpackSlotID
                         ? (Func<bool>)(() => BackpackBridge.IsAvailable)
                         : slotID == petSlotID ? (Func<bool>)(() => PetBridge.IsAvailable)
-                        : slotID == emptySlotID ? (Func<bool>)(() => false) : () => true;
+                        : slotID == emptySlotID ? (Func<bool>)(() => false)
+                        : slotID == foodSlotID ? (Func<bool>)(() => ConfigManager.Instance == null || ConfigManager.Instance.configShowFoodSlots.Value)   // 1.0.260
+                        : slotID == ammoSlotID ? (Func<bool>)(() => ConfigManager.Instance == null || ConfigManager.Instance.configShowAmmoSlots.Value)   // 1.0.260
+                        : () => true;
 
                     if (slotID == foodSlotID)
                     {
@@ -1046,6 +1118,12 @@ namespace VerdantsAscent
                     slots[index].SetGridPosition(new Vector2i(col, equipmentPanelStartY + row));
                     createdSlots++;
                 }
+            }
+            // 1.0.260 proof (HOWTO limits row 157): the row-4 cells under the food / ammo columns stay active whatever the toggles
+            {
+                bool A(string id) { foreach (var s in slots) if (s != null && s.ID == id) return s.IsActive; return false; }
+                bool foodOn = false, ammoOn = false; foreach (var s in slots) { if (s == null) continue; if (s.IsFoodSlot && s.IsActive) foodOn = true; if (s.IsAmmoSlot && s.IsActive) ammoOn = true; }
+                Debug.Log($"[VAInventory] slots: ShowFoodSlots {showFood} / ShowAmmoSlots {showAmmo} -> Food cells active {foodOn}, Ammo cells active {ammoOn}, Left ring active {A(ringSlotID)}, TeleportBypass active {A(teleportBypassSlotID)}");
             }
             // === SECOND BLOCK: Misc slots ===
             int miscBlockStartY = equipmentPanelStartY + rowDefinitions.Count;
@@ -1124,7 +1202,7 @@ namespace VerdantsAscent
                             slotID,
                             index,
                             () => capturedName,
-                            item => true,                    // accepts anything
+                            item => !BackpackBridge.IsBackpack(item),   // 1.0.320 (Fire 10-23: "we can put a backpack in its own grid"): anything but a bag
                             () => BackpackBridge.IsAvailable // hidden if bridge died
                         );
                         slots[index].SetGridPosition(new Vector2i(col, bpCurrentY + row));
@@ -1308,5 +1386,14 @@ namespace VerdantsAscent
                 _gridPos = pos;
             }
         }
+    }
+}
+namespace VerdantsAscent.Managers
+{
+    // 1.0.199 ([generator]: register at plugin start / ObjectDB ready, not on the first inventory open - companions can open first)
+    [HarmonyLib.HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
+    internal static class SlotCatalogAtObjectDB
+    {
+        static void Postfix() { try { Slots.RegisterCoreCatalog(); } catch (System.Exception e) { EquipmentPanel.PanelLog?.LogWarning("slots: catalog registration failed: " + e.Message); } }
     }
 }

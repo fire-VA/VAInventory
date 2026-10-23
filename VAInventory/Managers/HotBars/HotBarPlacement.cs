@@ -24,7 +24,7 @@ namespace VerdantsAscent.Managers.HotBars
                 position.Value = fallback;
                 saved = fallback;
             }
-            bar.anchoredPosition = saved;
+            bar.anchoredPosition = ClampOnScreen(bar, saved);   // 1.0.210 (Fire: bars half off-screen): the default spot is always fully on screen
         }
 
         internal static Vector2 ClampOnScreen(RectTransform bar, Vector2 anchored)
@@ -66,7 +66,7 @@ namespace VerdantsAscent.Managers.HotBars
             Vector2 min = RectTransformUtility.WorldToScreenPoint(cam, corners[0]);
             Vector2 max = RectTransformUtility.WorldToScreenPoint(cam, corners[2]);
             bool inside = min.x >= 0f && min.y >= 0f && max.x <= Screen.width && max.y <= Screen.height;
-            if (!inside && bar.parent is RectTransform)
+            if (!inside && bar.parent is RectTransform && !HotbarHudDock.Owns(bar))   // 1.0.221: never while Core's dock owns the bar (it fought every drag)
             {
                 Vector2 before = bar.anchoredPosition;
                 Vector2 after = ClampOnScreen(bar, before);

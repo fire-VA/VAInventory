@@ -22,18 +22,23 @@ namespace VerdantsAscent.Managers
         const string InnerUnderName = "VAInventoryGridInnerUnder";
         const string InnerName = "VAInventoryGridInner";
         static readonly string[] HiddenVanilla = { "Bkg", "Darken" };
-        static readonly Color FallbackDark = new Color(0.10f, 0.08f, 0.06f, 0.92f);
+        static readonly Color FallbackDark = new Color(0.10f, 0.08f, 0.06f, 0.92f);   // 1.0.183: back (Fire)
 
         static RectTransform frame, innerUnder, inner;
         static readonly List<Image> hidden = new List<Image>();
+        static bool PanelsBuilt() => frame != null || innerUnder != null || inner != null || hidden.Count > 0;   // 1.0.182
         static readonly List<Outline> edged = new List<Outline>();
         internal static Color? GridCellFace;
+        const float FooterStrip = 32f;   // 1.0.171
         static Vector4 lastSignature = new Vector4(float.NaN, 0f, 0f, 0f);
         static bool pathLogged, themedLogged;
         static float nextMissLog;
 
         internal static void Tick(Image backdrop, Image inlay, Image panelUnderlay, Color goldEdge, float edgeAlpha)
         {
+            // 1.0.182 (Fire: copy the originals): under Panels the grid keeps vanilla's OWN panel (wood Bkg + item_background cells, as with
+            // the unified UI off). No plate, nothing hidden; whatever an earlier Tick built is taken down once.
+            // 1.0.183: the 1.0.182 Panels early-out is gone; the plate is part of the pre-unified look Fire wants back (as with the unified UI off)
             var gui = InventoryGui.instance;
             var grid = gui != null ? gui.m_playerGrid : null;
             var gridRoot = grid != null ? grid.m_gridRoot : null;
@@ -51,6 +56,10 @@ namespace VerdantsAscent.Managers
 
             int count = Mathf.Min(gridRoot.childCount, Slots.InventorySizePlayer);
             if (count <= 0 || !TryCellBounds(gridRoot, player, count, out Rect cells)) return;
+            // 1.0.171 ([classes-ui] for Fire's night shot: the Armor / Weight footer sat on the grid's rows): under Panels the plate runs 32 px
+            // past the last row, a strip of its own for the footer (as the v4/v5 mock)
+            // 1.0.180: Armor / Weight moved to the player panel (beside the head), so the 1.0.171 footer strip under the grid is gone
+            if (UnifiedScreen.PanelsMode && FooterStrip < 0f) cells = Rect.MinMaxRect(cells.xMin, cells.yMin - FooterStrip, cells.xMax, cells.yMax);
 
             HideVanilla(player);
             Color dark = panelUnderlay != null ? panelUnderlay.color : FallbackDark;
@@ -83,7 +92,9 @@ namespace VerdantsAscent.Managers
 
             // 1.0.86: the empty cells get the Misc / backpack cell edge (UnifiedScreen.BindChrome: gold, 1 px, the panel's cell edge
             // alpha), so the 8 x N squares read on the tan like the panel's own.
-            for (int i = 0; i < count; i++)
+            // 1.0.184 ([lead]/Fire: "the correct fix"): under Panels Core's CraftingSkin Role.Slot (0.2.558) styles every slot, identically on
+            // every open; VAInventory adds nothing of its own to the cells there (no outline, no face), so nothing fights it
+            for (int i = 0; i < count && !UnifiedScreen.PanelsMode; i++)
             {
                 var cellImage = gridRoot.GetChild(i).GetComponent<Image>();
                 if (cellImage == null || cellImage.GetComponent<Outline>() != null) continue;
@@ -96,7 +107,7 @@ namespace VerdantsAscent.Managers
             // 1.0.88 (Fire: the grid's darker squares, on the player panel's cells too): the colour the main grid's empty cells
             // render at, measured from round 31's shot (docs_vainventory_full_panel 18:45, RGB 45/39/28), opaque, so the panel's
             // cells show the same square whatever is under them.
-            GridCellFace = new Color(45f / 255f, 39f / 255f, 28f / 255f, 1f);
+            GridCellFace = UnifiedScreen.PanelsMode ? (Color?)null : new Color(45f / 255f, 39f / 255f, 28f / 255f, 1f);   // 1.0.184: none under Panels (Core styles the slots)
 
             var signature = new Vector4(cells.xMin, cells.yMin, cells.width, cells.height);
             if (signature != lastSignature)

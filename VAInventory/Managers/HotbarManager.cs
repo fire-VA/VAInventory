@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using HarmonyLib;
@@ -22,7 +23,9 @@ namespace VerdantsAscent.Managers
             while (ZInput.instance == null)
                 yield return null;
 
-            TryPatchZInputTryGetButtonState();
+            // 1.0.140 (Fire approved, Tools\VAINVENTORY_HOTBAR_HOOK_PROPOSAL.md): the ZInput.TryGetButtonState prefix (6.3k calls/s,
+            // 8.3 ms/s) is no longer applied; vanilla's hotbar is suppressed at its only use, Player.UseHotbarItem (below).
+            Debug.Log("[VAInventory] HotbarManager: vanilla hotbar suppressed at Player.UseHotbarItem (no ZInput hook)");
         }
 
         private void TryPatchZInputTryGetButtonState()
@@ -68,31 +71,60 @@ namespace VerdantsAscent.Managers
             }
         }
 
+        // 1.0.139 ([fgn] R5 perf: 1.2 us x 6.5k calls/s): the button name -> hotbar index is parsed ONCE per name (no digit scan or
+        // Substring per call; -1 = not a numbered button, returned at once), and the gamepad state + each index's suppress answer are
+        // read once per frame.
+        private static readonly Dictionary<string, int> s_nameIndex = new Dictionary<string, int>(StringComparer.Ordinal);
+        private static int s_frame = -1;
+        private static bool s_gamepad;
+        private static readonly Dictionary<int, bool> s_suppress = new Dictionary<int, bool>();
+
+        private static int IndexOf(string name)
+        {
+            if (s_nameIndex.TryGetValue(name, out int idx)) return idx;
+            int num = -1;
+            for (int i = name.Length - 1; i >= 0; i--)
+            {
+                if (!char.IsDigit(name[i]))
+                {
+                    if (i < name.Length - 1 && int.TryParse(name.Substring(i + 1), out var parsed)) num = parsed;
+                    break;
+                }
+            }
+            idx = num > 0 ? num - 1 : -1;
+            s_nameIndex[name] = idx;
+            return idx;
+        }
+
+        // 1.0.140: vanilla reads Hotbar1-8 (+Alt) in ONE place, Player.Update -> UseHotbarItem(i), so suppressing here is the same rule
+        // as before at ~0 cost (it only runs on a hotbar key press). The decision is logged at Debug.
+        [HarmonyPatch(typeof(Player), nameof(Player.UseHotbarItem))]
+        private static class Player_UseHotbarItem_Suppress
+        {
+            private static bool Prefix(Player __instance, int index)
+            {
+                try
+                {
+                    if (__instance != Player.m_localPlayer || ZInput.IsGamepadActive()) return true;
+                    if (!HotkeyInput.ShouldSuppressVanillaHotbarIndex(index - 1)) return true;
+                    EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] hotbar {index}: vanilla use skipped (a VAInventory hotkey owns it)");
+                    return false;
+                }
+                catch { return true; }
+            }
+        }
+
         private static bool ZInput_TryGetButtonState_Prefix(string name, ref bool __result)
         {
             try
             {
-                if (ZInput.IsGamepadActive()) return true;
                 if (string.IsNullOrEmpty(name)) return true;
-
-                int num = -1;
-                for (int i = name.Length - 1; i >= 0; i--)
-                {
-                    if (!char.IsDigit(name[i]))
-                    {
-                        if (i < name.Length - 1)
-                        {
-                            string digits = name.Substring(i + 1);
-                            if (int.TryParse(digits, out var parsed))
-                                num = parsed;
-                        }
-                        break;
-                    }
-                }
-
-                if (num <= 0) return true;
-                int slotIndex = num - 1;
-                if (!HotkeyInput.ShouldSuppressVanillaHotbarIndex(slotIndex)) return true;
+                int slotIndex = IndexOf(name);
+                if (slotIndex < 0) return true;
+                if (Time.frameCount != s_frame) { s_frame = Time.frameCount; s_gamepad = ZInput.IsGamepadActive(); s_suppress.Clear(); }
+                if (s_gamepad) return true;
+                if (!s_suppress.TryGetValue(slotIndex, out bool suppress)) s_suppress[slotIndex] = suppress = HotkeyInput.ShouldSuppressVanillaHotbarIndex(slotIndex);
+                if (!suppress) return true;
 
                 __result = false;
                 return false;

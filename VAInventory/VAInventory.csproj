@@ -134,8 +134,14 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Ascend.cs" />
+    <Compile Include="Managers\CoinPouchWeightless.cs" />
     <Compile Include="Managers\AdminSyncing.cs" />
-    <Compile Include="Managers\BackpackBridge.cs" />
+    <Compile Include="Managers\CraftStationSlot.cs" />
+    <Compile Include="Managers\CraftSections.cs" />
+    <Compile Include="Managers\DragItemOnTop.cs" />
+    <Compile Include="Managers\ChestSections.cs" />
+    <Compile Include="Managers\TabsOnInventoryHide.cs" />
+    <Compile Include="Managers\TrashLook.cs" />    <Compile Include="Managers\BackpackBridge.cs" />
     <Compile Include="Managers\BagBonusSlots.cs" />
     <Compile Include="Managers\PetBridge.cs" />
     <Compile Include="Managers\BackpackStorageSync.cs" />
@@ -144,6 +150,7 @@
     <Compile Include="Managers\CurrencyPouchPopup.cs" />
     <Compile Include="Managers\PanelScroll.cs" />
     <Compile Include="Managers\PlayerGridPlate.cs" />
+    <Compile Include="Managers\ContainerGridPlate.cs" />
     <Compile Include="Managers\PanelSkin.cs" />
     <Compile Include="Managers\PouchPopup.cs" />
     <Compile Include="Managers\ConfigManager.cs" />
@@ -154,6 +161,8 @@
     <Compile Include="Managers\HotBars\AmmoHotBar.cs" />
     <Compile Include="Managers\HotBars\FoodHotBar.cs" />
     <Compile Include="Managers\HotBars\HotBarController.cs" />
+    <Compile Include="Managers\HotBars\HotbarHudDock.cs" />
+    <Compile Include="Managers\HotBars\KitHotbars.cs" />
     <Compile Include="Managers\HotBars\VaInventoryKeys.cs" />
     <Compile Include="Managers\HotBars\HotBarDragHandle.cs" />
     <Compile Include="Managers\HotBars\HotBarPlacement.cs" />
@@ -168,12 +177,17 @@
     <Compile Include="Managers\InventoryTabs.cs" />
     <Compile Include="Managers\ItemSlotValidation.cs" />
     <Compile Include="Managers\PlayerInventoryRows.cs" />
+    <Compile Include="Managers\Relayout.cs" />
     <Compile Include="Managers\SafeGuiPatches.cs" />
     <Compile Include="Managers\Slots.cs" />
     <Compile Include="Managers\TorchSlotHotkey.cs" />
     <Compile Include="Managers\TeleportBypassPatch.cs" />
     <Compile Include="Managers\UIBackgroundManager.cs" />
     <Compile Include="Managers\CharacterPreview.cs" />
+    <Compile Include="Managers\LivePreview.cs" />
+    <Compile Include="Managers\CompanionPanel.cs" />
+    <Compile Include="Managers\CompanionKitPage.cs" />
+    <Compile Include="Managers\VAInventoryPreviewApi.cs" />
     <Compile Include="Managers\StatsPanel.cs" />
     <Compile Include="Managers\UiDump.cs" />
     <Compile Include="Managers\UiTest.cs" />
@@ -183,6 +197,16 @@
     <Compile Include="Managers\UnifiedScreen.cs" />
     <Compile Include="Managers\GripSprite.cs" />
     <Compile Include="Managers\VAInventoryApi.cs" />
+    <Compile Include="Managers\VAInventoryGridApi.cs" />
+    <Compile Include="Managers\PanelsLayout.cs" />
+    <Compile Include="Managers\PanelsDock.cs" />
+    <Compile Include="Managers\PanelsGridLook.cs" />
+    <Compile Include="Managers\VAInvPalette.cs" />
+    <Compile Include="Managers\PanelsCraftShift.cs" />
+    <Compile Include="Managers\PlayerStatsPage.cs" />
+    <Compile Include="Managers\EquippedBorder.cs" />
+    <Compile Include="Managers\TrashIconCapture.cs" />
+    <Compile Include="Managers\PanelsChrome.cs" />
     <Compile Include="Managers\PanelLayout.cs" />
     <Compile Include="Managers\VaInventoryVanillaHooks.cs" />
     <Compile Include="Managers\UniversalDragHandler.cs" />
@@ -196,7 +220,6 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Managers\Config" />
-    <None Include="Managers\Refs\EXTRASLOTS_ALIGNMENT_PLAN.md" />
     <None Include="packages.config" />
     <EmbeddedResource Include="vainventory" />
     <EmbeddedResource Include="vainventoryui" />

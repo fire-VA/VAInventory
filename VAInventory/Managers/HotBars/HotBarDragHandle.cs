@@ -60,6 +60,10 @@ namespace VerdantsAscent.Managers.HotBars
             if (HasActiveInventoryDrag()) return;
 
             if (Bar == null) Bar = GetComponent<RectTransform>();
+            // 1.0.172 (Fire: 'positions of all my hotbars ... NOT where i had them in my own original configs'): while Core's HUD dock owns
+            // the bar, Core moves it and saves its spot; this old handler moved it TOO and, on drag end, wrote the dock's spot into
+            // [*Hotbar] Position, overwriting Fire's own values. It stands down completely while the dock owns the bar.
+            if (HotbarHudDock.Owns(Bar)) return;
             if (Bar == null) return;
             var parent = Bar.parent as RectTransform;
             if (parent == null) return;

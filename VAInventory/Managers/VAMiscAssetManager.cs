@@ -9,7 +9,35 @@ namespace VerdantsAscent.Managers
 {
  public static class VAMiscAssetManager
  {
- private static readonly string BackgroundsDir = Path.Combine(Paths.ConfigPath, "VAInventoryBackgrounds");
+ // 1.0.153 ([visual] 10-14, TEAM RULE "no assets in BepInEx/config"; caches/assets go under <BepInEx>\cache\<Mod>): the panel
+ // backgrounds live in BepInEx\cache\VAInventory\Backgrounds. The old config\VAInventoryBackgrounds is read once: its images are COPIED
+ // across (never deleted, never overwritten), logged; the config folder is never created any more.
+ private static readonly string BackgroundsDir = Path.Combine(Paths.BepInExRootPath, "cache", "VAInventory", "Backgrounds");
+ private static readonly string OldBackgroundsDir = Path.Combine(Paths.ConfigPath, "VAInventoryBackgrounds");
+
+ private static void CarryOldBackgrounds()
+ {
+ try
+ {
+ if (!Directory.Exists(OldBackgroundsDir)) return;
+ // 1.0.154 (the lead: "copies exactly once"): a marker in the new folder records the carry; later starts never copy again (an
+ // image the player deletes from the new folder stays deleted)
+ string marker = Path.Combine(BackgroundsDir, ".carried_from_config");
+ if (File.Exists(marker)) return;
+ int copied = 0, kept = 0;
+ foreach (var f in Directory.GetFiles(OldBackgroundsDir))
+ {
+ string ext = Path.GetExtension(f).ToLowerInvariant();
+ if (ext != ".png" && ext != ".jpg") continue;
+ string to = Path.Combine(BackgroundsDir, Path.GetFileName(f));
+ if (File.Exists(to)) { kept++; continue; }
+ File.Copy(f, to); copied++;
+ }
+ File.WriteAllText(marker, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " copied " + copied + ", kept " + kept + " from " + OldBackgroundsDir);
+ if (copied > 0 || kept > 0) Debug.Log($"[VAInventory] backgrounds: {copied} image(s) copied from config/VAInventoryBackgrounds to cache/VAInventory/Backgrounds ({kept} already there); the old folder is left as is and can be removed");
+ }
+ catch (System.Exception e) { Debug.LogWarning($"[VAInventory] backgrounds: copy from the old config folder failed: {e.Message}"); }
+ }
  private static readonly Dictionary<string, Sprite> _backgroundSprites = [];
 
  public static void LoadAllBackgrounds()
@@ -17,6 +45,7 @@ namespace VerdantsAscent.Managers
  _backgroundSprites.Clear();
  if (!Directory.Exists(BackgroundsDir))
  Directory.CreateDirectory(BackgroundsDir);
+ CarryOldBackgrounds();
 
  foreach (var file in Directory.GetFiles(BackgroundsDir, "*.png"))
  {
@@ -30,6 +59,8 @@ namespace VerdantsAscent.Managers
  if (sprite != null)
  _backgroundSprites[Path.GetFileName(file)] = sprite;
  }
+ // 1.0.154 (the lead: point-of-use): the folder the images are actually read from, and what was loaded
+ Debug.Log($"[VAInventory] backgrounds: {_backgroundSprites.Count} image(s) read from {BackgroundsDir}{(_backgroundSprites.Count > 0 ? " (" + string.Join(", ", new List<string>(_backgroundSprites.Keys).ToArray()) + ")" : "")}");
  }
 
  public static Sprite GetBackgroundByName(string filename)

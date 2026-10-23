@@ -42,6 +42,10 @@ namespace VerdantsAscent.Managers
         {
             var container = __instance.m_container;
             if (container == null || !container.gameObject.activeSelf) return;
+            // 1.0.280 (Fire 10-20, shot 20261020_2130/24: the chest "fights us every time we try to move it, forcing itself back"): under
+            // Panels Core's dock owns the chest (vainv.chest, 1.0.239). This pre-Panels hold wrote anchoredPosition EVERY frame (vanilla's
+            // UpdateContainer), so each drag was undone (Core: "re-placed vainv.chest x98", "drag ended where it started"). It never runs then.
+            if (UnifiedScreen.PanelsMode && PanelsDock.Registered) return;
             if (!ReferenceEquals(s_baseOf, container))
             {
                 // A new InventoryGui (each world load): its panel still stands where vanilla put it.

@@ -45,6 +45,7 @@ namespace VerdantsAscent.Managers
 
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (UnifiedScreen.PanelsMode) return;   // 1.0.225 (UI audit): under Panels Core's dock is the only mover of panel roots
             // Only allow panel drag if NO item is on the cursor
             if (fi_dragItem.GetValue(InventoryGui.instance) is not null) return;
             lastScreenPosition = eventData.position;
@@ -54,6 +55,7 @@ namespace VerdantsAscent.Managers
 
         public void OnDrag(PointerEventData eventData)
         {
+            if (UnifiedScreen.PanelsMode) return;   // 1.0.225 (UI audit): under Panels Core's dock is the only mover of panel roots
             if (!isDragging) return;
             // Only allow panel drag if NO item is on the cursor
             if (fi_dragItem.GetValue(InventoryGui.instance) is not null) return;
@@ -76,6 +78,7 @@ namespace VerdantsAscent.Managers
 
         public void OnPointerUp(PointerEventData eventData)
         {
+            if (UnifiedScreen.PanelsMode) return;   // 1.0.225 (UI audit): under Panels Core's dock is the only mover of panel roots
             isDragging = false;
 
             // If the user actually dragged the panel (vs. just clicking

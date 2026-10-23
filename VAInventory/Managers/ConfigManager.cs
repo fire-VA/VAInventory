@@ -54,6 +54,7 @@ namespace VerdantsAscent.Managers
         // re-authored layout still moves the panel and the player's nudge rides on top.
         public ConfigEntry<Vector2> configCharacterPanelOffset;
         public ConfigEntry<float> configPlayerPanelScale;   // 1.0.100
+        public ConfigEntry<string> configPanelsScale;   // 1.0.157
         public ConfigEntry<Vector2> configContainerOffset;
         public ConfigEntry<string> configContainerWindowPosition;
         public ConfigEntry<bool> configResetContainerWindowPosition;
@@ -72,8 +73,64 @@ namespace VerdantsAscent.Managers
         // Comma-separated PREFAB names the pouch holds. Vanilla valuables by default; add
         // modded currency prefab ids (e.g. Peningar) to make them auto-deposit into the pouch.
         public ConfigEntry<string> configCurrencyPrefabs;
+        public ConfigEntry<bool> configUnifiedMigrated;   // 1.0.305: the one-time Fires UI override migration has run
 
         private static readonly char[] CurrencySplit = [',', ';'];
+        private const string DefaultCurrencyPrefabs = "Coins,Ruby,Amber,AmberPearl";
+
+        // ── 1.0.305 (Fire 10-22: "override on force for the first time to migrate, but so help me god if i try to then adjust my positions
+        // and they get forced back i will flip my lid") ── ONE-TIME migration, written to the cfg: the first time VAInventory sees Core's
+        // Fires UI override ON while [UI] UnifiedMigrated is false, it sets the approved v6b values - Layout Panels, EquipmentPanelRows 3,
+        // ExtraRows 3, the six panel backgrounds on - then UnifiedMigrated = true, one log line. After that nothing here reads or forces
+        // those keys again (no read-time overrides), and no Core dock / layout position is ever touched. Run from the main menu
+        // (FejdStartup.Awake, before any world) and again on the first local spawn, whichever first sees the override ON.
+        internal void MigrateToUnifiedOnce(string when)
+        {
+            if (configUnifiedMigrated == null || configUnifiedMigrated.Value || !UiOverrideOn()) return;
+            configUiLayout.Value = "Panels";
+            configEquipmentPanelRows.Value = 3;
+            configExtraRows.Value = 3;
+            foreach (var t in new[] { EquipmentPanelBackgroundToggle, InventoryBackgroundToggle, ContainerBackgroundToggle, CraftingBackgroundToggle, InfoBackgroundToggle, SplitBackgroundToggle })
+                if (t != null) t.Value = true;
+            configUnifiedMigrated.Value = true;
+            _cfgFile?.Save();
+            // 1.0.306: at the main menu RefreshSlotsAndPanel no-ops (no world), so the slot list - built in Awake with the old Misc rows -
+            // is rebuilt here from the migrated values, the same call Awake makes without a world.
+            Slots.InitializeSlots();
+            Debug.Log($"[VAInventory] Fires UI migration ({when}): Layout Panels, EquipmentPanelRows 3, ExtraRows 3, six panel backgrounds on, written once; "
+                + "UnifiedMigrated = true - your own changes are never overwritten again.");
+        }
+
+        private ConfigFile _cfgFile;
+        private static System.Reflection.PropertyInfo s_overrideProp; private static bool s_overrideLooked;
+        /// <summary>1.0.307: Core's Fires UI override, read safely (no Core = false); ContainerGridPlate stands down under Panels when ON.</summary>
+        internal static bool UiOverrideOnForChest() => UiOverrideOn();
+        private static bool UiOverrideOn()
+        {
+            if (!s_overrideLooked || s_overrideProp == null) { s_overrideLooked = true; try { s_overrideProp = Type.GetType("FiresCore.UI.Shell.FiresShell, FiresUnifiedCore", false)?.GetProperty("OverrideOn"); } catch { } }
+            try { return s_overrideProp != null && s_overrideProp.GetValue(null) is bool b && b; } catch { return false; }
+        }
+
+        [HarmonyLib.HarmonyPatch(typeof(FejdStartup), "Awake")]
+        private static class MigrateAtMenu { private static void Postfix() => Instance?.MigrateToUnifiedOnce("main menu"); }
+
+        [HarmonyLib.HarmonyPatch(typeof(Player), nameof(Player.OnSpawned))]
+        private static class MigrateAtSpawn
+        {
+            [HarmonyLib.HarmonyPriority(HarmonyLib.Priority.First)]
+            private static void Prefix(Player __instance) { if (__instance == Player.m_localPlayer) Instance?.MigrateToUnifiedOnce("first spawn"); }
+        }
+
+        // 1.0.303: a cfg written by 1.0.116..1.0.302 on a fresh install holds the key's description instead of a list. Put the default back,
+        // once, with one log line. Any value a player actually typed is left alone.
+        private void RepairCurrencyPrefabs()
+        {
+            string v = configCurrencyPrefabs?.Value ?? "";
+            if (v.IndexOf("Comma-separated PREFAB names", StringComparison.OrdinalIgnoreCase) < 0) return;
+            configCurrencyPrefabs.Value = DefaultCurrencyPrefabs;
+            Debug.Log($"[VAInventory] CurrencyPrefabs held its own description (a 1.0.116-1.0.302 default bug); reset to '{DefaultCurrencyPrefabs}'.");
+        }
+
         private string[] _currencyCache;
         private string _currencyCacheRaw;
 
@@ -90,6 +147,8 @@ namespace VerdantsAscent.Managers
                 foreach (var part in raw.Split(CurrencySplit, StringSplitOptions.RemoveEmptyEntries))
                 {
                     var name = part.Trim();
+                    // 1.0.303: a prefab id never holds spaces, quotes or brackets; anything that does is not a currency
+                    if (name.IndexOfAny(new[] { ' ', '\'', '"', '(', ')', '.' }) >= 0) continue;
                     if (name.Length > 0 && seen.Add(name))
                         list.Add(name);
                 }
@@ -171,7 +230,7 @@ namespace VerdantsAscent.Managers
         public bool suppressToolHotbarPositionChangeEvents = false;
 
         public void Initialize(ConfigFile config)
-        {
+        { _cfgFile = config;   // 1.0.305: the one-time migration saves through it
             // General
             // Off by default (1.0.51; Fire, 2026-10-01: cut verbose logging; every other Fires mod defaults it off).
             configVerboseLogging = config.Bind("General", "VerboseLogging", false,
@@ -186,8 +245,14 @@ namespace VerdantsAscent.Managers
                     "Unified adds a character panel beside the carry grid: equipment on two rails around a live " +
                     "preview of your character (wheel zoom, left-drag spin, right-drag move, double-click reset), " +
                     "with the tool, food, ammo and misc slots in rows beneath it. Legacy keeps the equipment panel " +
-                    "under the carry grid. Both render the same slots - switching moves no items.",
-                    new AcceptableValueList<string>("Unified", "Legacy")));
+                    "under the carry grid. Panels (1.0.157) puts the carry grid (chest below it), the character panel, a companion's panel " +
+                    "while one is open, and crafting side by side as equal-width columns, top-aligned; drag the grip on the crafting " +
+                    "panel's right edge to scale them all together. All three render the same slots - switching moves no items.",
+                    new AcceptableValueList<string>("Unified", "Legacy", "Panels")));
+
+            configPanelsScale = config.Bind("UI", "PanelsScale", "",
+                "Panels layout: the scale you dragged the whole row to, per screen resolution (e.g. 1920x1080=0.85). Written for you by " +
+                "the grip on the crafting panel's right edge; double-click the grip to reset. No need to edit.");
 
             configCharacterPanelOffset = config.Bind("UI", "CharacterPanelOffset", Vector2.zero,
                 "Unified layout: how far you dragged the character panel from its default spot. Drag the panel by its " +
@@ -208,6 +273,8 @@ namespace VerdantsAscent.Managers
                 "panel by its backdrop to move it; set ResetContainerWindowPosition to put it back. Written for you; no need to edit.");
             // Fire 10-07: a real "Reset to default" button in BepInEx ConfigurationManager (its CustomDrawer); without the
             // manager it is a plain bool that flips itself back to false after resetting.
+            // 1.0.151: 'Remap misplaced slot items' removed - the remap is a fix, always on (Fire's rule 10-14); an old cfg line is ignored
+            // 1.0.152: 'Repair shifted equipment rows' removed - the repair is a fix, always on (proven R-C2); an old cfg line is ignored
             configResetContainerWindowPosition = config.Bind("UI", "ResetContainerWindowPosition", false,
                 new ConfigDescription("Puts a dragged chest panel back just below the carry grid. In the config manager it is a " +
                     "button; in the file, set true (it flips itself back to false).", null,
@@ -244,7 +311,11 @@ namespace VerdantsAscent.Managers
             configShowAmmoSlots = config.Bind("ExtraSlots", "ShowAmmoSlots", true,
                 "Show ammo slots in the equipment panel.");
 
-            configCurrencyPrefabs = config.Bind("ExtraSlots", "CurrencyPrefabs",   // 1.0.116: was [CoinPouch], migrated below "Coins,Ruby,Amber,AmberPearl",
+            // 1.0.116: was [CoinPouch], migrated below.
+            // 1.0.303 ([seasons], Fire's Gale modpack 0.1.9): the default "Coins,Ruby,Amber,AmberPearl" sat INSIDE the comment on this line
+            // since 1.0.116, so every fresh install got the DESCRIPTION as the value - the pouch's first currency was a sentence and plain
+            // Coins never went in. The default is real again, and a stored value that is that description is put back (RepairCurrencyPrefabs).
+            configCurrencyPrefabs = config.Bind("ExtraSlots", "CurrencyPrefabs", DefaultCurrencyPrefabs,
                 "Comma-separated PREFAB names the coin pouch holds as separate stacks. The first is the " +
                 "default displayed currency. Add modded currency prefab ids here (e.g. 'Coins,Ruby,Amber,AmberPearl,Peningar') " +
                 "and they will auto-deposit into the pouch from pickups, traders, and quest rewards.");
@@ -257,34 +328,34 @@ namespace VerdantsAscent.Managers
             EquipmentPanelBackgroundToggle = config.Bind("UI.Backgrounds", "EquipmentPanelBackgroundToggle", false,
                 "If true, load Equipment Panel background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
             EquipmentPanelBackground = config.Bind("UI.Backgrounds", "EquipmentPanelBackground", string.Empty,
-                "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Equipment Panel background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+                "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Equipment Panel background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             InventoryBackgroundToggle = config.Bind("UI.Backgrounds", "InventoryBackgroundToggle", false, "If true, load Inventory background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            InventoryBackground = config.Bind("UI.Backgrounds", "InventoryBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Inventory background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            InventoryBackground = config.Bind("UI.Backgrounds", "InventoryBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Inventory background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             ContainerBackgroundToggle = config.Bind("UI.Backgrounds", "ContainerBackgroundToggle", false, "If true, load Container background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            ContainerBackground = config.Bind("UI.Backgrounds", "ContainerBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Container background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            ContainerBackground = config.Bind("UI.Backgrounds", "ContainerBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Container background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             CraftingBackgroundToggle = config.Bind("UI.Backgrounds", "CraftingBackgroundToggle", false, "If true, load Crafting background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            CraftingBackground = config.Bind("UI.Backgrounds", "CraftingBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Crafting background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            CraftingBackground = config.Bind("UI.Backgrounds", "CraftingBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Crafting background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             InfoBackgroundToggle = config.Bind("UI.Backgrounds", "InfoBackgroundToggle", false, "If true, load Info background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            InfoBackground = config.Bind("UI.Backgrounds", "InfoBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Info background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            InfoBackground = config.Bind("UI.Backgrounds", "InfoBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Info background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             SplitBackgroundToggle = config.Bind("UI.Backgrounds", "SplitBackgroundToggle", false, "If true, load Split background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            SplitBackground = config.Bind("UI.Backgrounds", "SplitBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Split background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            SplitBackground = config.Bind("UI.Backgrounds", "SplitBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Split background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             SkillsBackgroundToggle = config.Bind("UI.Backgrounds", "SkillsBackgroundToggle", false, "If true, load Skills background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            SkillsBackground = config.Bind("UI.Backgrounds", "SkillsBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Skills background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            SkillsBackground = config.Bind("UI.Backgrounds", "SkillsBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Skills background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             TextsBackgroundToggle = config.Bind("UI.Backgrounds", "TextsBackgroundToggle", false, "If true, load Texts background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            TextsBackground = config.Bind("UI.Backgrounds", "TextsBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Texts background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            TextsBackground = config.Bind("UI.Backgrounds", "TextsBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Texts background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             TrophiesBackgroundToggle = config.Bind("UI.Backgrounds", "TrophiesBackgroundToggle", false, "If true, load Trophies background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            TrophiesBackground = config.Bind("UI.Backgrounds", "TrophiesBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Trophies background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            TrophiesBackground = config.Bind("UI.Backgrounds", "TrophiesBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Trophies background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             VariantBackgroundToggle = config.Bind("UI.Backgrounds", "VariantBackgroundToggle", false, "If true, load Variant background from a PNG/JPG in the backgrounds folder below instead of asset bundle.");
-            VariantBackground = config.Bind("UI.Backgrounds", "VariantBackground", string.Empty, "Filename of PNG/JPG in BepInEx/config/VAInventoryBackgrounds/ to use as Variant background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
+            VariantBackground = config.Bind("UI.Backgrounds", "VariantBackground", string.Empty, "Filename of PNG/JPG in BepInEx/cache/VAInventory/Backgrounds/ to use as Variant background. Only used if toggle above is enabled. Requires game relaunch to take effect.");
 
             // Tool Hotbar
             configToolHotbarSlots = config.Bind("ToolHotbar", "Slots",4,
@@ -364,6 +435,10 @@ namespace VerdantsAscent.Managers
             configShowFoodSlots.SettingChanged += (_, _) => EquipmentPanel.RefreshSlotsAndPanel();
             configShowAmmoSlots.SettingChanged += (_, _) => EquipmentPanel.RefreshSlotsAndPanel();
             configCurrencyPrefabs.SettingChanged += (_, _) => { _currencyCache = null; EquipmentPanel.RefreshSlotsAndPanel(); };
+            RepairCurrencyPrefabs();
+            configUnifiedMigrated = config.Bind("UI", "UnifiedMigrated", false,
+                "Set by the mod: the one-time move to the Fires UI look has run (Layout Panels, 3 Misc rows, 3 extra rows, panel backgrounds), the first "
+                + "time VAInventory saw Core's Fires UI override ON. After that your own settings are never changed again. Set false to run it once more.");
             EquipmentPanelBackgroundToggle.SettingChanged += (_, _) => EquipmentPanel.RefreshSlotsAndPanel();
             EquipmentPanelBackground.SettingChanged += (_, _) => EquipmentPanel.RefreshSlotsAndPanel();
 
@@ -423,8 +498,63 @@ namespace VerdantsAscent.Managers
                     $"Enable piece {pieceName}.");
             }
 
+            PlayerFacing(config);   // 1.0.252
             ValidateConfigs();
             SetupConfigWatcher(config);
+        }
+
+        // 1.0.252 (TEAM RULE, Fire: player-facing configs): ONE reviewed list. Window spots / sizes / scales / opacity = Hidden (saved, never
+        // shown; players use the drag handles); everything but keybinds and the basics = Advanced (Core's config UI shows it only with Show
+        // Advanced); every description = one short plain line. Existing tags (ConfigSync) are kept; values and defaults are untouched.
+        static readonly System.Collections.Generic.HashSet<string> Hidden = new System.Collections.Generic.HashSet<string>
+        {
+            "UI/PanelsScale", "UI/CharacterPanelOffset", "UI/PlayerPanelScale", "UI/ContainerOffset", "UI/ContainerWindowPosition",
+            "UI/ResetContainerWindowPosition", "UI/PanelOpacity", "UI/PanelBottomGap", "ExtraSlots/BackpackPanelPositions",
+            "ToolHotbar/Position", "ToolHotbar/Scale", "AmmoHotbar/Position", "AmmoHotbar/Scale", "FoodHotbar/Position", "FoodHotbar/Scale",
+        };
+        static readonly System.Collections.Generic.Dictionary<string, string> Basic = new System.Collections.Generic.Dictionary<string, string>
+        {
+            { "UI/Layout", "Inventory layout: Unified, Legacy or Panels." },
+            { "ExtraSlots/ExtraRows", "Extra rows on the inventory grid (0-3)." },
+            { "ExtraSlots/ShowFoodSlots", "Show the food slots." },
+            { "ExtraSlots/ShowAmmoSlots", "Show the ammo slots." },
+            { "ToolHotbar/ShowWhenEmpty", "Show the tool hotbar when its pouch is empty." },
+            { "AmmoHotbar/ShowHotbar", "Show the ammo hotbar." },
+            { "FoodHotbar/ShowHotbar", "Show the food hotbar." },
+            { "TorchSlot/Key", "Key that equips the torch slot." },
+            { "TorchSlot/Double tap", "Double-tap the torch key to equip." },
+        };
+        static void PlayerFacing(ConfigFile config)
+        {
+            var field = typeof(ConfigEntryBase).GetField("<Description>k__BackingField", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            if (field == null) { Debug.LogWarning("[VAInventory] config tidy skipped: ConfigEntryBase.Description field not found"); return; }
+            int hidden = 0, adv = 0, basic = 0;
+            foreach (var kv in config)
+            {
+                var e = kv.Value; string id = kv.Key.Section + "/" + kv.Key.Key;
+                bool isKey = kv.Key.Key.EndsWith(" key", StringComparison.OrdinalIgnoreCase) || e.SettingType == typeof(KeyboardShortcut) || e.SettingType == typeof(KeyCode);
+                string tag; string text;
+                if (Hidden.Contains(id)) { tag = "Hidden"; text = Short(e.Description?.Description); hidden++; }
+                else if (Basic.TryGetValue(id, out var b)) { tag = null; text = b; basic++; }
+                else if (isKey) { tag = null; text = Short(e.Description?.Description); basic++; }
+                else { tag = "Advanced"; text = Short(e.Description?.Description); adv++; }
+                var old = e.Description;
+                var tags = new System.Collections.Generic.List<object>();
+                if (old?.Tags != null) foreach (var t in old.Tags) if (!(t is string s && (s == "Hidden" || s == "Advanced"))) tags.Add(t);
+                if (tag != null) tags.Add(tag);
+                field.SetValue(e, new ConfigDescription(text ?? "", old?.AcceptableValues, tags.ToArray()));
+            }
+            Debug.Log($"[VAInventory] config tidy (player-facing rule): {basic} shown (keys + basics), {adv} advanced, {hidden} hidden (window spots / sizes / scales / opacity)");
+        }
+        // one short plain line: the first sentence, at most 110 characters
+        static string Short(string d)
+        {
+            if (string.IsNullOrEmpty(d)) return d;
+            d = d.Replace("\r", " ").Replace("\n", " ").Trim();
+            int dot = d.IndexOf(". ", StringComparison.Ordinal);
+            if (dot > 0) d = d.Substring(0, dot + 1);
+            if (d.Length > 110) d = d.Substring(0, 107).TrimEnd() + "...";
+            return d;
         }
 
         private void SetupConfigWatcher(ConfigFile config)

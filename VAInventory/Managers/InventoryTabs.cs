@@ -162,6 +162,7 @@ namespace VerdantsAscent.Managers
         const float FrameInset = 10f;   // the Crafting frame's border, inside its rect
         const float EdgeGap = 11f;      // from that border to the first / last tab, the same on both sides
         const float LabelPad = 10f;
+        const float PanelsTabFontFloor = 14f;   // 1.0.171
         static readonly HashSet<string> KeepCaps = new(StringComparer.Ordinal) { "FATI" };
         static readonly List<RectTransform> rowTabs = [];
         static readonly List<float> rowTargetX = [];
@@ -177,6 +178,30 @@ namespace VerdantsAscent.Managers
         /// <summary>The live row, for the test: each tab's rect in the Crafting panel's space and its label's font size.</summary>
         internal static IReadOnlyList<RectTransform> RowTabs => rowTabs;
         internal static float RowFont => rowFont;
+
+        // 1.0.237 (Fire 10-19: crafting tabs jammed, Upgrade pushed behind them; [generator] moves these into the Core hub): in the unified /
+        // Panels layout the Classes, Leaderboards and Guilds tabs are hidden on the crafting panel (whoever owns the button). Matched by label.
+        static readonly HashSet<string> HubTabs = new(StringComparer.OrdinalIgnoreCase) { "Classes", "Leaderboards", "Guilds" };
+        static readonly HashSet<GameObject> s_hubHidden = [];
+        static readonly HashSet<string> s_lineLogged = new(StringComparer.Ordinal);   // 1.0.318
+        static bool s_hubLogged;
+        static void HubTabsOff(RectTransform row)
+        {
+            bool unified = UnifiedScreen.Enabled || UnifiedScreen.PanelsMode;
+            if (!unified)
+            {
+                if (s_hubHidden.Count > 0) { foreach (var go in s_hubHidden) if (go != null) go.SetActive(true); s_hubHidden.Clear(); }
+                return;
+            }
+            foreach (Transform child in row)
+            {
+                if (!child.gameObject.activeSelf || child.GetComponent<Button>() == null) continue;
+                var label = child.GetComponentInChildren<TMP_Text>(true);
+                if (label == null || !HubTabs.Contains(label.text.Trim())) continue;
+                child.gameObject.SetActive(false); s_hubHidden.Add(child.gameObject);
+                if (!s_hubLogged) { s_hubLogged = true; Debug.Log("[VAInventory] tabs: Classes / Leaderboards / Guilds hidden on the crafting panel in the unified layout (they live in the Core hub)"); }
+            }
+        }
 
         internal static void LayoutRow(bool force)
         {
@@ -194,6 +219,23 @@ namespace VerdantsAscent.Managers
             rowLeft = row.InverseTransformPoint(corners[0]).x + FrameInset + EdgeGap;
             float right = row.InverseTransformPoint(corners[TopRightCorner]).x - FrameInset - EdgeGap;
 
+            HubTabsOff(row);   // 1.0.237
+            // 1.0.318 (Fire 10-23 at the Tinkerer bench: "shows nothing and the ui is broken with overlapping tabs"; log "tab row: 2 tabs
+            // [Craft, FATI]"): the row takes only tabs on the Craft tab's exact anchors + y, and vanilla's Upgrade tab was off that line, so
+            // it kept its own spot ON TOP of Craft - a click on "Craft" hit Upgrade, and the empty Upgrade view looked like a bench with no
+            // recipes. Vanilla's Upgrade and every other active tab button already in the row (FATI's) are put on Craft's line first.
+            foreach (Transform child in row)
+            {
+                if (!child.gameObject.activeSelf || !(child is RectTransform t) || t == craft || t.GetComponent<Button>() == null) continue;
+                bool isUpgrade = t == (RectTransform)gui.m_tabUpgrade.transform;
+                if (!isUpgrade && registered.Any(r => buttons.TryGetValue(r.Id, out var b) && b != null && b.transform == t)) continue;
+                if (t.anchorMin == craft.anchorMin && t.anchorMax == craft.anchorMax && Mathf.Abs(t.anchoredPosition.y - craft.anchoredPosition.y) <= 2f) continue;
+                string was = $"anchors {t.anchorMin}-{t.anchorMax} y {t.anchoredPosition.y:0}";
+                t.anchorMin = craft.anchorMin; t.anchorMax = craft.anchorMax; t.pivot = craft.pivot;
+                t.anchoredPosition = new Vector2(t.anchoredPosition.x, craft.anchoredPosition.y);
+                force = true;
+                if (s_lineLogged.Add(t.name)) Debug.Log($"[VAInventory] tab row: '{t.name}' put on the Craft tab's line (was {was}; Craft y {craft.anchoredPosition.y:0})");
+            }
             // Most frames nothing changed: same children shown, same width. Then only put moved tabs back, with no allocation.
             int shown = 0;
             foreach (Transform child in row) if (child.gameObject.activeSelf) shown++;
@@ -239,16 +281,49 @@ namespace VerdantsAscent.Managers
                     if (wide > 0f) fit = Mathf.Min(fit, (rowWidth - LabelPad) / wide);
                 }
                 rowFont = vanillaFont * fit;
-                foreach (var label in labels) if (label != null) label.fontSize = rowFont;
+                // 1.0.171 ([classes-ui], Fire's night shot: tiny tabs on a narrow crafting panel): under Panels the font never drops below
+                // PanelsTabFontFloor; a label wider than its pill then ends in an ellipsis instead of shrinking the whole row
+                bool floor = UnifiedScreen.PanelsMode && rowFont < PanelsTabFontFloor;
+                if (floor) rowFont = PanelsTabFontFloor;
+                foreach (var label in labels) if (label != null)
+                {
+                    label.fontSize = rowFont;
+                    if (floor) { label.textWrappingMode = TextWrappingModes.NoWrap; label.overflowMode = TextOverflowModes.Ellipsis; }
+                }
                 rowLabels.Clear(); rowLabels.AddRange(labels);
                 rowTexts.Clear(); rowTexts.AddRange(labels.Select(l => l != null ? l.text : null));
 
                 Debug.Log($"[VAInventory] tab row: {tabs.Count} tabs [{string.Join(", ", labels.Select(l => l != null ? l.text : "?").ToArray())}] "
-                    + $"each {rowWidth:0}x{rowHeight:0}, font {rowFont:0.#} (vanilla {vanillaFont:0.#}), x {rowLeft:0}..{right:0} in '{row.name}'");
+                    + $"each {rowWidth:0}x{rowHeight:0}, font {rowFont:0.#} (vanilla {vanillaFont:0.#}), x {rowLeft:0}..{right:0} in '{row.name}'; "
+                    + $"vanilla in the {(gui.InCraftTab() ? "Craft" : "Upgrade")} view; Upgrade tab {(gui.m_tabUpgrade.gameObject.activeSelf ? (tabs.Contains((RectTransform)gui.m_tabUpgrade.transform) ? "in the row" : "ACTIVE BUT NOT IN THE ROW") : "hidden")}");   // 1.0.318
             }
             PutBack(craft);
         }
 
+        // 1.0.172 ([classes-ui]'s Panels crafting header: a button row, then the CRAFTING title, ~80 px from crafting's top): under Panels the
+        // tab row sits at least PanelsHeaderClear below crafting's top. The row's y is taken from vanilla Craft's ORIGINAL y (captured once per
+        // Craft tab, before this row moves it), so it never chases its own moves. Unified / Legacy: vanilla's y, as before.
+        const float PanelsHeaderClear = 80f;
+        static RectTransform s_baseCraft; static float s_baseY, s_panelsDrop;
+        internal static float PanelsDrop => UnifiedScreen.PanelsMode ? s_panelsDrop : 0f;   // 1.0.173: PanelsCraftShift moves crafting's content by this
+
+        static float RowY(RectTransform craft)
+        {
+            if (!ReferenceEquals(craft, s_baseCraft))
+            {
+                s_baseCraft = craft; s_baseY = craft.anchoredPosition.y; s_panelsDrop = 0f;
+                var crafting = InventoryGui.instance != null ? InventoryGui.instance.m_crafting : null;
+                if (crafting != null)
+                {
+                    var c = new Vector3[4]; var k = new Vector3[4];
+                    crafting.GetWorldCorners(c); craft.GetWorldCorners(k);
+                    float scale = Mathf.Max(1e-5f, crafting.lossyScale.y);
+                    float fromTop = (c[1].y - k[1].y) / scale;   // crafting's top edge to the tab's top edge, crafting units
+                    s_panelsDrop = Mathf.Max(0f, PanelsHeaderClear - fromTop);
+                }
+            }
+            return UnifiedScreen.PanelsMode ? s_baseY - s_panelsDrop : s_baseY;
+        }
         // Every tab back at its slot, size and Title Case label; cheap when nothing moved.
         static void PutBack(RectTransform craft)
         {
@@ -261,7 +336,7 @@ namespace VerdantsAscent.Managers
                 {   // something (localization, the owning mod) put a new label back: Title Case and the row font again
                     TitleCase(label); label.fontSize = rowFont; rowTexts[i] = label.text;
                 }
-                var want = new Vector2(rowTargetX[i], craft.anchoredPosition.y);
+                var want = new Vector2(rowTargetX[i], RowY(craft));
                 if ((rect.anchoredPosition - want).sqrMagnitude < 0.25f && Mathf.Abs(rect.sizeDelta.x - rowWidth) < 0.5f && rect.localScale == Vector3.one) continue;
                 rect.pivot = craft.pivot;
                 rect.localScale = Vector3.one;

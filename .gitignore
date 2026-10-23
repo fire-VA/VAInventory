@@ -50,4 +50,6 @@ vapieces
 
 # OS noise
 Thumbs.db
-desktop.ini
+desktop.inivainventory
+vainventoryui
+*.pre_cleanup_*.md
