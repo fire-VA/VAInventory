@@ -7,16 +7,16 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // Fire 10-07 (1.0.67): the Unified character panel never runs off the screen. When its content is taller than the
+    // the Unified character panel never runs off the screen. When its content is taller than the
     // room under its top edge, the lower block (Misc + the bag sections) moves into a wheel-only ScrollRect sized so the
     // panel ends at the screen's bottom margin; the rails, preview and pouch row stay fixed above it. Built at runtime
     // around the existing cells, so EquipmentPanel's cell mapping, Button clicks and vanilla's drag item are untouched.
     internal static class PanelScroll
     {
         const float BottomMargin = 8f;
-        // Fire 10-08 (1.0.71): "add a tiny bit of padding below the lowest grid squares on our player panel". The layout's
+        // "add a tiny bit of padding below the lowest grid squares on our player panel". The layout's
         // bottom padding (UnifiedScreen.PanelPadTopBottom) sits under the frame's border art, so the last row ran into the
-        // frame. 1.0.72 (Fire, hand test 4: "too much padding … about the same relief as the top padding"): the frame's bottom
+        // frame. 1.0.72: the frame's bottom
         // border is thicker than its top, and 20 left ~21 px against the top's ~15 px; [UI] PanelBottomGap (default 14) matches
         // them. Only as much as the room allows: the Explorer Bag fills the panel to within a few units, and the gap must never
         // make it scroll.
@@ -36,7 +36,7 @@ namespace VerdantsAscent.Managers
         static ContentSizeFitter heldFitter;
         static ContentSizeFitter.FitMode heldMode;
 
-        // 1.0.89 (Fire: the second bag section bled off the bottom): a bag section built after the fit (a second bag equipped,
+        // A bag section built after the fit (a second bag equipped,
         // a section rebuilt) landed on the panel below the scroll view, past the frame. A section outside the scroll view while it
         // scrolls, or a section count that differs from the last fit, asks for a new fit, which wraps it in.
         static int fittedSections = -1;
@@ -120,7 +120,7 @@ namespace VerdantsAscent.Managers
             float viewport = 0f;
             WheelOnlyScrollRect scrollRect = null;
 
-            // Fire 10-07 on 1.0.68: "Why is Misc pushed down so far?" Wrapping Misc took it out of the centre column (under the
+            // on 1.0.68: "Why is Misc pushed down so far?" Wrapping Misc took it out of the centre column (under the
             // pouch row) and put it below the rails, a dead band beside Shoulder/Pet/Bypass. Misc stays in its column; only the
             // bag sections scroll. Misc scrolls only when there is no bag section to take the overflow.
             var lower = new List<RectTransform>();
@@ -140,7 +140,7 @@ namespace VerdantsAscent.Managers
                 LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
                 // Misc left its column, so the fixed part may have shrunk: measure once with the full block, then cut it.
                 viewport = Mathf.Clamp(lowerHeight - (PreferredHeight(panel) - screen), Mathf.Min(MinViewport, lowerHeight), lowerHeight);
-                // 1.0.90 (round 33: the next bag section's header and cell tops drawn on the frame's bottom edge): the viewport
+                // The viewport
                 // ended where the frame's art ends, so the clip line sat on the border. It now ends ViewportBottomInset above it.
                 float cut = Mathf.Min(ViewportBottomInset, viewport - Mathf.Min(MinViewport, lowerHeight));
                 viewport -= cut;
@@ -154,7 +154,7 @@ namespace VerdantsAscent.Managers
             SetHeightKeepTop(panel, frame);
             LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
             if (scrollRect != null) scrollRect.verticalNormalizedPosition = 1f;
-            // 1.0.90: where every bag section actually lives (round 33 asked for the parent path).
+            // Where every bag section actually lives.
             foreach (var s in panel.GetComponentsInChildren<RectTransform>(true))
                 if (s.name.StartsWith(BagSectionPrefix))
                     EquipmentPanel.PanelLog?.LogDebug($"panel fit: {s.name} under {(s.parent != null ? s.parent.name : "-")}{(s.parent != null && s.parent.parent != null ? " < " + s.parent.parent.name : "")}, active {s.gameObject.activeInHierarchy}");
@@ -288,7 +288,7 @@ namespace VerdantsAscent.Managers
         public override void OnDrag(PointerEventData eventData) { }
         public override void OnEndDrag(PointerEventData eventData) { }
 
-        // Fire 10-08 (1.0.73): scrolled bag cells drew over Misc and the equipment rails. Vanilla's InventoryElement has a
+        // scrolled bag cells drew over Misc and the equipment rails. Vanilla's InventoryElement has a
         // faint "dropFocus" Image with maskable off, so the viewport's RectMask2D never clipped it. Every graphic in the
         // content is made maskable; checked again whenever the content's graphic count changes (grids rebuild cells).
         int maskedCount = -1;
@@ -338,7 +338,7 @@ namespace VerdantsAscent.Managers
             }
             viewport.GetWorldCorners(vpCorners);
             float top = vpCorners[1].y, bottom = vpCorners[0].y;
-            // 1.0.92 (Fire's phone shot on 1.0.91: cells still below the frame): the viewport itself can reach past the panel's
+            // The viewport itself can reach past the panel's
             // frame, so a part must also lie inside the panel (the scroll view's parent), less its bottom padding.
             if (transform.parent is RectTransform panelRect)
             {
@@ -364,7 +364,7 @@ namespace VerdantsAscent.Managers
             }
         }
 
-        // 1.0.93 (round 36: cells peeked below the frame for a moment after the panel opened, clean later): LateUpdate runs
+        // LateUpdate runs
         // BEFORE the canvas lays the sections out, so on the open frame and after every refit the guard read stale positions
         // and a freshly added CanvasGroup started visible. The guard now also runs in Canvas.willRenderCanvases, after layout and
         // right before drawing, every frame; new parts start hidden until measured.

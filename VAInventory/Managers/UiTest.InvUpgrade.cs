@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace VerdantsAscent.Managers
 {
-    // `inventory_upgrade_test` (Fire 10-13): Valheim 1.0's trader inventory upgrades (Haldor's "invrows" +1 each, Player.SetInventorySize)
+    // `inventory_upgrade_test`: Valheim 1.0's trader inventory upgrades (Haldor's "invrows" +1 each, Player.SetInventorySize)
     // with VAInventory's layout. Two rounds, like private_keys_test, so a REAL relog sits between them:
     //   inventory_upgrade_test         - snapshot every item, fill the free main cells, +1 row the vanilla way, check, and LEAVE it applied
     //                                    (the expected items and positions go to BepInEx/FiresTests/inventory_upgrade_state.txt)
@@ -211,7 +211,7 @@ namespace VerdantsAscent.Managers
             var me = Player.m_localPlayer;
             bool vaKey = me.m_customData.TryGetValue("VAInventory.VanillaPlayerRows", out var va) && va == (upRun.RowsBefore + 1).ToString();
             // What round 2 checks after the relog: the rows, and every item where it now is.
-            // R-1013M: FDT clears the tester's bag (the main grid + hotbar) between runs, keeping equipped gear and VAInventory's slots.
+            // The test runner clears the tester's bag (the main grid + hotbar) between runs, keeping equipped gear and VAInventory's slots.
             // So the filler goes now, and round 2 checks what survives that: every item in VAInventory's slot regions, the ones the
             // +1 row moved down (the relog risk: a load refusing y >= height before "invrows" is re-applied).
             var inv = me.GetInventory();

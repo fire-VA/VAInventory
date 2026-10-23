@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace VerdantsAscent.Managers
 {
-    // `ui_test` - the UI / inventory / Core UI area's F5 test (Tools\FIRES_F5_TESTS.md, Fire 2026-09-28): the character
+    // `ui_test` - the UI / inventory / Core UI area's F5 test: the character
     // preview draws only the player, the panel's squares open without a one-frame flash, the config window's cold and
     // warm open time, and the keybind conflicts list. World-neutral: it spawns nothing, and it puts back the inventory's
     // open state, the preview's view and the config window's open state. The config and keybind steps SKIP without
@@ -77,7 +77,7 @@ namespace VerdantsAscent.Managers
             StartSha();
             new Terminal.ConsoleCommand(CommandName,
                 "UI / inventory / config window checks (list | <step...>); PASS/FAIL per step, results in BepInEx/FiresTests/ui_test.txt",
-                args => Run(args), isCheat: true);   // 1.0.74: admin/devcommands only
+                args => Run(args), isCheat: true);   // Admin/devcommands only
             RegisterBagResize();
             RegisterInventoryUpgrade();
         }
@@ -206,8 +206,8 @@ namespace VerdantsAscent.Managers
             }
             if (chest == null) { step.Skip($"no free chest within {ChestSearchMetres:0} m to open"); yield break; }
 
-            // 1.0.50: vanilla closes an open chest the next frame once the player is farther than InventoryGui's
-            // m_autoCloseDistance (4 m), so the 1.0.49 step's open from 6 m (proof round 22:27) could never show. A player
+            // Vanilla closes an open chest the next frame once the player is farther than InventoryGui's
+            // m_autoCloseDistance (4 m), so the 1.0.49 step's open from 6 m could never show. A player
             // presses E within reach: stand the tester beside the chest first, on the side it is already on.
             float reach = Mathf.Max(1f, InventoryGui.instance.m_autoCloseDistance - ChestReachMargin);
             if (best > reach)
@@ -222,8 +222,8 @@ namespace VerdantsAscent.Managers
                 best = ChestStandMetres;
             }
 
-            // 1.0.50: right after a teleport (a 'goto' in the round chain) the chest's ZDO has no owner yet, so vanilla sends the
-            // open request to everybody and every peer answers "but im not the owner" (proof round 22:22): wait that out first.
+            // Right after a teleport the chest's ZDO has no owner yet, so vanilla sends the
+            // open request to everybody and every peer answers "but im not the owner": wait that out first.
             var nview = chest.GetComponent<ZNetView>();
             float settleUntil = Time.realtimeSinceStartup + ChestSettleSeconds;
             while (Time.realtimeSinceStartup < settleUntil
@@ -306,7 +306,7 @@ namespace VerdantsAscent.Managers
             for (int frame = 0; frame < SettleFrames; frame++) yield return null;
         }
 
-        // Fire 10-12 (option B): every tab in the Crafting row - vanilla's, FATI's, the registered ones - the same size and font,
+        // every tab in the Crafting row - vanilla's, FATI's, the registered ones - the same size and font,
         // no two overlapping, all inside the Crafting panel. Measured in world space a few frames after UpdateCraftingPanel, so
         // FATI's own re-positioning has had its turn.
         static IEnumerator CraftingTabsEqual(Step step)
@@ -328,7 +328,7 @@ namespace VerdantsAscent.Managers
             for (int i = 1; i < rects.Count; i++) if (rects[i].xMin < rects[i - 1].xMax - 0.5f) problems.Add($"tab {i} overlaps tab {i - 1}");
             if (rects.Any(r => r.xMin < panel.xMin - 0.5f || r.xMax > panel.xMax + 0.5f || r.yMin < panel.yMin - 0.5f || r.yMax > panel.yMax + 0.5f)) problems.Add("a tab is outside the Crafting panel");
             if (fonts.Any(f => Mathf.Abs(f - fonts[0]) > 0.05f)) problems.Add("fonts differ: " + string.Join(" ", fonts.Select(f => f.ToString("0.#")).ToArray()));
-            float marginLeft = rects[0].xMin - panel.xMin, marginRight = panel.xMax - rects[rects.Count - 1].xMax;   // Fire 10-12: the same gap both sides
+            float marginLeft = rects[0].xMin - panel.xMin, marginRight = panel.xMax - rects[rects.Count - 1].xMax;   // the same gap both sides
             if (Mathf.Abs(marginLeft - marginRight) > 1f) problems.Add($"margins differ: left {marginLeft:0.#}, right {marginRight:0.#}");
             string detail = $"{tabs.Count} tabs [{string.Join(", ", labels)}] each {rects[0].width:0}x{rects[0].height:0}, font {fonts[0]:0.#}, margins {marginLeft:0.#} / {marginRight:0.#}";
             if (problems.Count == 0) step.Pass(detail); else step.Fail(string.Join("; ", problems.ToArray()) + " - " + detail);
@@ -374,7 +374,7 @@ namespace VerdantsAscent.Managers
         // At the default view the image's corners are background: they must be clear, not the world. A covered corner is
         // looked at again after RecheckFrames, and the player's own renderers reaching into it are named: the isolation
         // draws everything under the player (gear, hair, a torch's flame, status-effect particles), so a corner covered by
-        // one of those is the player, not the world (R4, 2026-09-28: one corner at alpha 1 with a bot standing nearby).
+        // one of those is the player, not the world.
         const int RecheckFrames = 15;
 
         static IEnumerator PreviewBackground(Step step)
@@ -605,7 +605,7 @@ namespace VerdantsAscent.Managers
             catch (Exception ex) { Log.LogWarning($"{Tag} could not write {ResultsFile}: {ex.Message}"); }
         }
 
-        // The BEGIN line's DLL hash, on a pool thread from load (Tools\FIRES_F5_TESTS.md: never on the main thread;
+        // The BEGIN line's DLL hash, on a pool thread from load (: never on the main thread;
         // SHA256 runs ~11 ms per MB).
         static void StartSha()
         {

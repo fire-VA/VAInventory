@@ -4,7 +4,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.170 (Fire's hand test: "grid squares too dark on a dark background"; the approved look is [visual]'s layout_3panel_v4 mock). Under
+    /// 1.0.170. Under
     /// the Panels layout every carry-grid and chest-grid cell takes the mock's well: fill RGB 28/22/13 with a 1.5 px outline RGB 73/56/34
     /// (both sampled from layout_3panel_v4_1920.png), so the squares read on the dark plate. Vanilla rebuilds its elements, so this
     /// re-applies a few times a second (a colour compare per cell; writes only when a cell differs). Unified / Legacy are untouched.
@@ -26,14 +26,14 @@ namespace VerdantsAscent.Managers
         internal static void Tick(InventoryGui gui)
         {
             if (gui == null) return;
-            ProbeOpen(gui);   // 1.0.186: the probe is back (Debug only, [lead]: read the RENDERED state)
-            // 1.0.181: no per-frame re-skin. The original look is set on the open frame (and the first second after it, while vanilla builds
+            ProbeOpen(gui);   // The probe is back
+            // No per-frame re-skin. The original look is set on the open frame (and the first second after it, while vanilla builds
             // the elements), then checked every 10th frame for NEW elements (a rebuild); a restore writes only when a slot differs, and with
             // KitLeaf on each slot Core's skin walk no longer repaints them.
             bool opening = Time.unscaledTime - s_openedAt < 1f;
             ++s_frame;
             if (!opening && (s_frame % 10) != 0) return;
-            // 1.0.183 (Fire's final directive): NO slot restyling at all; every slot keeps its own pre-unified look (no palette, no outline,
+            // NO slot restyling at all; every slot keeps its own pre-unified look (no palette, no outline,
             // no restore loop). Only the probe + the small layout tweaks below run.
             int n = 0, panelCells = 0;
             // proof that nothing fights the look: a restore AFTER the opening second means something repainted (or rebuilt) slots
@@ -118,7 +118,7 @@ namespace VerdantsAscent.Managers
 
         static bool HasKitLeaf(Image img) => s_kitLeaf != null && img != null && img.GetComponent(s_kitLeaf) != null;
 
-        // ---- 1.0.180 proof probe ([lead]: "find WHICH object is visible on top, at the moment of the shot") ----------------------------------
+        // ---- 1.0.180 proof probe ----------------------------------
         // At open + 1 frame and open + 6 s: main grid cell 0's Image (sprite, colour, material) and EVERY visible graphic drawn after it that
         // covers its centre (render order = hierarchy order inside a canvas; a nested canvas with a higher sorting order draws later), plus
         // the same for the first Misc / backpack cell on the player panel. Debug lines "panels: probe".
@@ -145,19 +145,19 @@ namespace VerdantsAscent.Managers
                     foreach (var img in panel.GetComponentsInChildren<Image>(false))
                         if (img.name.StartsWith("Cell_", System.StringComparison.Ordinal)) { panelCell = img; break; }
                 ProbeOne(when, "panel cell", panelCell);
-                // 1.0.186: an equipment-rail element (renders grey) next to the main grid cell (renders black): same prefab, so compare them
+                // An equipment-rail element (renders grey) next to the main grid cell (renders black): same prefab, so compare them
                 InventoryElement rail = null;
                 if (panel != null) foreach (var el in panel.GetComponentsInChildren<InventoryElement>(false)) { rail = el; break; }
                 ProbeOne(when, "rail element", rail != null ? rail.GetComponent<Image>() : null);
-                // 1.0.193: a BAG element (the last element on the panel; the bag sections come last) - the one that turned grey on open #3
+                // A BAG element (the last element on the panel; the bag sections come last) - the one that turned grey on open #3
                 InventoryElement bag = null;
                 if (panel != null) foreach (var el in panel.GetComponentsInChildren<InventoryElement>(false)) bag = el;
                 ProbeOne(when, "bag element", bag != null ? bag.GetComponent<Image>() : null);
-                // 1.0.194: the GREY squares themselves (R-1015P shot 194018 at 3440x1440): an empty Misc cell and an empty Explorer Bag cell
+                // The GREY squares themselves: an empty Misc cell and an empty Explorer Bag cell
                 ProbePoint(when, "grey Misc cell", new Vector2(1053f * Screen.width / 3440f, Screen.height - 654f * Screen.height / 1440f));
                 ProbePoint(when, "grey bag cell", new Vector2(912f * Screen.width / 3440f, Screen.height - 1015f * Screen.height / 1440f));
-                // the black box left of the crafting panel in R-1015I (3440 x 1440 shot: x 2620, y 450 from the top)
-                // 1.0.188: the remaining tab ([lead]: x 2590-2675, y 455-535 from the top at 3440x1440): its centre
+                // the black box left of the crafting panel in R-1015I
+                // The remaining tab: its centre
                 ProbePoint(when, "black tab", new Vector2(2632f * Screen.width / 3440f, Screen.height - 495f * Screen.height / 1440f));
             }
             catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug($"panels: probe {when} failed: {e.Message}"); }
@@ -238,7 +238,7 @@ namespace VerdantsAscent.Managers
             return a;
         }
 
-        // [visual]: the backpack side column's blue quality '3' covered its icons; on the character panel the quality digit is small, top-left
+        // the backpack side column's blue quality '3' covered its icons; on the character panel the quality digit is small, top-left
         static void SmallQualityOnCharacterPanel()
         {
             var panel = UnifiedScreen.CharacterPanel;
@@ -249,7 +249,7 @@ namespace VerdantsAscent.Managers
 
         const float QualitySize = 13f;
 
-        // 1.0.171 ([lead] call, the _v6 golden): the coin purse ALWAYS shows the coin icon - at ~40% with no count while empty, normal with the
+        // The coin purse ALWAYS shows the coin icon - at ~40% with no count while empty, normal with the
         // count when filled (vanilla's own icon then) - and the currency-cycle "⇄" badge (EquipmentPanel's CurrencyCycle) sits small in the cell's
         // top-RIGHT corner (14 px) instead of over the coin at the top-left. Panels only.
         const string PurseGhost = "VAInventoryPurseGhost";
@@ -285,7 +285,7 @@ namespace VerdantsAscent.Managers
             }
         }
 
-        // 1.0.170 ([lead] for Fire, the v4 mock): each EMPTY equipment rail cell shows its slot's name in grey inside it ('Trinket', 'Back offhand',
+        // Each EMPTY equipment rail cell shows its slot's name in grey inside it ('Trinket', 'Back offhand',
         // 'Pet'...); a cell holding an item hides it. Panels only: leaving the layout hides every placeholder.
         const string PlaceholderName = "VAInventoryPlaceholder";
         static readonly Color PlaceholderColor = new Color(0.62f, 0.56f, 0.46f, 0.75f);
@@ -314,7 +314,7 @@ namespace VerdantsAscent.Managers
                     label = rt;
                 }
                 if (label.gameObject.activeSelf != empty) label.gameObject.SetActive(empty);
-                if (empty && label.GetSiblingIndex() != cell.childCount - 1) label.SetAsLastSibling();   // 1.0.171: over the empty element's own background (it hid the name)
+                if (empty && label.GetSiblingIndex() != cell.childCount - 1) label.SetAsLastSibling();   // Over the empty element's own background (it hid the name)
             }
         }
 
@@ -345,7 +345,7 @@ namespace VerdantsAscent.Managers
         {
             if (grid == null || grid.m_gridRoot == null || !grid.m_gridRoot.gameObject.activeInHierarchy) return 0;
             int changed = 0;
-            // 1.0.181 (Fire): the ORIGINAL slot (vanilla's element prefab, as with the unified UI off) + 1 px faint gold, out of Core's skin walk.
+            // The ORIGINAL slot (vanilla's element prefab, as with the unified UI off) + 1 px faint gold, out of Core's skin walk.
             // Replaces 1.0.171's kit-pill copy and 1.0.179's palette sprite.
             var model = Original();
             if (model == null) return 0;
@@ -354,7 +354,7 @@ namespace VerdantsAscent.Managers
                 var img = cell.GetComponent<Image>();
                 if (img == null) continue;
                 if (Restore(img, model)) changed++;
-                // [visual]'s side-by-side: the 1-8 key numbers came out large and white over the cells; the mock has small warm digits in the corner
+                // 's side-by-side: the 1-8 key numbers came out large and white over the cells; the mock has small warm digits in the corner
                 var binding = cell.Find("binding")?.GetComponent<TMPro.TMP_Text>();
                 if (binding != null && (binding.fontSize != KeySize || binding.color != KeyColor)) { binding.enableAutoSizing = false; binding.fontSize = KeySize; binding.color = KeyColor; }
             }

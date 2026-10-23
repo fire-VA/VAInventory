@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // Fire 10-08 (1.0.82): "The crafting panel, the main inventory grid, the player panel and the companion panels and UIs all share
+    // "The crafting panel, the main inventory grid, the player panel and the companion panels and UIs all share
     // the same layout and colour scheme." The vanilla Crafting panel gets the character panel's three layers, copied live: its
     // solid dark underlay (same inset), its Bkg art on the panel's own Bkg, and its lighter Backing inlay (same anchors/offsets,
     // same Outline). Nothing is hand-coloured. Everything is put back when the Unified layout is left.
@@ -56,7 +56,7 @@ namespace VerdantsAscent.Managers
             FitToContent(panel, s);
         }
 
-        // 1.0.95 (Fire: the recipe list's text was cut off by the tan plate's left edge): the inlay copied the character panel's
+        // The inlay copied the character panel's
         // offsets, which are narrower on the left than Crafting's recipe list. The inlay now grows so the recipe list (its
         // viewport, icons and selection highlight) sits Pad inside it, and the dark underlay stays Pad beyond the inlay on that
         // side. Only edges that are too tight move; the right side and the Craft button keep their place.
@@ -72,7 +72,7 @@ namespace VerdantsAscent.Managers
             if (gui == null || panel != gui.m_crafting || s.Inlay == null) return;
             var list = gui.m_recipeListRoot != null ? gui.m_recipeListRoot.parent as RectTransform : null;
             if (list == null) return;
-            // 1.0.96 (Fire: the recipe ICONS and the selected-row highlight sat half on the dark frame): the rows' parts reach
+            // The rows' parts reach
             // further left than the list's viewport, so the leftmost edge of every active graphic in the list counts.
             list.GetWorldCorners(fitCorners);
             float listLeft = panel.InverseTransformPoint(fitCorners[0]).x;
@@ -83,7 +83,7 @@ namespace VerdantsAscent.Managers
             }
             var inlay = (RectTransform)s.Inlay.transform;
             float inlayLeft = InnerLeft(panel, inlay);
-            float wantInlay = listLeft - LeftGap;   // 1.0.99 (Fire: "a bit more padding on the LEFT"): 12 between the icons and the tan edge
+            float wantInlay = listLeft - LeftGap;   // 12 between the icons and the tan edge
             if (Time.unscaledTime >= nextFitLog)
             {
                 nextFitLog = Time.unscaledTime + 10f;
@@ -95,7 +95,7 @@ namespace VerdantsAscent.Managers
                 EquipmentPanel.PanelLog?.LogDebug($"panel skin: Crafting inlay left edge {inlayLeft:0} -> {wantInlay:0} (recipe list starts at {listLeft:0})");
                 inlayLeft = wantInlay;
             }
-            // 1.0.99 (Fire: "padding on the BOTTOM so the Craft button sits INSIDE the light background"): the tan plate's
+            // The tan plate's
             // bottom edge goes CraftBottomGap below the Craft button; the dark underlay follows Pad beyond it.
             float inlayBottom = InnerBottom(panel, inlay);
             var craft = gui.m_craftButton != null ? gui.m_craftButton.transform as RectTransform : null;

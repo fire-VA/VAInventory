@@ -69,7 +69,7 @@ namespace VerdantsAscent.Managers
 
         // ── State ──────────────────────────────────────────────────────
 
-        // Fire 10-07 (backpack_shot_q2): VAInventory's Awake can run before BepInEx loads VABackpacks, and a one-shot
+        // VAInventory's Awake can run before BepInEx loads VABackpacks, and a one-shot
         // Initialize then hid the Backpack slot for the whole session. Not found yet = look again, at most every 5 s.
         private static bool _available, _missingLogged;
         private static float _nextRetry;

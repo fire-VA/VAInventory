@@ -23,7 +23,7 @@ namespace VerdantsAscent.Managers
             while (ZInput.instance == null)
                 yield return null;
 
-            // 1.0.140 (Fire approved, Tools\VAINVENTORY_HOTBAR_HOOK_PROPOSAL.md): the ZInput.TryGetButtonState prefix (6.3k calls/s,
+            // The ZInput.TryGetButtonState prefix (6.3k calls/s,
             // 8.3 ms/s) is no longer applied; vanilla's hotbar is suppressed at its only use, Player.UseHotbarItem (below).
             Debug.Log("[VAInventory] HotbarManager: vanilla hotbar suppressed at Player.UseHotbarItem (no ZInput hook)");
         }
@@ -71,7 +71,7 @@ namespace VerdantsAscent.Managers
             }
         }
 
-        // 1.0.139 ([fgn] R5 perf: 1.2 us x 6.5k calls/s): the button name -> hotbar index is parsed ONCE per name (no digit scan or
+        // The button name -> hotbar index is parsed ONCE per name (no digit scan or
         // Substring per call; -1 = not a numbered button, returned at once), and the gamepad state + each index's suppress answer are
         // read once per frame.
         private static readonly Dictionary<string, int> s_nameIndex = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -96,7 +96,7 @@ namespace VerdantsAscent.Managers
             return idx;
         }
 
-        // 1.0.140: vanilla reads Hotbar1-8 (+Alt) in ONE place, Player.Update -> UseHotbarItem(i), so suppressing here is the same rule
+        // Vanilla reads Hotbar1-8 (+Alt) in ONE place, Player.Update -> UseHotbarItem(i), so suppressing here is the same rule
         // as before at ~0 cost (it only runs on a hotbar key press). The decision is logged at Debug.
         [HarmonyPatch(typeof(Player), nameof(Player.UseHotbarItem))]
         private static class Player_UseHotbarItem_Suppress

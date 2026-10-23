@@ -7,9 +7,9 @@ using FiresCore.UI.Shell.Kit;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.209 (Fire: the Stats page was "terrible"; the pills too big): the companion panel's pills and Stats page drawn with Core's own kit
+    /// The companion panel's pills and Stats page drawn with Core's own kit
     /// widgets (Widgets.SubTabs / Section / Row / Button), laid out like FiresCompanions' stats + attributes screens
-    /// (Tools\golden\ui_overhaul\companions\stats_1920.png, attributes_1920.png). Kit types live only in this class, so VAInventory loads
+    /// . Kit types live only in this class, so VAInventory loads
     /// without them; callers check Available first.
     /// </summary>
     internal static class CompanionKitPage
@@ -45,7 +45,7 @@ namespace VerdantsAscent.Managers
             return root0;
         }
 
-        // 1.0.298 ([lead], Fire 10-21 Unified ON, shot "Gear | Stats | Appe..": "move these buttons to the left of the character under armor so
+        // 1.0.298 (Unified ON, shot "Gear | Stats | Appe..": "move these buttons to the left of the character under armor so
         // they have the room to show their text, and they should also use a rounded skin just like everything else"): the pills stack in a
         // column under the Armor label, left of the preview, each as wide as the widest label, every face a rounded kit pill.
         static void Column(RectTransform parent, RectTransform root, RectTransform under)
@@ -64,12 +64,12 @@ namespace VerdantsAscent.Managers
             {
                 n.anchorMin = n.anchorMax = new Vector2(0f, 1f); n.pivot = new Vector2(0f, 1f);
                 n.sizeDelta = new Vector2(w, H); n.anchoredPosition = new Vector2(0f, -i * (H + Gap)); i++;
-                // 1.0.313 (Fire 10-22: "the appearance button should get a hover tooltip to show its full word when hovered since its ap..."):
+                // 
                 // every pill in this narrow column carries Core's standard hover tip with its FULL label, so a cut label (any language) reads
                 // in full on hover; attached to all of them because the cut depends on the final drawn width, not known here
                 var lbl = n.Find("Label")?.GetComponent<TMPro.TMP_Text>();
                 string full = lbl != null ? (lbl.text ?? "").Trim() : "";
-                // 1.0.319 ([ghost], Fire's shot: "Ap..." in the narrow column): the label shrinks to fit the whole word (down to 9 pt) before
+                // The label shrinks to fit the whole word (down to 9 pt) before
                 // it would cut; the hover tip still names it in full
                 if (lbl != null && !lbl.enableAutoSizing)
                 {
@@ -87,7 +87,7 @@ namespace VerdantsAscent.Managers
             VerdantsAscent.EquipmentPanel.PanelLog?.LogDebug($"panels: companion pills stacked under '{under.name}' at ({left:0},{top - 8f:0}), {root.childCount} x {w:0}x{H:0}");
         }
 
-        // 1.0.314 (lead 10-22, Core 0.2.709+): a LABEL tip - shown even when RPGmaker's admin hints are off; an older Core keeps the plain tip
+        // A LABEL tip - shown even when RPGmaker's admin hints are off; an older Core keeps the plain tip
         private static void PillTip(GameObject go, string full)
         {
             try { LabelTip(go, full); }
@@ -99,7 +99,7 @@ namespace VerdantsAscent.Managers
         static RectTransform PillsRow(RectTransform parent, float y, bool statsOn, Action<bool> onPick, Action onAppearance)
         {
             Impl.DropGroup(parent, "Pills");
-            // 1.0.293 (Fire 10-21 Unified ON: "we have no appearance options to edit the companions here"): a third pill, "Appearance", when
+            // A third pill, "Appearance", when
             // the caller gives an appearance action (FiresCompanions 0.1.83+ CompanionBarberScreen.OpenFor); otherwise Gear | Stats as before
             var tabs = onAppearance != null
                 ? new[] { ("equipment", "Gear"), ("stats", "Stats"), ("appearance", "Appearance") }
@@ -118,7 +118,7 @@ namespace VerdantsAscent.Managers
                 else b.onClick.AddListener(() => onPick(stats));
             }
             var le = root.GetComponent<LayoutElement>() ?? root.gameObject.AddComponent<LayoutElement>(); le.ignoreLayout = true;
-            // 1.0.284 (Fire 10-21 V4, shot 20261021_0040/16: "the stats/attributes buttons show no labels", two blank blocks): every pill label
+            // Every pill label
             // gets a font that draws (the inventory's own when the kit's is missing) and a visible colour; one log line says what it found
             var gameFont = InventoryGui.instance?.m_playerGrid?.m_elementPrefab?.GetComponentInChildren<TMPro.TMP_Text>(true)?.font;
             var seen = new System.Text.StringBuilder();

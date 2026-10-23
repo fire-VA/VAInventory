@@ -6,7 +6,7 @@ using UnityEngine;
 namespace VerdantsAscent.Managers.HotBars
 {
     /// <summary>
-    /// 1.0.165 (Fire: "every HUD element movable", via [lead]; the same pattern as RPGClasses 0.1.162): while the Fires UI override is ON, the
+    /// While the Fires UI override is ON, the
     /// Tool / Food / Ammo hotbars are Core HUD dock elements (FiresShell.RegisterHudElement, Core 0.2.522+, layer "hud"): Core places and scales
     /// them, layout mode drags / docks them, and the spot is saved per character + resolution. While registered, the bar's own placement
     /// (HotBarPlacement from [*Hotbar] Position) stands down. Override OFF, or the bar cleared = unregistered, and the config placement is back.
@@ -22,9 +22,9 @@ namespace VerdantsAscent.Managers.HotBars
         static MethodInfo s_register, s_unregister;
         static Type s_options;
         static readonly Dictionary<string, RectTransform> s_owned = new Dictionary<string, RectTransform>();
-        static readonly Dictionary<string, bool> s_regOn = new Dictionary<string, bool>();   // 1.0.295: the override mode each bar was registered in
+        static readonly Dictionary<string, bool> s_regOn = new Dictionary<string, bool>();   // The override mode each bar was registered in
         static readonly HashSet<string> s_dumped = new HashSet<string>();
-        // 1.0.295 ([lead], Fire: "if the logs don't tell you why it's still broken, add them so they do"): once per bar, the hierarchy the
+        // Once per bar, the hierarchy the
         // fit walks (name, active, rect, children), so the next log names the slot structure instead of us guessing
         static void DumpHierarchyOnce(RectTransform root)
         {
@@ -45,7 +45,7 @@ namespace VerdantsAscent.Managers.HotBars
             }
             catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"hotbars: hierarchy dump failed: {e.Message}"); }
         }
-        static readonly HashSet<string> s_placedOnce = new HashSet<string>();   // 1.0.166: bar instances the config placement has laid out once
+        static readonly HashSet<string> s_placedOnce = new HashSet<string>();   // Bar instances the config placement has laid out once
 
         static bool Resolve()
         {
@@ -56,7 +56,7 @@ namespace VerdantsAscent.Managers.HotBars
                 s_overrideOn = shell?.GetProperty("OverrideOn", BindingFlags.Public | BindingFlags.Static);
                 s_register = shell?.GetMethod("RegisterHudElement", BindingFlags.Public | BindingFlags.Static);
                 s_unregister = shell?.GetMethod("UnregisterHudElement", BindingFlags.Public | BindingFlags.Static);
-                // [lead]: take the options type from RegisterHudElement's own 3rd parameter (RPGClasses' hard-coded name failed silently)
+                // take the options type from RegisterHudElement's own 3rd parameter (RPGClasses' hard-coded name failed silently)
                 var ps = s_register?.GetParameters();
                 s_options = ps != null && ps.Length >= 3 ? ps[2].ParameterType : Type.GetType(OptionsType);
                 EquipmentPanel.PanelLog?.LogDebug(s_register != null && s_options != null
@@ -72,13 +72,13 @@ namespace VerdantsAscent.Managers.HotBars
         internal static bool Manage(string barName, string label, RectTransform rect)
         {
             if (rect == null || !Resolve()) return false;
-            FitToElements(rect);   // 1.0.168: the rect Core outlines / drags / docks = the visible bar
+            FitToElements(rect);   // The rect Core outlines / drags / docks = the visible bar
             string id = IdOf(barName);
             { string other = BaseId(barName) + (OverrideOn() ? ".classic" : ""); if (s_owned.ContainsKey(other)) { EquipmentPanel.PanelLog?.LogInfo($"[VAInventory] hotbars: mode switch - {other} handed over to {id}"); ReleaseId(other); } }   // 1.0.299
-            bool want = true;   // 1.0.210 (Fire: the hotbars were missing from the HUD layout editor): always a Core HUD dock element, not only under the Fires UI override
+            bool want = true;   // Always a Core HUD dock element, not only under the Fires UI override
             s_owned.TryGetValue(id, out var have);
             UpdateHitBounds(rect);   // 1.0.251
-            // 1.0.295 ([lead], Fire 10-21 "STILL CAN'T POSITION OUR HOTBARS"; his log: every press on a bar became "grip FiresDockGrip3 size"
+            // 1.0.295 ("STILL CAN'T POSITION OUR HOTBARS"; his log: every press on a bar became "grip FiresDockGrip3 size"
             // and the bar's screen rect grew to 711x401 while its slots stayed put, zero "move drag start" all session): the bar was registered
             // with SizeChanged = KitHotbars.Reflow (a SIZE resize that re-lays the KIT row), but with the override OFF there is no kit row, so
             // Core's grip only stretched the empty rect. Options now depend on the mode; a mode flip re-registers the bar.
@@ -88,13 +88,13 @@ namespace VerdantsAscent.Managers.HotBars
             DumpHierarchyOnce(rect);
             if (want)
             {
-                // 1.0.166 (Fire's hand test: the bars' default dock spot was mid-screen): Core takes the element's spot AT REGISTER as its default,
+                // Core takes the element's spot AT REGISTER as its default,
                 // so the bar's own config placement must have laid it out first. The first call after the bar (re)appears lets the placement run
                 // (returns false); the next one registers it right where the player always had it.
-                // 1.0.250 (Fire: bars JAMMED into each other; Core probe "re-placed top: vainv.hotbar2.food x119, ammo x77"): a bar that was
+                // A bar that was
                 // dock-registered once this session is Core's to place for good - a RE-CREATED rect (pouch emptied/refilled, hide/show)
                 // re-registers at once and the old config placement never runs for it again (it put the bar back into VAInventory's stack)
-                // 1.0.263 ([generator], Core 0.2.617 embeds Fire's layout as the shipped default): NO first placement pass any more - the bar
+                // NO first placement pass any more - the bar
                 // registers at once and Core places it (saved spot, else Core's embedded default). VAInventory never sets a start spot.
                 if (have != null) Release(barName);
                 try
@@ -105,7 +105,7 @@ namespace VerdantsAscent.Managers.HotBars
                     s_options.GetField("ShowInLayout")?.SetValue(o, true);   // 1.0.210: listed + shown while the layout editor is open, even when hidden
                     { var fa = s_options.GetField("AlsoInInventoryLayout"); if (fa != null) fa.SetValue(o, true); else s_options.GetProperty("AlsoInInventoryLayout")?.SetValue(o, true); }   // 1.0.219 (Fire; Core 0.2.566): draggable in the INVENTORY layout editor too (one HUD element, saved in dock_hud)
                     // 1.0.231 (lead; Core 0.2.578 real resize): a resize re-flows the bar's kit slots (cols x rows), slot size never under MinSize
-                    if (on)   // 1.0.295: size resize only where a kit row re-lays; OFF = Core's scale resize (the player panel / chest path)
+                    if (on)   // Size resize only where a kit row re-lays; OFF = Core's scale resize (the player panel / chest path)
                     { string bn = barName; Action<Vector2> sc = want => KitHotbarsImpl.Reflow(bn, want);
                       var fs = s_options.GetField("SizeChanged"); if (fs != null) fs.SetValue(o, sc); else s_options.GetProperty("SizeChanged")?.SetValue(o, sc);
                       var mv = new Vector2(KitHotbarsImpl.MinCell, KitHotbarsImpl.MinCell);
@@ -122,7 +122,7 @@ namespace VerdantsAscent.Managers.HotBars
                         if (handle != null && fh != null && fl != null) { fh.SetValue(o, handle); fl.SetValue(o, true); }
                         else EquipmentPanel.PanelLog?.LogDebug($"hotbars: {id} no LiveEdit (Core older than 0.2.583)");
                     }
-                    // 1.0.235 ([generator], Core 0.2.586: an element Core switched ON for the editor goes back OFF on close unless Visible()
+                    // 1.0.235 (Core 0.2.586: an element Core switched ON for the editor goes back OFF on close unless Visible()
                     // says it should show): the bar's own shown rule
                     {
                         Func<bool> raw = barName == ToolHotBar.barName ? (Func<bool>)ToolHotBar.IsEnabled : barName == FoodHotBar.barName ? (Func<bool>)FoodHotBar.IsEnabled
@@ -144,7 +144,7 @@ namespace VerdantsAscent.Managers.HotBars
                     EquipmentPanel.PanelLog?.LogInfo($"[VAInventory] hotbars: {id} registered for override {(on ? "ON (size resize)" : "OFF (scale resize)")}, rect {rect.rect.width:0}x{rect.rect.height:0}");
                     if (s_everRegistered.Add(id)) EquipmentPanel.PanelLog?.LogInfo($"[VAInventory] hotbars: {id} placement owned by Core (VAInventory stands down)");
                     else { EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] hotbars: {id} re-created bar re-registered with no VAInventory placement (Core restores its spot)"); return true; }   // the default stays the FIRST registration's spot
-                    // 1.0.263: no SetDefaultHere - Core's embedded default (Fire's layout) is the Reset spot, not the old config spot
+                    // No SetDefaultHere - Core's embedded default is the Reset spot, not the old config spot
                     EquipmentPanel.PanelLog?.LogInfo($"[VAInventory] hotbars: {id} registered with Core's HUD dock");
                     return true;
                 }
@@ -154,13 +154,13 @@ namespace VerdantsAscent.Managers.HotBars
             return false;
         }
 
-        // 1.0.168 ([generator] on Fire's shot: the "Food hotbar" outline sat mid build-menu, far from the visible bar). The bar's root is a clone
+        // 1.0.168. The bar's root is a clone
         // of vanilla's HotKeyBar, whose slot elements are laid out from the root's pivot, so the root's own rect isn't where the bar draws.
         // Its rect is fitted to its active slot elements: only sizeDelta + pivot change (children are placed relative to the pivot point,
         // which stays put), so nothing on screen moves, and Core's outline, drag handle and dock edges cover exactly the visible bar.
         static readonly Dictionary<RectTransform, int> s_fitCount = new Dictionary<RectTransform, int>();
 
-        // 1.0.251: the HitBounds child ("VAInvHotbarHitBounds", no graphic) covers every visible graphic of the bar (text included) + Pad,
+        // The HitBounds child ("VAInvHotbarHitBounds", no graphic) covers every visible graphic of the bar (text included) + Pad,
         // in the root's local space (anchors at the root's pivot = local origin). Re-measured on every Manage call (2x/s placement tick),
         // written only when it changed; logged once per bar per size.
         const float HitPad = 6f;
@@ -177,7 +177,7 @@ namespace VerdantsAscent.Managers.HotBars
                 hb.SetParent(root, false); hb.GetComponent<UnityEngine.UI.LayoutElement>().ignoreLayout = true;
             }
             bool any = false; float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
-            // 1.0.294 (Fire 10-21 on 1.0.293, Unified OFF: "the ui is still messed up for the hotbars"; his log: 'HitBounds = drawn slots + key
+            // 1.0.294 (on 1.0.293, Unified OFF: "the ui is still messed up for the hotbars"; his log: 'HitBounds = drawn slots + key
             // hints + 6 px = 50x17' while the rect fit was 92x92 - Core docks and places its handles on HitBounds (0.2.608+), and this scan still
             // saw only the 38x5 graphic, so 293's slot fit never reached the handles): with the override OFF HitBounds = the fitted bar rect
             // (the bar's real slots + margin, FitToElements). Override ON keeps the drawn-graphic scan below, unchanged.
@@ -212,10 +212,10 @@ namespace VerdantsAscent.Managers.HotBars
         {
             int n = 0; bool any = false; float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
             var c = new Vector3[4];
-            // 1.0.225 ([generator], r167_tools_dock_centre: the Tools bar's registered rect ran far right of its 4 visible slots, so docking
+            // 1.0.225 (r167_tools_dock_centre: the Tools bar's registered rect ran far right of its 4 visible slots, so docking
             // centred it): only what is DRAWN counts - visible graphics (active, enabled, inherited alpha > 0.02), never the vanilla elements
             // the kit row hides at alpha 0 or empty layout nodes
-            // 1.0.291 (Fire 10-21: "the hotbars still have no proper drag handling and the corner handlers are not in the correct spots"; his
+            // 1.0.291 ("the hotbars still have no proper drag handling and the corner handlers are not in the correct spots"; his
             // log on 1.0.290: 'VA_ToolHotBar rect fitted to its 1 slot(s): 38x5' in BOTH modes, so Core's handle strip + corner grip sat on a
             // 38x5 sliver, and with the override ON that size went to SizeChanged -> Reflow -> the Tools bar turned vertical): the rect is the
             // bar's REAL slots - the kit row while it is drawn (override ON), else vanilla's HotkeyBar elements (m_elements[].m_go) - and the
@@ -232,7 +232,7 @@ namespace VerdantsAscent.Managers.HotBars
                         var go = HarmonyLib.Traverse.Create(e).Field("m_go").GetValue() as GameObject;
                         if (go != null && go.activeInHierarchy && go.transform is RectTransform ert && ert.rect.width >= 8f) parts.Add(ert);
                     }
-                // 1.0.293 (Fire 10-21 on 1.0.292: "non unified hotbars... dragging is near impossible; I dragged the scale by clicking the HAMMER";
+                // 1.0.293 (on 1.0.292: "non unified hotbars... dragging is near impossible; I dragged the scale by clicking the HAMMER";
                 // log 'VA_ToolHotBar rect fitted to its 1 slot(s): 38x5' still - VAInventory's bars carry no vanilla m_elements, so 292 found no
                 // slots and fell back to the 38x5 graphic): the slots are every active descendant that holds vanilla's element prefab child
                 // "icon" - the element roots, whatever builds them
@@ -266,7 +266,7 @@ namespace VerdantsAscent.Managers.HotBars
                     else { x0 = Mathf.Min(x0, l.x); x1 = Mathf.Max(x1, l.x); y0 = Mathf.Min(y0, l.y); y1 = Mathf.Max(y1, l.y); }
                 }
             }
-            // 1.0.284 (Fire 10-21 V3, shots 20261021_0040/14-15: with Unified UI off the bars' drag handles floated WAY above them; log
+            // 1.0.284 (V3, shots 20261021_0040/14-15: with Unified UI off the bars' drag handles floated WAY above them; log
             // 'VA_ToolHotBar rect fitted to its 1 slot(s): 38x5' while 3 slots drew): right after a re-create only one stray 38x5 graphic
             // passed the drawn-graphic filter, so the rect (and Core's handle strip above it) sat away from the slots. One graphic or fewer =
             // fit to the bar's active slot ELEMENTS (its direct children with a real size) instead.
@@ -288,7 +288,7 @@ namespace VerdantsAscent.Managers.HotBars
                 if (m > 1) { x0 = a0; x1 = a1; y0 = b0; y1 = b1; n = 100 + m; any = true; }   // 100+ = an element fit (never equal to a graphic count)
             }
             if (!any) return;
-            // 1.0.299 ([lead], Fire: in unified the Tools bar stayed "larger than the rest" and had no resize grip without the editor; log: every
+            // 1.0.299 (Fire: in unified the Tools bar stayed "larger than the rest" and had no resize grip without the editor; log: every
             // kit-row fit counts as n = 1000, so after the first fit (92x92, before the kit row was laid out) the count never changed and the
             // rect never followed the real row): re-fit whenever the measured size changes, not only the count
             {
@@ -298,7 +298,7 @@ namespace VerdantsAscent.Managers.HotBars
             }
             s_fitCount[root] = n;
             // local-space bounds relative to the pivot point: rect = [-pivot*size, (1-pivot)*size]
-            // 1.0.293 (Fire: "a click on a slot must never scale"): the dock rect gets a margin around the slots, so Core's corner grip (and
+            // The dock rect gets a margin around the slots, so Core's corner grip (and
             // its outside zone) sits in that margin - off the last slot - and the handle strip above clears the key hints
             if (parts.Count > 0 && kitRow == null) { const float M = 14f;   /* Unified OFF only: the unified rect stays exactly as it was */ x0 -= M; y0 -= M; x1 += M; y1 += M; }
             var size = new Vector2(Mathf.Max(1f, x1 - x0), Mathf.Max(1f, y1 - y0));
@@ -311,7 +311,7 @@ namespace VerdantsAscent.Managers.HotBars
             foreach (var k in kids) if (k.Key != null) k.Key.position = k.Value;   // and every child exactly where it was (anchored children too)
             EquipmentPanel.PanelLog?.LogDebug($"hotbars: {root.name} rect fitted to {(n >= 1000 ? "its kit row" : n >= 500 ? (n - 500) + " slot element(s)" : n + " drawn graphic(s)")}: {size.x:0}x{size.y:0}");   // 1.0.294: say what it counted
         }
-        // 1.0.171 ([generator], Core 0.2.534: Reset re-reads each element's default): the bar registers right after its config placement, so
+        // The bar registers right after its config placement, so
         // its on-screen top-left now IS the config spot; DockService.SetDefault pins that as the default "Reset layout" returns to.
         // Screen px, y down from the top. Older Core (no SetDefault) = skipped.
         static System.Reflection.MethodInfo s_setDefault; static bool s_setDefaultLooked;
@@ -337,7 +337,7 @@ namespace VerdantsAscent.Managers.HotBars
             catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"hotbars: {id} SetDefault failed: {(e.InnerException ?? e).Message}"); }
         }
         /// <summary>1.0.172: true while Core's HUD dock owns this bar (its own drag handler then never moves it or writes the cfg).</summary>
-        // 1.0.221 (Fire: "Hide all" hid a bar only while it was EMPTY - our own empty-bar hiding; a bar with items stayed up): the player's
+        // The player's
         // per-element Hide in Core's layout (DockService.IsUserHidden) is applied here too - an owned bar's own CanvasGroup goes to alpha 0
         // and stops raycasts while hidden, and comes back when shown. Called with the 0.5 s bar pass.
         static System.Reflection.MethodInfo s_isUserHidden; static bool s_hiddenLooked;
@@ -365,7 +365,7 @@ namespace VerdantsAscent.Managers.HotBars
             if (!s_hiddenLooked) { s_hiddenLooked = true; s_isUserHidden = Type.GetType("FiresCore.UI.Dock.DockService, FiresUnifiedCore")?.GetMethod("IsUserHidden", new[] { typeof(string) }); }
             bool hidden = false;
             try { hidden = s_isUserHidden != null && s_isUserHidden.Invoke(null, new object[] { id }) is bool b && b; } catch { }
-            // 1.0.222 (Fire: "show or hide on the editor is just so we can adjust them without interfering with other UI elements"): the
+            // The
             // editor's Hide applies ONLY while a layout edit is on (HUD or inventory layout mode); when the editor closes every bar is back to
             // its normal runtime behaviour (empty bars auto-hide, bars with items show)
             hidden = hidden && EditActive();
@@ -377,7 +377,7 @@ namespace VerdantsAscent.Managers.HotBars
             EquipmentPanel.PanelLog?.LogDebug($"hotbars: {id} {(hidden ? "hidden for the layout edit (editor Hide)" : "back to its runtime visibility")}");
         }
 
-        // 1.0.250: "owned" = this rect is registered OR its bar id was registered before this session (a re-created rect is still Core's)
+        // "owned" = this rect is registered OR its bar id was registered before this session (a re-created rect is still Core's)
         internal static bool Owns(RectTransform rect) => rect != null && (s_owned.ContainsValue(rect) || s_everRegistered.Contains(IdOf(rect.name)));
         internal static bool AnyEverRegistered => s_everRegistered.Count > 0;
         static readonly HashSet<string> s_everRegistered = new HashSet<string>();
@@ -389,7 +389,7 @@ namespace VerdantsAscent.Managers.HotBars
             try
             {
                 FitToElements(rect); UpdateHitBounds(rect);
-                // 1.0.297 ([lead], Fire: "the drag handling isn't even in the grid square, you click on the tiny hint text"; log: only presses
+                // ("the drag handling isn't even in the grid square, you click on the tiny hint text"; log: only presses
                 // whose top hit was the bar ROOT started a move): the slot graphics (bkg, icon, durability, amount) caught the press first. A HUD
                 // hotbar's slots are display only (items are used by key; inventory drops go through the inventory grid), so none of them takes
                 // raycasts: every press on the bar reaches the root and Core's free-body move. The root keeps its raycast Image.
@@ -414,10 +414,10 @@ namespace VerdantsAscent.Managers.HotBars
             EquipmentPanel.PanelLog?.LogDebug($"hotbars: {id} unregistered");
         }
 
-        // 1.0.170 (Fire: "I TOLD YOU I WANTED THE DEFAULT POSITIONS TO MATCH WHAT WE HAD IN OUR CONFIGS BEFORE"): new ids, so the spots Core
+        // New ids, so the spots Core
         // saved under the old ones (some taken mid-screen before 1.0.166 registered after the config placement) never load again; each bar
         // registers at its [*Hotbar] Position config spot and Core takes THAT as its default.
-        // 1.0.299 ([lead], Fire 10-21: "switching from non unified to unified still messes up the layout... our hotbars re-position, the tools
+        // 1.0.299 ("switching from non unified to unified still messes up the layout... our hotbars re-position, the tools
         // bar is larger than the rest"; log: both modes restored the SAME saved spot/scale "vainv.hotbar2.tool ... 8,1111" onto two different
         // bars - the vanilla-look bar (OFF) and the kit row (ON)): each mode keeps its OWN layout. ON keeps the old ids (Fire's unified layout
         // stays as saved); OFF uses ".classic" ids, so arranging one mode never moves or resizes the other.

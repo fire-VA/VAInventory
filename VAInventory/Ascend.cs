@@ -17,7 +17,7 @@ namespace VerdantsAscent
     // Current/MinimumRequiredVersion below use. Held as two separate literals they drifted apart on the
     // very next version bump, leaving the plugin announcing 1.0.10 while its own sync claimed 1.0.11.
     [BepInPlugin(PluginGUID, PluginName, PluginVersion)]
-    // Load after VABackpacks when it is installed, so BackpackBridge finds it in Awake (Fire 10-07, backpack_shot_q2).
+    // Load after VABackpacks when it is installed, so BackpackBridge finds it in Awake.
     [BepInDependency("com.Fire.VA_Backpacks", BepInDependency.DependencyFlags.SoftDependency)]
     public class VAInventory : BaseUnityPlugin
     {
@@ -55,7 +55,7 @@ namespace VerdantsAscent
             {
                 DisplayName = PluginName,
                 CurrentVersion = PluginVersion,
-                // Fixed (lead 10-13): raise only when a synced key's name, type or meaning changes; 1.0.116 is the config-audit release.
+                // Fixed: raise only when a synced key's name, type or meaning changes; 1.0.116 is the config-audit release.
                 MinimumRequiredVersion = SyncMinimumVersion
             };
             configSync.LockedConfigChanged += ConfigManager.Instance.OnConfigLockChanged;
@@ -93,7 +93,7 @@ namespace VerdantsAscent
         {
             if (Slots.ClassBarsAvailable() && !Slots.ClassBarSlotsActive)
                 Slots.InitializeSlots();
-            // 1.0.248: the F1 hub's Player > Stats page (Core 0.2.606+; an older Core = logged, skipped). Clients only.
+            // The F1 hub's Player > Stats page (Core 0.2.606+; an older Core = logged, skipped). Clients only.
             if (!SystemInfo.graphicsDeviceType.Equals(UnityEngine.Rendering.GraphicsDeviceType.Null))
                 try { RegisterStatsPage(); } catch (Exception e) { Debug.LogWarning("[VAInventory] Player > Stats page skipped: " + e.GetType().Name + ": " + e.Message); }
         }

@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace VerdantsAscent.Managers
 {
-    // `bag_resize_test` (Fire 10-13, Tools\BAG_RESIZE_DESIGN.md): a bag whose grid shrinks or grows never loses an item. The Explorer bag
+    // `bag_resize_test`: a bag whose grid shrinks or grows never loses an item. The Explorer bag
     // is filled with tagged stacks, then resized through VABackpacks' own Rows/Columns config entries (the settings a player or admin
     // changes) and re-equipped, which is when a resize applies. Every step counts the tagged items in the bag, in the main grid and on
     // the ground near the tester: the item count and the total stack must never change. Everything given or changed is put back.
@@ -140,7 +140,7 @@ namespace VerdantsAscent.Managers
             return seen;
         }
 
-        // Per item, not just totals ([seasons] + the lead after R-1013J): the same tags, each with the same stack, none twice.
+        // Per item, not just totals: the same tags, each with the same stack, none twice.
         static string Lossless(Player me, out bool ok)
         {
             var t = Tally(me);

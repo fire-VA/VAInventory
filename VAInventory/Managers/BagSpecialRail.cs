@@ -1,4 +1,4 @@
-// BagSpecialRail — the special-slot rail on a detached bag panel (VABackpacks 1.0.20+, Fire 10-07 layout A).
+// BagSpecialRail — the special-slot rail on a detached bag panel.
 //
 // Upgraded bags (quality 2+) carry tool / resources / bypass slots that live OUTSIDE the bag grid and outside
 // the player inventory; VABackpacks owns the storage, we only draw it and move items in / out through the
@@ -141,9 +141,9 @@ namespace VerdantsAscent
         private void Update()
         {
             if (bag == null) return;
-            // 1.0.316: the right mouse going DOWN while our carry is on the cursor = vanilla's drag cancel; remember it for the cell's click
+            // The right mouse going DOWN while our carry is on the cursor = vanilla's drag cancel; remember it for the cell's click
             if (Input.GetMouseButtonDown(1) && s_carry != null && s_carry.NrOfItems() > 0) s_carryPressFrame = Time.frameCount;
-            if (s_carry != null && s_carry.NrOfItems() > 0) ReturnCarry();   // 1.0.316: a cancelled carry / swap leftover goes home
+            if (s_carry != null && s_carry.NrOfItems() > 0) ReturnCarry();   // A cancelled carry / swap leftover goes home
             if (BackpackBridge.SpecialSlotsVersion != seenVersion) Redraw();
         }
 
@@ -199,7 +199,7 @@ namespace VerdantsAscent
                 if (!BackpackBridge.SpecialSlotAccepts(bag, kind, dragItem)) return;
                 var dragInventory = fi_dragInventory?.GetValue(gui) as Inventory;
                 if (dragInventory == null) return;
-                // 1.0.316 (Fire: "grab an item from one slot and drop it in the next" - vanilla): occupied + dragging = SWAP. The dragged
+                // Occupied + dragging = SWAP. The dragged
                 // item goes in, the slot's item comes onto the cursor (from the hidden carry), like vanilla's grid swap.
                 if (current != null)
                 {
@@ -244,10 +244,10 @@ namespace VerdantsAscent
             }
 
             if (current == null) return;
-            // 1.0.316 (Fire 10-22: "trying to click and move things from our backpack special slots just auto moves them to our player grid
+            // 1.0.316 ("trying to click and move things from our backpack special slots just auto moves them to our player grid
             // rather than picking them up to the cursor like vanilla"): a plain left click PICKS THE ITEM UP onto the cursor (vanilla's own
             // drag, from the player inventory it is handed to); shift / ctrl click keeps the quick move to the grid
-            // 1.0.316 (Fire: "the vanilla behaviour of being able to grab an item from one slot and drop it in the next"): the item leaves the
+            // The item leaves the
             // special slot into a hidden 1x1 CARRY inventory and vanilla's own drag starts from there - nothing appears in the player grid,
             // and vanilla's drop / swap / world-drop code moves it wherever he clicks (player grid, bag cell, chest, or another special slot
             // via OnLeftClick above). A cancelled drag or a swap's leftover goes back to the special slot it came from (else the player grid).
@@ -260,7 +260,7 @@ namespace VerdantsAscent
         private static System.Reflection.MethodInfo s_setupDrag;
         private static readonly System.Collections.Generic.HashSet<string> s_clickLogged = new System.Collections.Generic.HashSet<string>();
         private static Inventory s_carry;
-        internal static bool IsCarry(Inventory inv) => inv != null && inv == s_carry;   // 1.0.318: EquipmentPanel lets a carried item into bag cells
+        internal static bool IsCarry(Inventory inv) => inv != null && inv == s_carry;   // EquipmentPanel lets a carried item into bag cells
         private static string s_carryFrom;
         private static int s_carryPressFrame = -1;
 
@@ -269,7 +269,7 @@ namespace VerdantsAscent
             s_carry ??= new Inventory("VAInventorySpecialCarry", null, 1, 1);
             ReturnCarry();   // anything still in the carry goes home first
             item.m_gridPos = new Vector2i(0, 0);
-            // 1.0.317 (bag_drag round 23:23: every pick-up came straight back, "carry ... returned to tool"): AddItem(item, amount, x, y)
+            // AddItem(item, amount, x, y)
             // stores a CLONE, so the carry never held the dragged item and vanilla's drag update (drag inventory must contain the drag
             // item) dropped the drag at once. AddItem(item) stores this very instance (an empty 1x1, nothing to stack with).
             s_carry.AddItem(item);
@@ -304,7 +304,7 @@ namespace VerdantsAscent
             if (s_carry == null || s_carry.NrOfItems() == 0) return;
             var gui = InventoryGui.instance;
             if (gui != null && fi_dragInventory?.GetValue(gui) == s_carry && EquipmentPanel.fi_dragItem.GetValue(gui) != null) return;   // still on the cursor
-            // 1.0.318 ([lead]): WHY it comes back, every time - the drag's state right now
+            // WHY it comes back, every time - the drag's state right now
             var dItem = gui != null ? EquipmentPanel.fi_dragItem.GetValue(gui) as ItemDrop.ItemData : null;
             var dInv = gui != null ? fi_dragInventory?.GetValue(gui) as Inventory : null;
             string why = gui == null ? "no inventory screen" : dItem == null ? "the drag was cleared (cancelled, or a drop handler refused it)"
@@ -386,7 +386,7 @@ namespace VerdantsAscent
             {
                 if (eventData.button != PointerEventData.InputButton.Right) return;
                 if (!InventoryGui.IsVisible() || !rail) return;
-                // 1.0.316: a right click with a carried item on the cursor is vanilla's drag CANCEL (right mouse down drops the drag, the
+                // A right click with a carried item on the cursor is vanilla's drag CANCEL (right mouse down drops the drag, the
                 // carry goes home); its pointer-up here must not then take that item out again to the grid
                 if (s_carryPressFrame >= 0 && Time.frameCount - s_carryPressFrame < 120) { s_carryPressFrame = -1; return; }
                 rail.TakeOut(kind);

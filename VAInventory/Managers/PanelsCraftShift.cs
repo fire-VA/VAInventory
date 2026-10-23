@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.173 ([visual]'s _v6b golden, [lead]): under Panels, crafting's header is a button row then the CRAFTING title, and the tab row moves
+    /// Under Panels, crafting's header is a button row then the CRAFTING title, and the tab row moves
     /// down to clear it (InventoryTabs.PanelsDrop). Everything BELOW the tabs (recipe list, description, requirements, Craft button, the tab
     /// views) moves down by the same amount, and the panel's background layers grow downward to hold it, so nothing starts under the
     /// tabs. Crafting's own rect is not resized (vanilla's; Core measures what draws). Leaving Panels puts every moved child back.
@@ -21,29 +21,29 @@ namespace VerdantsAscent.Managers
         static RectTransform s_crafting;
         static float s_applied;
 
-        // 1.0.233 (Fire 10-16, crafting_gap_detail.png: the Craft tab sat almost on Stone Axe, 8 px): the gap under the tab row is DOUBLED to 16 px,
+        // The gap under the tab row is DOUBLED to 16 px,
         // recipe list and description column alike (both are measured)
         const float TabGap = 16f;
 
         static bool s_zeroLogged, s_wasVis, s_hiddenLogged, s_openPending;   // 1.0.255/256/257
         static int s_openN;
         static int s_openFrame = -100;
-        static float s_base;   // 1.0.216: the header drop the current move was built from (PanelsDrop)
+        static float s_base;   // The header drop the current move was built from (PanelsDrop)
 
         internal static void Tick(InventoryGui gui, bool on)
         {
             var crafting = gui != null ? gui.m_crafting : null;
             DarkenOff(crafting, on);   // 1.0.187
-            // 1.0.257: an inventory OPEN (on false -> true; crafting itself stays active while the inventory is hidden, so 255 never re-armed)
+            // An inventory OPEN (on false -> true; crafting itself stays active while the inventory is hidden, so 255 never re-armed)
             if (on && !s_wasVis) { s_openFrame = Time.frameCount; s_openN++; s_openPending = true; }
             s_wasVis = on;
             if (on) HeaderCheck(gui, crafting);   // 1.0.253 (replaces 1.0.244's TitleLineOffTabs)
             float drop = on && crafting != null ? InventoryTabs.PanelsDrop : 0f;
-            // 1.0.255 (R-1020UI3: 254's hold fired once, yet the OVERLAP CHECK still alternated FAIL y 101 / PASS y 128 on EVERY open):
+            // 
             // InventoryTabs.PanelsDrop reads 0 for the first frame(s) of an open (the tab row not measured yet), so this Tick saw a
             // "changed" drop, Restore()d the content to its undropped spot and re-applied a frame later. While Panels is ON, a momentary
             // 0 is NOT a layout change: the last drop is kept. Only leaving Panels (on = false) restores.
-            // 1.0.256 (R-1020UI4, [seasons]' session: "crafting drop change 11 -> 0" logged on every inventory CLOSE, then "0 -> 11" one frame
+            // 1.0.256 (R-1020UI4, ' session: "crafting drop change 11 -> 0" logged on every inventory CLOSE, then "0 -> 11" one frame
             // AFTER every reopen = the first visible frame drew the content undropped): 'on' is Panels AND the inventory visible, so closing
             // the inventory counted as leaving Panels and restored the content. While Panels mode itself is on, a closed inventory keeps the
             // drop as it is - the content is already in place on the first frame of the next open. Only leaving Panels mode restores.
@@ -57,7 +57,7 @@ namespace VerdantsAscent.Managers
             if (crafting == null) return;
             if (Mathf.Approximately(drop, s_base))
             {
-                // 1.0.217: re-measure 2 frames after the open and after every UpdateRecipeList (the rows / layout settle after Apply)
+                // Re-measure 2 frames after the open and after every UpdateRecipeList (the rows / layout settle after Apply)
                 if (on && drop > 0.5f && s_recheckFrame > 0 && Time.frameCount >= s_recheckFrame) { s_recheckFrame = 0; Recheck(gui, crafting, s_recheckWhy); }
                 if (on && drop > 0.5f) { HoldDrop(); PinGap(gui, crafting); }   // 1.0.254 + 1.0.259
                 return;
@@ -65,7 +65,7 @@ namespace VerdantsAscent.Managers
             EquipmentPanel.PanelLog?.LogDebug($"panels: crafting drop change {s_base:0} -> {drop:0} at frame {Time.frameCount} (+{Time.frameCount - s_openFrame} since open): restore + re-apply");   // 1.0.255
             Restore();
             s_applied = drop > 0.5f ? Apply(gui, crafting, drop) : 0f;
-            if (drop > 0.5f) PinGap(gui, crafting);   // 1.0.259: the full gap in the SAME frame as the first apply
+            if (drop > 0.5f) PinGap(gui, crafting);   // The full gap in the SAME frame as the first apply
             s_base = drop;
             if (drop > 0.5f) RequestRecheck("2 frames after the open", 2);
         }
@@ -74,7 +74,7 @@ namespace VerdantsAscent.Managers
         // first frames, then 128 once the 2-frame re-check moved them; something resets their anchoredPosition on each open): every frame
         // while dropped, each moved child is held at its original spot minus the applied drop (and each grown layer's offsetMin), so the
         // content is at its final y on the first visible frame. Cheap: ~10 Vector2 compares; logged the first time it has to correct.
-        // 1.0.259 (Fire: "separate opens show fati in a different look"; 1.0.258's proof: RecipeList top 112 / 128 / 119 across opens):
+        // 
         // the content's RECT tops (RecipeList, Decription - not the drawn graphics, which a re-list / the FATI tab changes) are pinned to
         // exactly the tab row's bottom + TabGap every frame the crafting is up, in the same frame as the first apply. One correction moves
         // every dropped child together (MoveBy, s_applied follows), so HoldDrop and PinGap agree.
@@ -156,7 +156,7 @@ namespace VerdantsAscent.Managers
             static void Postfix() { if (UnifiedScreen.PanelsMode && s_base > 0.5f) RequestRecheck("after UpdateRecipeList", 1); }
         }
 
-        // 1.0.216 ([lead]: the 1.0.210 / 1.0.214 overlap check NEVER RAN - it waited for a later tick that never came; "crafting content
+        // 1.0.216 (the 1.0.210 / 1.0.214 overlap check NEVER RAN - it waited for a later tick that never came; "crafting content
         // moved down 19" x4 and not one check line): deterministic, inside Apply. Move by the header drop, force the canvases, MEASURE what
         // is drawn - the tab row's lowest visible graphic vs the highest visible (mask-clipped) graphic of everything moved - and move again
         // by the overlap + 8 px in the SAME call; re-measure and log both every apply. Returns the total drop.
@@ -185,7 +185,7 @@ namespace VerdantsAscent.Managers
                     if (top > contentTop) { contentTop = top; topName = rt.name + "/" + g.name; }
                 }
             }
-            // 1.0.217 ([lead], R-1015AE: the check measured 'Decription' as the top; RecipeList's rows populate AFTER Apply): every moved
+            // Every moved
             // ScrollRect's VIEWPORT top counts too - the visible list starts there whether its rows exist yet or not
             foreach (var rt in s_moved.Keys)
             {
@@ -220,7 +220,7 @@ namespace VerdantsAscent.Managers
                 var rt = child as RectTransform;
                 if (rt == null) continue;
                 if (Grow.Contains(rt.name)) { s_grown[rt] = rt.offsetMin; rt.offsetMin = rt.offsetMin - new Vector2(0f, drop); continue; }
-                if (rt.name == Braid)   // 1.0.217: hidden, not moved (it drew across the tab row)
+                if (rt.name == Braid)   // Hidden, not moved (it drew across the tab row)
                 {
                     s_braid = rt.GetComponent<CanvasGroup>() ?? rt.gameObject.AddComponent<CanvasGroup>();
                     s_braid.alpha = 0f; s_braid.blocksRaycasts = false;
@@ -244,11 +244,11 @@ namespace VerdantsAscent.Managers
             return drop + extra;
         }
 
-        // 1.0.233 (Fire 10-16: tab labels clipped at the top, a line crossing them): every tab label fills its tab and is centred, never
+        // Every tab label fills its tab and is centred, never
         // clipped; any THIN graphic (<= 6 px tall, wider than 40) outside the tab row that crosses the row's rect is switched off (logged by
         // name, back on Restore)
         static readonly List<Graphic> s_lineOff = new List<Graphic>();
-        // 1.0.240 ([lead]: dump every Graphic under and overlapping the tab row): 2 dumps per session, each Graphic overlapping the row's
+        // 2 dumps per session, each Graphic overlapping the row's
         // rect with its path, y range relative to the row (0 = row bottom), sprite, image type, colour, nearest RectMask2D and sibling index
         static int s_tabDumps;
         static void DumpTabRow(RectTransform tabRow, RectTransform crafting)
@@ -271,16 +271,16 @@ namespace VerdantsAscent.Managers
             EquipmentPanel.PanelLog?.LogDebug(sb.ToString());
         }
 
-        // 1.0.244 (Fire 10-19, crafting_tab_line_through: a horizontal line through Craft / Upgrade / FATI; the 233/240 checks ran at Apply,
+        // 1.0.244 (crafting_tab_line_through: a horizontal line through Craft / Upgrade / FATI; the 233/240 checks ran at Apply,
         // before the tabs sat in their final row): the culprit is OUR title hairline (PanelsChrome "VAInventoryPanelsTitleLine_NoKitSkin",
         // 1 px, crafting width - 48, a fixed 79 px under crafting's top, added AFTER the tab row so it draws over it) - the Panels tab row
         // sits ~80 px under the top. Every frame (cheap: two corner reads) the hairline is kept 5 px ABOVE the tab row's drawn top.
         const string TitleLine = "VAInventoryPanelsTitleLine_NoKitSkin";
         static RectTransform s_titleLine; static string s_titleLineLog;
         static readonly Vector3[] s_c4 = new Vector3[4];
-        // 1.0.253 (Fire 10-20, fati_crafting_overlap_a/b: the CRAFTING title struck through, a line through the tabs, the FATI category row
+        // 1.0.253 (fati_crafting_overlap_a/b: the CRAFTING title struck through, a line through the tabs, the FATI category row
         // over the tabs, the icon bar on the title): twice a second while crafting shows under Panels -
-        //  (1) our title hairline is OFF (1.0.244 moved it above the tabs - onto the title text; Fire wants no lines there at all);
+        //  (1) our title hairline is OFF;
         //  (2) any THIN graphic (<= 6 px tall, > 40 wide) crossing the tab row or the title, that isn't a tab/title itself, is switched off
         //      and named (1.0.233's pass ran once at Apply, before the row settled);
         //  (3) the TEAM RULE automated overlap check: the header's top-level elements (crafting's direct children that draw in the top
@@ -290,12 +290,12 @@ namespace VerdantsAscent.Managers
         static void HeaderCheck(InventoryGui gui, RectTransform crafting)
         {
             if (!crafting.gameObject.activeInHierarchy) return;
-            // 1.0.256: a frame where crafting is not DRAWN (a parent CanvasGroup at alpha 0 - e.g. 1.0.243's first-open seeding hide) is not
+            // A frame where crafting is not DRAWN (a parent CanvasGroup at alpha 0 - e.g. 1.0.243's first-open seeding hide) is not
             // checked: nothing on screen can overlap (logged once per hide)
             float alpha = 1f; foreach (var cg in crafting.GetComponentsInParent<CanvasGroup>()) alpha *= cg.alpha;
             if (alpha < 0.02f) { if (!s_hiddenLogged) { s_hiddenLogged = true; EquipmentPanel.PanelLog?.LogDebug($"panels: crafting header check skipped at frame {Time.frameCount}: crafting is not drawn (parent alpha 0)"); } return; }
             s_hiddenLogged = false;
-            int since = Time.frameCount - s_openFrame;   // 1.0.255: the first 4 frames of every open are checked EVERY frame (proof the content is in place before it draws)
+            int since = Time.frameCount - s_openFrame;   // The first 4 frames of every open are checked EVERY frame (proof the content is in place before it draws)
             if (since > 3 && Time.unscaledTime < s_nextHeader) return;
             s_nextHeader = Time.unscaledTime + 0.5f;
             if (s_titleLine == null || s_titleLine.parent != crafting) s_titleLine = crafting.Find(TitleLine) as RectTransform;
@@ -343,7 +343,7 @@ namespace VerdantsAscent.Managers
             // FAIL "compared nothing"; the FIRST drawn check of every inventory open is logged unconditionally as "open #N"
             bool nothing = boxes.Count < 2;
             if (nothing) log = "compared nothing (" + boxes.Count + " element(s) drawn in the header band)";
-            // 1.0.259: the gap must be IDENTICAL on every open - the content rect top vs the pinned expected (tab bottom - TabGap)
+            // The gap must be IDENTICAL on every open - the content rect top vs the pinned expected (tab bottom - TabGap)
             string gap = "";
             if (!float.IsNaN(s_expectedTop) && ContentTop(crafting, out float ctop))
             {
@@ -475,10 +475,10 @@ namespace VerdantsAscent.Managers
             s_moved.Clear(); s_grown.Clear();
             foreach (var g in s_lineOff) if (g != null) g.enabled = true;   // 1.0.233
             s_lineOff.Clear();
-            if (s_braid != null) { s_braid.alpha = 1f; s_braid = null; }   // 1.0.217: vanilla's divider back when the layout is left
+            if (s_braid != null) { s_braid.alpha = 1f; s_braid = null; }   // Vanilla's divider back when the layout is left
         }
 
-        // 1.0.217 (Fire's shot: a horizontal LINE through the middle of every crafting tab): vanilla's title divider
+        // Vanilla's title divider
         // BraidLineHorisontalMedium, moved down with the content, lands across the tab row. Under Panels the kit header draws its own divider:
         // hidden (CanvasGroup alpha 0), back on Restore.
         const string Braid = "BraidLineHorisontalMedium";

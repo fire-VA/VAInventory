@@ -3,7 +3,7 @@ using HarmonyLib;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.287 (Fire 10-21 C1, Unified OFF, shot 20261021_0040/11, via [ghost]/[seasons]): the Companions tab ("firescompanions.roster")
+    /// The Companions tab ("firescompanions.roster")
     /// opened its roster by calling InventoryGui.Hide(), and an empty dark panel with two rows of pills stayed far right where the crafting
     /// column was - VAInventory's tab view (VAView_&lt;id&gt; under Crafting/CraftingExtras) was still active, because HideAll only ran from
     /// our own tab buttons, never on a close. Now every InventoryGui.Hide with a tab view open runs HideAll and gives the crafting column its

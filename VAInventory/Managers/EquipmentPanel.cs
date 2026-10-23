@@ -87,10 +87,10 @@
             // Kept as helpers rather than retyping ~23 call sites, so the change stays reviewable.
             private static Image ElemIcon(object e) => (e as InventoryElement)?.m_icon;
 
-            // 1.0.118/119 ([fgn], FRC 0.0.24): FRC tints each vanilla grid slot by its item's rarity with an Image "frc_rarity_tint",
+            // 1.0.118/119: FRC tints each vanilla grid slot by its item's rarity with an Image "frc_rarity_tint",
             // just before the icon (so it draws behind it), 2 px inset, no sprite, no raycast, alpha 0.22. Our slot elements are
             // separate copies, so they get the same tint here - from the cell's OWN item. 1.0.118 copied the hidden vanilla
-            // element at the same index instead, and a backpack-storage cell's index is a different vanilla cell: Fire 10-13 saw an
+            // element at the same index instead, and a backpack-storage cell's index is a different vanilla cell: saw an
             // empty Explorer Bag cell filled olive (a Rare item's yellow at 22 %) that way. Colours = FRC's RarityInfo.
             const string RarityTintName = "flo_rarity_tint", RarityKey = "flo_rarity";   // 1.0.135: FiresRPGCrafting renamed to Fires Loot Overhaul (FLO)
             const float RarityTintAlpha = 0.22f;
@@ -153,7 +153,7 @@
                 PanelLog.LogDebug($"[VAInventory] rarity tint: {slot.ID}@{slot.Index} {(rarity > 0 ? "on, rarity " + rarity : "off")} ({item?.m_shared?.m_name ?? "empty"})");
             }
             private static TMP_Text ElemAmount(object e) => (e as InventoryElement)?.m_amount;
-            // 1.0.111 (R-1012J: 141x NRE at Component.get_gameObject): '?.' skips Unity's destroyed-object check, so an element
+            // '?.' skips Unity's destroyed-object check, so an element
             // destroyed with its Unified cell (a layout rebuild) threw here. A destroyed one reads as missing and asks for a rebuild.
             private static GameObject ElemGo(object e)
             {
@@ -163,7 +163,7 @@
                 return null;
             }
 
-            // 1.0.111: the Unified layout was rebuilt (UnifiedScreen.BuildCellMap: an inventory open re-creates the rails, pouch
+            // The Unified layout was rebuilt (UnifiedScreen.BuildCellMap: an inventory open re-creates the rails, pouch
             // popups and bag sections, and destroys the slot elements inside them). The next update re-creates the elements into
             // the new cells. R-1012J: the rebuild on open left every pouch popup empty and the old elements dangling.
             private static bool elementsStale;
@@ -200,7 +200,7 @@
                 get
                 {
                     int columns = 2;
-                    columns += 2;   // 1.0.260: the food + ammo columns are always in the layout (their cells switch off instead)
+                    columns += 2;   // The food + ammo columns are always in the layout (their cells switch off instead)
                     // FiresRPGClasses' bar column (Slots.InitializeSlots adds it last when that mod is loaded).
                     if (Slots.ClassBarSlotsActive) columns++;
                     // The Torch column, always last (1.0.50).
@@ -299,7 +299,7 @@
                 var grid = InventoryGui.instance.m_playerGrid;
                 if (!ReferenceEquals(grid, InventoryGui.instance.m_playerGrid))
                     return;
-                if (elementsStale && equipmentBackground != null)   // 1.0.111: elements follow a Unified layout rebuild
+                if (elementsStale && equipmentBackground != null)   // Elements follow a Unified layout rebuild
                 {
                     PanelLog.LogDebug("[VAInventory] panel elements re-created after a layout rebuild");
                     CreateSidePanelElements();
@@ -307,7 +307,7 @@
                 }
                 // A tool slot with a Unified cell is drawn there (the Tools row under the preview), so its grid
                 // row must not show under the carry grid as well. Only cell-less tool slots stay in the grid.
-                // Fire 10-06: under Unified the Tools row lives only in the character panel - never fall back to the
+                // under Unified the Tools row lives only in the character panel - never fall back to the
                 // grid row (TryGetCell is false before the cells are built). Same inventory cells, so nothing moves.
                 // 1.0.132 (perf audit): this runs every frame the inventory is open; the lists are reused instead of new ones.
                 var gridToolSlots = s_gridToolSlots; gridToolSlots.Clear();
@@ -419,7 +419,7 @@
                     var sideIcon = ElemIcon(sideElem);
                     int mainIndex = slot.Index;
                     GameObject sideGo = ElemGo(sideElem);
-                    // 1.0.112 (R-1012 Fire: 42x NRE at UpdateInventorySlots 0x576): a destroyed side element has no GameObject; skip it
+                    // A destroyed side element has no GameObject; skip it
                     // and have the panel re-create its elements on the next pass.
                     if (!sideGo) { elementsStale = true; continue; }
                     string[] overlayNames = s_overlayNames;
@@ -447,7 +447,7 @@
                         }
 
                         var mainGo = ElemGo(mainElem);
-                        if (mainGo) foreach (var name in overlayNames)   // 1.0.112: the vanilla grid element can be gone mid-rebuild
+                        if (mainGo) foreach (var name in overlayNames)   // The vanilla grid element can be gone mid-rebuild
                         {
                             var mainOverlay = mainGo.transform.Find(name);
                             var sideOverlay = sideGo.transform.Find(name);
@@ -489,7 +489,7 @@
                     }
 
                     var item = slot.Item;
-                    RarityTint(sideIcon, slot, item);   // 1.0.119: from this cell's own item (1.0.118 mirrored the vanilla cell at the same index)
+                    RarityTint(sideIcon, slot, item);   // From this cell's own item (1.0.118 mirrored the vanilla cell at the same index)
                     if (item != null)
                     {
                         var player = Player.m_localPlayer;
@@ -520,7 +520,7 @@
                                     break;
                                 case "equiped":
                                     shouldEnable = player != null && player.IsItemEquiped(item);
-                                    EquippedBorder.Ensure(sideOverlay.GetComponent<Image>());   // 1.0.236: border, not fill
+                                    EquippedBorder.Ensure(sideOverlay.GetComponent<Image>());   // Border, not fill
                                     break;
                                 case "selected":
                                     shouldEnable = false;
@@ -702,7 +702,7 @@
 
             // The element prefab ships with every overlay showing. A square built for the panel starts as vanilla shows an
             // unused one, so opening the inventory never flashes them for the frame before UpdateInventorySlots sets them
-            // (Fire, 2026-09-28).
+            // .
             private static readonly string[] SquareOverlays = ["durability", "foodicon", "noteleport", "quality", "queued", "selected", "equiped"];
 
             internal static void HideOverlays(GameObject go)
@@ -718,7 +718,7 @@
             // them by disabling the Image/TMP (m_food/m_equiped/m_queued/m_noteleport/m_quality/m_amount .enabled = false)
             // and leaves the GameObject active; only durability and selected use SetActive. Copying activeSelf alone
             // read every hidden overlay as shown, which turned the new squares' overlays back on for the frame after
-            // the inventory opened ([ghost], ui_test no_flash, 2026-09-28).
+            // the inventory opened.
             private static bool OverlayShown(Transform overlay)
             {
                 if (!overlay.gameObject.activeSelf) return false;
@@ -787,7 +787,7 @@
                 }
                 sidePanelElements.Clear();
                 sidePanelSlots.Clear();
-                elementsStale = false;   // 1.0.111: this IS the rebuild (after the old, possibly destroyed, elements are gone)
+                elementsStale = false;   // This IS the rebuild (after the old, possibly destroyed, elements are gone)
                 if (backpackLabelObject)
                 {
                     UnityEngine.Object.Destroy(backpackLabelObject);
@@ -837,13 +837,13 @@
                     }
                     // A Unified slot with no cell (more equipment than the rails hold) has nowhere to be drawn. It is
                     // never placed by its legacy Slot.Position: relative to a Unified parent that lands outside the
-                    // rails/rows (Fire 10-07 backpack_shot_q2). Skipped and named in the per-open dump instead.
+                    // rails/rows. Skipped and named in the per-open dump instead.
                     if (UnifiedScreen.Enabled && unifiedCell == null && !slot.IsBackpackStorageSlot) { panelUnplaced++; unplacedIds.Add(slot.ID + "@" + slot.Index); continue; }
                     if (slotParent == null) { panelUnplaced++; continue; }
                     if (unifiedCell != null) panelInCells++;
                     else if (UnifiedScreen.Enabled && !slot.IsBackpackStorageSlot) panelUnplaced++;
                     GameObject go = UnityEngine.Object.Instantiate(elementPrefab, slotParent);
-                    PanelsLayout.SkinDirty = true;   // 1.0.193: a fresh prefab element (grey vanilla tint) - Core's slot skin re-runs on it this frame
+                    PanelsLayout.SkinDirty = true;   // A fresh prefab element (grey vanilla tint) - Core's slot skin re-runs on it this frame
                     HideOverlays(go);
                     var rect = go.GetComponent<RectTransform>();
                     // In Unified the prefab cell owns the geometry, so the element just fills it; Legacy
@@ -921,7 +921,7 @@
                             if (dragItem != null && slot.IsFree)
                             {
                                 var dragInventory = (Inventory)AccessTools.Field(typeof(InventoryGui), "m_dragInventory").GetValue(InventoryGui.instance);
-                                // 1.0.318 (Fire 10-23: "picking the hammer from the slot is refused if our grid is full regardless of if we have
+                                // 1.0.318 ("picking the hammer from the slot is refused if our grid is full regardless of if we have
                                 // room in the backpack"): an item carried from a bag SPECIAL slot (BagSpecialRail's hidden carry) dropped on a
                                 // free bag / storage cell was refused here (not from the player inventory) and went back to its slot. It moves in
                                 // through vanilla's MoveItemToThis (the same instance, removed from the carry).
@@ -936,7 +936,7 @@
                                     UpdatePanel();
                                     return;
                                 }
-                                // 1.0.320: a bag dropped on a bag cell is refused the vanilla way - it STAYS on the cursor, with a message
+                                // A bag dropped on a bag cell is refused the vanilla way - it STAYS on the cursor, with a message
                                 if (slot.IsBackpackStorageSlot && BackpackBridge.IsBackpack(dragItem))
                                 {
                                     Player.m_localPlayer?.Message(MessageHud.MessageType.Center, "A bag can't go inside a bag");
@@ -953,7 +953,7 @@
                                 PanelLog.LogDebug($"[VAInventory] cell drop: {dragItem.m_shared.m_name} {fromPos} -> {slot.ID} {pos}");
                                 dragItem.m_gridPos = pos;
                                 Slots.ClearCachedItems();
-                                // Fire 10-06: an equipment slot means worn, so the drop equips. If vanilla refuses
+                                // an equipment slot means worn, so the drop equips. If vanilla refuses
                                 // (swimming, etc.) the item goes back where it was, never left unequipped in the slot.
                                 if (WornOnDrop(slot, dragItem) && Player.m_localPlayer != null && !Player.m_localPlayer.IsItemEquiped(dragItem))
                                 {
@@ -975,7 +975,7 @@
                                 return;
                             }
 
-                            // 1.0.175 ([lead] R-NIGHT5 '3 swap: item 1 at 0,15, item 2 at 1,15', no inventory change): a held item dropped on an
+                            // A held item dropped on an
                             // OCCUPIED storage cell (misc, pouch, ...) went to vanilla's OnSelectedItem and was swallowed - the item stayed on the
                             // cursor, nothing swapped. A whole held stack on a different item swaps here, in place (same ItemData, no clone), when each
                             // fits the other's place and neither place is worn (worn slots equip; those keep vanilla's path). Same-name stacks still
@@ -1016,7 +1016,7 @@
                             else if (ZInput.GetKey(KeyCode.LeftControl) || ZInput.GetKey(KeyCode.RightControl))
                                 modifier = InventoryGrid.Modifier.Move;
 
-                            // Fire 10-07 (1.0.69): in Unified a plain left click on the coin purse opens its popup, like the
+                            // in Unified a plain left click on the coin purse opens its popup, like the
                             // pouches beside it. Shift / Ctrl keep vanilla's split / move; a held item still drops in above.
                             if (slot.IsCoinPurseSlot && UnifiedScreen.Enabled && dragItem == null && modifier == InventoryGrid.Modifier.Select)
                             {
@@ -1032,10 +1032,10 @@
                         });
                     }
                 }
-                // Fire 10-06 (blank panel after a drag): how many slots found their Unified cell this rebuild.
+                // how many slots found their Unified cell this rebuild.
                 if (UnifiedScreen.Enabled)
                     PanelLog.LogDebug($"[VAInventory] panel refresh: {extraSlots.Length} slot(s), {panelInCells} placed in cells, {panelUnplaced} unplaced");
-                // 1.0.174 ([lead] R-NIGHT3 '3 swap ... K = 15 unplaced'): a bag (the Wizard Staff) moved between cells mid-drag added its 15 storage
+                // A bag (the Wizard Staff) moved between cells mid-drag added its 15 storage
                 // slots, but the open panel had no bag section for them. Unplaced slots after a refresh = the cell map is rebuilt once, next
                 // frame (UnifiedScreen.Tick), bag sections included, and the panel refreshes into it. Once per new unplaced count, so it can't loop.
                 if (UnifiedScreen.Enabled && panelUnplaced > 0 && panelUnplaced != s_rebuiltForUnplaced) { s_rebuiltForUnplaced = panelUnplaced; UnifiedScreen.RequestCellRebuild(); }
@@ -1044,9 +1044,9 @@
                     DumpCells(unplacedIds);
             }
 
-            // Once per inventory open (Fire 10-07): which slot - and item - every mapped cell really holds. A filled cell
+            // Once per inventory open: which slot - and item - every mapped cell really holds. A filled cell
             // shows no label, so a filled extra slot (CoinPurse, TeleportBypass, ...) can read as "misplaced" on screen.
-            // 1.0.113 (R-1012W: 252x "cell Explorer Bag -> item empty" = 9 opens x 28 bag cells): the full dump only when the
+            // The full dump only when the
             // cell -> item map differs from the last open's; a run of empty cells of one slot kind is one line.
             static string lastCellDump;
             static void DumpCells(List<string> unplacedIds)
@@ -1110,7 +1110,7 @@
             {
                 var allBackpackSlots = BackpackStorageSlots;
                 if (InventoryGui.instance == null || InventoryGui.instance.m_player == null) return;
-                // Fire 10-07: Unified draws the worn bag inside the character panel (UnifiedScreen.BuildBagSections), so no
+                // Unified draws the worn bag inside the character panel (UnifiedScreen.BuildBagSections), so no
                 // floating window there. Legacy keeps its detached panels as before.
                 if (UnifiedScreen.Enabled) allBackpackSlots = [];
 
@@ -1444,7 +1444,7 @@
                 SetSlotColor(button, unfit);
             }
 
-            // 1.0.189 (Fire: open #1 brown, every later open GREY): under Panels, Core's CraftingSkin Role.Slot styles the panel's elements
+            // Under Panels, Core's CraftingSkin Role.Slot styles the panel's elements
             // (brown face, NEUTRAL white button tint). This method then rewrote normalColor every panel update with the cached vanilla grey
             // (0.132 @ 0.502), which multiplied the face to grey. Under Panels: the button's own (Core) colours stay; only the red "doesn't
             // fit" tint is laid over while dragging and the Core colours come back after.
@@ -1569,7 +1569,7 @@
                         icon.color = Color.clear;
                         icon.enabled = true;
                     }
-                    RarityTint(icon, slot, item);   // 1.0.143 (Fire: no rarity backgrounds in the panel): the 1.0.119 tint was only on the side-icon path
+                    RarityTint(icon, slot, item);   // The 1.0.119 tint was only on the side-icon path
                 }
 
                 // Amount text
@@ -1600,7 +1600,7 @@
                         // Show the slot's text label when the slot is empty
                         // (helps the player see where each slot type goes).
                         // Only the equipment-panel block — misc rows stay blank.
-                        // Unified (Fire's approved mockup): every rail cell keeps its name, filled or not, so an item never
+                        // Unified: every rail cell keeps its name, filled or not, so an item never
                         // reads as sitting under the next cell's caption.
                         if (slotPanelIndex >= 0 && slotPanelIndex < EQUIPMENT_PANEL_SLOTS && (item == null || UnifiedScreen.Enabled) && !slot.IsMiscSlot && !slot.IsBackpackStorageSlot)
                             text.text = slot.Name;
@@ -1614,7 +1614,7 @@
                         text.margin = new Vector4(3f, 0f, 3f, 0f);
                         text.horizontalAlignment = HorizontalAlignmentOptions.Center;
                         text.verticalAlignment = VerticalAlignmentOptions.Top;
-                        // Unified (Fire 10-07): the caption sits in a strip ABOVE the cell, never over the icon, with a short
+                        // Unified: the caption sits in a strip ABOVE the cell, never over the icon, with a short
                         // name; the coin purse has none (its pouch-row header already says "Coin purse").
                         if (UnifiedScreen.Enabled && text.text.Length > 0 && UnifiedScreen.TryGetCell(slot, out _))
                             UnifiedScreen.PlaceCaption(rect, text, slot);
@@ -1929,7 +1929,7 @@
 
             public static void RefreshSlotsAndPanel()
             {
-                // 1.0.306 ([lead], Fire's proof-round log: "TargetException: Non-static field requires a target" at the main menu): the
+                // The
                 // 1.0.305 Fires UI migration writes Layout / EquipmentPanelRows / ExtraRows / the backgrounds at the MAIN MENU, and each of
                 // their SettingChanged handlers lands here with no InventoryGui and no player - GetValue(null) on the instance field threw.
                 // Outside a world there is nothing to refresh: the slots and the panel are built from the cfg on spawn.
@@ -1983,7 +1983,7 @@
                 LogRefreshCounts();
                 Slots.InitializeSlots();
                 Slots.UpdateSlotsGridPosition();
-                UnifiedScreen.RebuildCells(); // the Slots were re-newed: re-key the Unified cells first (Fire 10-06 blank panel)
+                UnifiedScreen.RebuildCells(); // the Slots were re-newed: re-key the Unified cells first
                 UpdatePanel();
                 s_panelGeneration = Slots.Generation;
             }
@@ -2020,7 +2020,7 @@
 
                 bool showFood = ConfigManager.Instance.configShowFoodSlots.Value;
                 bool showAmmo = ConfigManager.Instance.configShowAmmoSlots.Value;
-                int numColumns = 4;   // 1.0.260: food + ammo columns always present (cells switch off)
+                int numColumns = 4;   // Food + ammo columns always present (cells switch off)
 
                 // Gather all new active slots
                 var allSlots = Slots.AllSlots()
@@ -2303,7 +2303,7 @@
 
                     // Coin pouch: right-click opens the currency picker popup instead of dumping
                     // the stack to inventory (which the auto-deposit would just bounce back). In Unified the popup is on
-                    // the left click, like the other pouches (Fire 10-07), and a right click does nothing.
+                    // the left click, like the other pouches, and a right click does nothing.
                     if (slot != null && slot.IsCoinPurseSlot)
                     {
                         if (!UnifiedScreen.Enabled)

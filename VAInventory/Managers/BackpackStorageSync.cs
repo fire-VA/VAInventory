@@ -597,7 +597,7 @@ namespace VerdantsAscent.Managers
                 return;
             }
 
-            // Bag resize (Fire 10-13, Tools\BAG_RESIZE_DESIGN.md): every saved item goes, in this order, to its saved cell; any free cell
+            // Bag resize: every saved item goes, in this order, to its saved cell; any free cell
             // of this bag (it stays IN the bag when only the shape changed); the main grid; the ground at the player's feet. An item that
             // can't even be dropped is kept on the bag (OverflowKey) and retried on the next restore. Nothing is ever deleted.
             // Items whose saved cell is inside the block go first, top row first, so a grown bag never moves anything.
@@ -663,8 +663,8 @@ namespace VerdantsAscent.Managers
                 // future slot-shift reorderings can recognise this item
                 // as belonging to this specific bag — independent of the
                 // grid position it currently sits at.
-                // 1.0.125: only when it is IN this bag. An item that went to the main grid has left the bag; a stale tag there
-                // made a later eviction treat it as this bag's (the R-1013L duplication path).
+                // Only when it is IN this bag. An item that went to the main grid has left the bag; a stale tag there
+                // made a later eviction treat it as this bag's.
                 if (blockSlots.Any(sl => sl.GridPosition.x == added.m_gridPos.x && sl.GridPosition.y == added.m_gridPos.y))
                     SetOwner(added, ownerPrefab);
                 else
@@ -683,7 +683,7 @@ namespace VerdantsAscent.Managers
                     + $"{reseated} moved inside the bag, {toMain} to the main grid, {dropped} dropped, {stuck.Count} kept on the bag (of {queue.Count}; {parked.Count} retried)");
             if (dropped > 0 || toMain > 0 || reseated > 0 || parked.Count > 0)
             {
-                // [seasons] review (1.0.121): anything that left its saved cell is still in this bag's blob until the next save; a second
+                // anything that left its saved cell is still in this bag's blob until the next save; a second
                 // restore before it (re-equip, crash) would place it again. Rewrite the blob from the block now, as the save does.
                 BackpackBridge.WriteStorage(backpackItem, SerializeFromBlock(player, backpackItem, false));
             }
@@ -692,7 +692,7 @@ namespace VerdantsAscent.Managers
             inv.m_onChanged?.Invoke();
         }
 
-        // Fire 10-13 (bag resize design, Tools\BAG_RESIZE_DESIGN.md): an item that fits neither the bag nor the main grid is dropped at
+        // an item that fits neither the bag nor the main grid is dropped at
         // the player's feet, never deleted. Before, the restore loop just skipped it and the next save left it out: the item was gone.
         private const string SizeKey = "VA_BagSize";          // "WxH" the contents were last laid out in (diagnostics; old saves lack it)
         private const string OverflowKey = "VA_BagOverflow";  // items that fit nowhere and could not be dropped: kept here, retried
@@ -780,7 +780,7 @@ namespace VerdantsAscent.Managers
                 && Mathf.Abs(occupant.m_durability - saved.m_durability) < 0.01f;
         }
 
-        // ── Saving (the relog duplicate, [seasons] 10-07, VABACKPACKS_PAD_TEST C2) ──────────────────────────────────────
+        // ── Saving ──────────────────────────────────────
         // While a bag is worn its items sit in the player's inventory at the bag's cells AND in the bag's blob (written at
         // InventoryGui.Hide, and never cleared after the equip restore). Player.Save wrote both; on the next login vanilla's
         // Inventory.Load put the saved copies back (no position check), and the equip restore found their cells taken and

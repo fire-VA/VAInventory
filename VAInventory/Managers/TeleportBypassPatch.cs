@@ -72,7 +72,7 @@ namespace VerdantsAscent.Managers
             return false;
         }
 
-        // 1.0.87 ([lead]: "teleportable False" three rounds running): name what blocks, once per change, at Debug.
+        // Name what blocks, once per change, at Debug.
         static string lastBlock;
 
         static void LogBlock(ItemDrop.ItemData item)

@@ -4,7 +4,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     // Renders the LIVE local player into the character panel, so the preview always matches what is actually worn.
-    // 1.0.196: the render itself moved to LivePreview (an instance, so the companion panel and VAInventoryPreviewApi can have their own);
+    // The render itself moved to LivePreview (an instance, so the companion panel and VAInventoryPreviewApi can have their own);
     // this is the player panel's preview, bound to Player.m_localPlayer, with the same static surface as before (ui_test reads it).
     // Client only. Everything here is behind Player.m_localPlayer, so a dedicated server never reaches it.
     internal static class CharacterPreview

@@ -5,11 +5,11 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.277 (Fire 10-20 V4, shot 20261020_2000/4: "what is the empty square left of the first requirement slot?"): it is vanilla's
+    /// It is vanilla's
     /// station-level slot (InventoryGui.m_minStationLevelIcon + m_minStationLevelText). UpdateRecipe shows the icon only when the recipe
     /// needs a crafting station and writes just the level number; the cell behind it stayed drawn with nothing in it otherwise.
     /// Under Panels: a needed station = its own icon (CraftingStation.m_icon) and "Workbench 2" (name + level); none = the cell is hidden.
-    /// Layout/content only; the look (skin) of the crafting panel stays Core's CraftingSkin ([generator], split agreed 10-20).
+    /// Layout/content only; the look (skin) of the crafting panel stays Core's CraftingSkin.
     /// </summary>
     [HarmonyPatch(typeof(InventoryGui), "UpdateRecipe")]
     internal static class CraftStationSlot

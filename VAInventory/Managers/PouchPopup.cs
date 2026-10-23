@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // Tools / Ammo / Food pouches (Fire 10-07, Tools\VAINVENTORY_POUCHES_PLAN.md). UI ONLY: the pouch popups hold the
+    // Tools / Ammo / Food pouches. UI ONLY: the pouch popups hold the
     // cells the group's real slots map to (UnifiedScreen.BuildPouches), so the items, grid positions, save data, HUD bars
     // and hotkeys are untouched. This class only shows / hides / places those popups.
     //

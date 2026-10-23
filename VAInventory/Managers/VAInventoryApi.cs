@@ -4,7 +4,7 @@ using UnityEngine;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.105 (Fire: while RPGmaker's NPC admin book is open, the VA player panel hides and only the inventory grid stays).
+    /// 1.0.105.
     /// Reference-counted: the player panel is hidden while ANY owner holds a suppression and shown again when the last one
     /// releases. Owners are plain strings (e.g. "FiresRPGmaker.NpcBook"); suppressing twice with the same owner counts once.
     /// Hiding is a CanvasGroup (invisible, not clickable), so layout, slots and saved positions are untouched.
@@ -23,8 +23,8 @@ namespace VerdantsAscent.Managers
             UnifiedScreen.ApplySuppression();
         }
 
-        // 1.0.156 (plan Tools\VAINVENTORY_PANEL_LAYOUT_PLAN.md): extra columns for the side-by-side "Panels" layout (1.0.157+), e.g.
-        // [ghost]'s companion panel. ADD-ONLY. Registering is order-free; nothing is created until the Panels layout exists, so until
+        // Extra columns for the side-by-side "Panels" layout (1.0.157+), e.g.
+        // 's companion panel. ADD-ONLY. Registering is order-free; nothing is created until the Panels layout exists, so until
         // then GetLayoutPanel returns null and nothing on screen changes.
         public sealed class LayoutPanel { public string Id; public int Order; public System.Func<bool> Visible; internal RectTransform Rect; }
         static readonly Dictionary<string, LayoutPanel> _layoutPanels = new Dictionary<string, LayoutPanel>();
@@ -45,13 +45,13 @@ namespace VerdantsAscent.Managers
         /// <summary>The panel's rect while the Panels layout is up and the panel is visible; null otherwise.</summary>
         public static RectTransform GetLayoutPanel(string id) => id != null && _layoutPanels.TryGetValue(id, out var p) ? p.Rect : null;
 
-        /// <summary>1.0.157 ([ghost]'s FiresCompanions reads it): true while the Panels layout draws the companion column, so the
+        /// <summary>1.0.157: true while the Panels layout draws the companion column, so the
         /// companion screen hides its own panel. False on Unified / Legacy and while the inventory is closed.</summary>
         public static bool OwnsCompanionColumn => PanelsLayout.CompanionColumnShown;
 
-        /// <summary>1.0.201 (ui_tour's "companion - Stats" shot never switched the page): the companion panel's page, "Equipment" or
+        /// <summary>1.0.201: the companion panel's page, "Equipment" or
         /// "Stats", as its pills do. False when no companion panel is shown. ADD-ONLY.</summary>
-        /// <summary>1.0.210 ([seasons], FATI: every grid square gets the slot look): lays the pouch-cell slot look (dark face + light gold
+        /// <summary>1.0.210: lays the pouch-cell slot look (dark face + light gold
         /// border, read live from the Tools pouch cell) on ONE cell background. False while it isn't available (not the Panels layout, or no
         /// pouch cell built yet: call again on enable). ADD-ONLY.</summary>
         public static bool ApplySlotLook(UnityEngine.UI.Image face)
@@ -63,8 +63,8 @@ namespace VerdantsAscent.Managers
 
         public static bool SetCompanionPage(string page)
         {
-            // 1.0.202 (R-1015U: returned False): the panel object is built once and kept; the page is set whenever it exists
-            // 1.0.289 (Fire 10-21: "fix that" - with Unified UI OFF there is no companion panel by design (1.0.288), so a caller's request is
+            // The panel object is built once and kept; the page is set whenever it exists
+            // 1.0.289 ("fix that" - with Unified UI OFF there is no companion panel by design (1.0.288), so a caller's request is
             // simply not applicable: false, silently, no log line)
             if (!OwnsCompanionColumn) return false;
             var p = CompanionPanel.Current;
@@ -73,13 +73,13 @@ namespace VerdantsAscent.Managers
             return true;
         }
 
-        /// <summary>1.0.161 ([saddles]' CraftingSkin may gate on it): true while [UI] Layout = Panels.</summary>
+        /// <summary>1.0.161: true while [UI] Layout = Panels.</summary>
         public static bool PanelsLayoutActive => UnifiedScreen.PanelsMode;
 
-        /// <summary>1.0.268 (add-only, [generator]'s layout goldens): the player's pouch cells for "Tool", "Food" or "Ammo" - the ACTIVE slots'
+        /// <summary>1.0.268: the player's pouch cells for "Tool", "Food" or "Ammo" - the ACTIVE slots'
         /// grid positions in the player's Inventory, in bar order. Moving an item there with Inventory.MoveItemToThis(inv, item, n, x, y) is
         /// what a drag onto that pouch cell does. Unknown kind / no player = empty.</summary>
-        /// <summary>1.0.269 (add-only; Fire via the lead, for [fgn]'s FLO right-click/use): put a ring or necklace the LOCAL player carries
+        /// <summary>1.0.269: put a ring or necklace the LOCAL player carries
         /// into VAInventory's jewelry slots the way a drop onto that cell does - the first FREE Necklace / Left ring / Right ring slot whose
         /// validator accepts it, else SWAP with the first occupied accepting one (the worn piece goes to the item's old cell). Same
         /// inventory, so only grid positions change, then the inventory's Changed (save + UI refresh). False = not jewelry, no slot,
@@ -114,7 +114,7 @@ namespace VerdantsAscent.Managers
             catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug("[VAInventory] TryEquipJewelry failed: " + e.Message); return false; }
         }
 
-        /// <summary>1.0.291 (add-only; [ghost]'s hub Companions > Stats, Fire 10-21): opens the F1 hub on Player > Stats in companion view for
+        /// <summary>1.0.291: opens the F1 hub on Player > Stats in companion view for
         /// THIS companion - preview, gear, every stat + skill, the Attributes button - with no inventory and the hub kept open. False when Core's
         /// hub page is not registered (Fires UI override OFF / older Core): the caller keeps its own path then.</summary>
         public static bool OpenCompanionStats(Humanoid companion)

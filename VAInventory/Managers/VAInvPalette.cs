@@ -4,9 +4,9 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.179 (Fire's UI tour 10-15: "EASY ON THE EYES, EASY TO SEE AND READ"; the grids were near-black): the ONE palette every VAInventory
+    /// The ONE palette every VAInventory
     /// grid and panel reads, instead of per-file colours. Approved mockup: Tools\vainv_readability\E_thin_gold_crafting_right.png
-    /// (lighter warm background, lighter slot faces, a 1 px FAINT kit-gold outline on every slot; Fire: "much, much thinner").
+    /// .
     /// </summary>
     internal static class VAInvPalette
     {
@@ -27,7 +27,7 @@ namespace VerdantsAscent.Managers
         static Sprite s_slot;
 
         /// <summary>A FILLED rounded square (radius 5, 9-sliced), white, tinted to <see cref="SlotFace"/>. Filled on purpose: the kit's
-        /// outline-only pill let whatever was behind the main grid show through as black (Fire's 10-15 tour shot).</summary>
+        /// outline-only pill let whatever was behind the main grid show through as black.</summary>
         internal static Sprite SlotSprite
         {
             get

@@ -12,6 +12,11 @@ namespace VerdantsAscent
 {
     public static class AdminSyncing
     {
+        // How often the server compares the admin list for changes.
+        const float AdminListPollSeconds = 30f;
+        // Packages above this size are deflated before sending.
+        const int CompressThresholdBytes = 10000;
+
         private static bool _isServer;
 
         [HarmonyPatch(typeof(ZNet), "Awake")]
@@ -37,7 +42,7 @@ namespace VerdantsAscent
 
             while (true)
             {
-                yield return new WaitForSeconds(30f);
+                yield return new WaitForSeconds(AdminListPollSeconds);
 
                 var newAdmins = new HashSet<string>(adminList.GetList());
                 if (newAdmins.SetEquals(currentAdmins)) continue;
@@ -102,7 +107,7 @@ namespace VerdantsAscent
             if (!ZNet.instance) yield break;
 
             byte[] data = package.GetArray();
-            if (data.Length > 10000)
+            if (data.Length > CompressThresholdBytes)
             {
                 var compressed = new ZPackage();
                 compressed.Write(4);

@@ -5,8 +5,8 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // 1.0.196: CharacterPreview's live render as an INSTANCE, so more than one can exist (the player panel, the companion panel, and
-    // [ghost]'s Dressing NPC via VAInventoryPreviewApi). Same technique, moved here unchanged:
+    // CharacterPreview's live render as an INSTANCE, so more than one can exist (the player panel, the companion panel, and
+    // 's Dressing NPC via VAInventoryPreviewApi). Same technique, moved here unchanged:
     //   - the camera is a CHILD of the target (inherits its rotation, no follow code) and renders into a texture shaped like the mount;
     //   - only the target is drawn: its renderers move to an empty layer just before THIS camera culls and back just after it renders;
     //   - the directional key light is on only during this camera's own render (1.0.149);
@@ -161,8 +161,8 @@ namespace VerdantsAscent.Managers
             KeyLight.enabled = false;
 
             BoundTo = character;
-            boundZdo = ZdoOf(character);   // 1.0.301: kept so a replaced body (same ZDO) is found again
-            EquipmentPanel.PanelLog?.LogInfo($"[VAInventory] preview {Name}: model '{ModelId(character)}'");   // 1.0.302 (lead, FDT preview_refresh_test): once per bind / re-bind
+            boundZdo = ZdoOf(character);   // Kept so a replaced body (same ZDO) is found again
+            EquipmentPanel.PanelLog?.LogInfo($"[VAInventory] preview {Name}: model '{ModelId(character)}'");   // Once per bind / re-bind
             if (!s_all.Contains(this)) s_all.Add(this);
             if (frameToBounds) FrameFromBounds(character);
             else { defaultDistance = HumanDistance; defaultHeight = HumanHeight; }
@@ -212,7 +212,7 @@ namespace VerdantsAscent.Managers
             HookVisualsChanged();
         }
 
-        // 1.0.301 (Fire 10-21: "swap a companion's model and swap back - preview cameras show the old model most of the time"): the camera
+        // The camera
         // is a child of the bound body, so a swap that REPLACES the body destroyed it and the panel kept its last frame. Core 0.2.690's one
         // signal FiresCore.Visuals.CharacterVisuals.Changed(GameObject, reason) re-binds a preview whose body (same ZDO) was replaced, and
         // re-frames / re-fits it on every model or equipment change. Reflected: VAInventory loads without Core 0.2.690.
@@ -232,7 +232,7 @@ namespace VerdantsAscent.Managers
             catch (System.Exception e) { EquipmentPanel.PanelLog?.LogWarning("preview: CharacterVisuals.Changed hook failed: " + (e.InnerException ?? e).Message); }
         }
 
-        // 1.0.302: what the preview shows - FCC's model swap (ZDO "fcc_model"), else Core's BodyModelState.Applied, else the body's own prefab
+        // What the preview shows - FCC's model swap (ZDO "fcc_model"), else Core's BodyModelState.Applied, else the body's own prefab
         static System.Reflection.FieldInfo s_coreApplied; static System.Type s_coreState; static bool s_coreLooked;
         static string ModelId(Character c)
         {
@@ -283,7 +283,7 @@ namespace VerdantsAscent.Managers
         void Isolate()
         {
             if (KeyLight != null) KeyLight.enabled = true;
-            // 1.0.300 ([generator] audit row 7): with no free layer the mask was built once at bind, so renderers created while the preview is
+            // With no free layer the mask was built once at bind, so renderers created while the preview is
             // open (FCC's hair / beard copies, re-equipped gear) on another layer were missing - the mask now takes in every renderer's layer
             if (IsolatedLayer == NoLayer && BoundTo != null && Cam != null)
             {
@@ -297,7 +297,7 @@ namespace VerdantsAscent.Managers
             if (probedFor != BoundTo) { probedFor = BoundTo; ProbeHair(); }
         }
 
-        // 1.0.208 (Fire: the preview doesn't show attached hair / beard correctly): once per bound target, during this camera's render,
+        // Once per bound target, during this camera's render,
         // every hair / beard renderer under it with what decides whether and where it draws
         Character probedFor;
         void ProbeHair()

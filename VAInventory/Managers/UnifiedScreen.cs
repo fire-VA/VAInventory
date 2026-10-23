@@ -14,7 +14,7 @@ namespace VerdantsAscent.Managers
     // positions every frame, and mods resolve those panels by string path - FATI uses
     // InventoryGui.instance.m_inventoryRoot.Find("Crafting") plus "Crafting/RecipeList" and "Crafting/Decription".
     // So our content goes INSIDE vanilla's panels and rides wherever vanilla puts them, the way
-    // AzuExtendedPlayerInventory and ExtraSlots do it (Tools\project_vainventory_unified_screen.md, REWRITE PLAN).
+    // AzuExtendedPlayerInventory and ExtraSlots do it.
     //
     // The prefab is the layout authority: each view is authored as a child of the vanilla panel it rides on, and
     // the bundle ships it under Mounts/<Panel> with that local rect. Mounting is SetParent(panel, false) and
@@ -50,7 +50,7 @@ namespace VerdantsAscent.Managers
         static GameObject instance;
         static bool loadFailed;
         static RectTransform characterPanel;
-        internal static RectTransform CharacterPanel => characterPanel;   // 1.0.101: PanelLayout
+        internal static RectTransform CharacterPanel => characterPanel;   // PanelLayout
         static Vector2 authoredPosition;
         static readonly List<GameObject> mounted = [];
 
@@ -58,10 +58,10 @@ namespace VerdantsAscent.Managers
         // the active slot set is config driven. Empty in Legacy, which is what makes EquipmentPanel fall
         // back to its own positioning: one renderer with a placement strategy, not two renderers.
         // Keyed by the slot's ID + grid index, not the Slot object: equip/unequip re-news every Slot (Slots.InitializeSlots), so an
-        // object key missed every lookup and the panel went blank until the inventory was reopened (Fire 10-06). IDs alone repeat
+        // object key missed every lookup and the panel went blank until the inventory was reopened. IDs alone repeat
         // (empty, food, ammo cells), the index makes the key unique.
         static readonly Dictionary<string, RectTransform> cells = [];
-        internal static readonly Dictionary<RectTransform, string> RailCaptions = [];   // 1.0.170: equipment rail cell -> its slot name
+        internal static readonly Dictionary<RectTransform, string> RailCaptions = [];   // Equipment rail cell -> its slot name
 
         static string CellKey(Slots.Slot slot) => slot.ID + "@" + slot.Index;
 
@@ -164,10 +164,10 @@ namespace VerdantsAscent.Managers
             element.localScale = Vector3.one;
         }
 
-        // ── Captions (Fire 10-07): a strip above the cell, outside the icon square, short names.
+        // ── Captions: a strip above the cell, outside the icon square, short names.
         internal const float CaptionStrip = 16f;
 
-        // Pouch cells carry no caption (Fire 10-07 on 1.0.68: the per-slot "Ammo"/"Food" labels sat over the popup's title, and
+        // Pouch cells carry no caption (on 1.0.68: the per-slot "Ammo"/"Food" labels sat over the popup's title, and
         // they only repeated it).
         internal static string CaptionFor(Slots.Slot slot) => slot.IsCoinPurseSlot || IsPouchSlot(slot) ? "" : slot.ID switch
         {
@@ -246,7 +246,7 @@ namespace VerdantsAscent.Managers
             lastCraftingX = float.NaN;
             cellDumpPending = true;
             PlacePanel();
-            PanelsLayout.Attach(root as RectTransform);   // 1.0.157: inert unless [UI] Layout = Panels
+            PanelsLayout.Attach(root as RectTransform);   // Inert unless [UI] Layout = Panels
             Compact();
             ApplyPanelOpacity();
             BuildCellMap();
@@ -266,7 +266,7 @@ namespace VerdantsAscent.Managers
                 .FirstOrDefault(image => image.name == PreviewMountName) : null);
         }
 
-        // Fire 10-07 (1.0.69): with Misc back under the pouch row, the Explorer Bag panel measured 1080 units for 1042 of room.
+        // with Misc back under the pouch row, the Explorer Bag panel measured 1080 units for 1042 of room.
         // The prefab's 30-unit top/bottom padding and the centre column's 16-unit gaps are trimmed here, at runtime, so the
         // bag fits without scrolling and no bundle rebuild is needed. Idempotent: Min() against the authored values.
         internal const int PanelPadTopBottom = 18;
@@ -283,14 +283,14 @@ namespace VerdantsAscent.Managers
             }
             var centre = FindDeep(characterPanel, "ColumnCentre")?.GetComponent<VerticalLayoutGroup>();
             if (centre != null) centre.spacing = Mathf.Min(centre.spacing, CentreColumnSpacing);
-            // 1.0.70: round 7's Explorer Bag still measured 1038 for 1033 of room (scroll on, its last row clipped). The gap
+            // Round 7's Explorer Bag still measured 1038 for 1033 of room (scroll on, its last row clipped). The gap
             // between the columns and the bag section gives up 6 more (the bag header and gap below give 6), so it fits whole;
             // the character preview keeps its size (a fixed render, it would squash).
             if (panelLayout != null) panelLayout.spacing = Mathf.Min(panelLayout.spacing, PanelSpacing);
             if (PanelsMode) CompactForPanels(panelLayout);
         }
 
-        // 1.0.158 (Fire, layout v2: "tighten the player panel's internal gaps so it fits 1080p without scrolling", measured 1074 for a
+        // ("tighten the player panel's internal gaps so it fits 1080p without scrolling", measured 1074 for a
         // ~1008 cap): in Panels only, every vertical gap inside the panel shrinks to PanelsGap and the outer padding to PanelsPad. Cell
         // sizes, the preview and the rails are untouched (gaps only). Logs the panel height before and after.
         const float PanelsGap = 3f;
@@ -302,7 +302,7 @@ namespace VerdantsAscent.Managers
         {
             float before = characterPanel.rect.height;
             if (panelLayout != null) { panelLayout.padding.top = Mathf.Min(panelLayout.padding.top, PanelsPad); panelLayout.padding.bottom = Mathf.Min(panelLayout.padding.bottom, PanelsPad); }
-            // 1.0.171 (Fire's night shot: 'Vafire' over the character's head): a 48 px band at the panel's top for the name header ([classes-ui]
+            // A 48 px band at the panel's top for the name header (
             // anchors it to the panel's top); everything else, the preview included, starts below it
             if (panelLayout != null) panelLayout.padding.top = PanelsPad + PanelsHeaderBand;
             int n = 0;
@@ -320,13 +320,13 @@ namespace VerdantsAscent.Managers
 
         const float PanelSpacing = 4f;
 
-        // Fire 10-07 (1.0.69): "too see-through, grid squares wash into the background". The backdrop's art is translucent
+        // "too see-through, grid squares wash into the background". The backdrop's art is translucent
         // parchment, so a solid plate goes under it at [UI] PanelOpacity, inset inside the frame's border.
         const string UnderlayName = "OpaqueUnderlay";
         const float UnderlayInset = 6f;
-        static readonly Color UnderlayColor = new(0.10f, 0.08f, 0.06f, 1f);   // 1.0.183: back to the pre-unified colour (Fire)
-        // 1.0.75 (Fire 10-08, [classes-ui] mockup A): the player grid's own underlay, warmer than the right panel's.
-        internal static readonly Color PlayerGridUnderlay = new(0.30f, 0.22f, 0.14f, 1f);   // 1.0.77: lighter (was 0.17/0.12/0.08)
+        static readonly Color UnderlayColor = new(0.10f, 0.08f, 0.06f, 1f);   // Back to the pre-unified colour
+        // The player grid's own underlay, warmer than the right panel's.
+        internal static readonly Color PlayerGridUnderlay = new(0.30f, 0.22f, 0.14f, 1f);   // Lighter (was 0.17/0.12/0.08)
 
         internal static void ApplyPanelOpacity()
         {
@@ -393,27 +393,27 @@ namespace VerdantsAscent.Managers
                 EquipmentPanel.MarkDirty();
                 EquipmentPanel.PanelLog?.LogDebug("[VAInventory] cell map rebuilt: a refresh left slots without a cell (a bag's storage appeared)");
             }
-            // 1.0.157: in Panels the row is placed and scaled by PanelsLayout (LateUpdate), not by the Crafting fit
+            // In Panels the row is placed and scaled by PanelsLayout (LateUpdate), not by the Crafting fit
             if (fitPending) { if (PanelsMode) { fitPending = false; screenFitPending = true; } else ScaleToCrafting(); }
             // The screen fit waits for the scale (it measures in scaled units), then runs on every open and after any rebuild.
             if (!fitPending && !screenFitPending && characterPanel.gameObject.activeInHierarchy && PanelScroll.NeedsRefit(characterPanel)) screenFitPending = true;
             if (!fitPending && screenFitPending && characterPanel.gameObject.activeInHierarchy) RunScreenFit();
-            // 1.0.72: the player grid's inset plate, refitted when its cells move (PlayerGridPlate).
+            // The player grid's inset plate, refitted when its cells move (PlayerGridPlate).
             if (characterPanel.gameObject.activeInHierarchy)
             {
-                // 1.0.81 (Fire: "a DARK background with a LIGHTER INLAY that the grid lays onto"): the grid copies the panel's
+                // The grid copies the panel's
                 // three layers live: the dark underlay, the Bkg art over it, and the lighter Backing inlay under the cells.
                 PlayerGridPlate.Tick(PanelImage(ref s_bkgImg, "Bkg"),
                     PanelImage(ref s_backingImg, BackingName),
                     PanelImage(ref s_underlayImg, UnderlayName), GoldEdge, CellEdgeAlpha);
-                // 1.0.136 (Fire's approved mockup): the chest grid gets the same three layers (ContainerGridPlate).
+                // The chest grid gets the same three layers (ContainerGridPlate).
                 ContainerGridPlate.Tick(PanelImage(ref s_bkgImg, "Bkg"),
                     PanelImage(ref s_backingImg, BackingName),
                     PanelImage(ref s_underlayImg, UnderlayName), GoldEdge, CellEdgeAlpha);
                 ApplyGridCellFace();
-                PanelLayout.TickLayout();   // 1.0.101: companions re-dock when the panel moves
-                ApplySuppression();   // 1.0.105: VAInventoryApi.SuppressPlayerPanel (cheap: a flag compare)
-                // 1.0.82 (Fire: the crafting panel shares the player panel's layout and colour scheme): same three layers, live.
+                PanelLayout.TickLayout();   // Companions re-dock when the panel moves
+                ApplySuppression();   // VAInventoryApi.SuppressPlayerPanel (cheap: a flag compare)
+                // Same three layers, live.
                 if (PanelsMode) { if (!panelSkinRemoved) { panelSkinRemoved = true; PanelSkin.RemoveAll(); EquipmentPanel.PanelLog?.LogDebug("panels: VAInventory PanelSkin off - Core CraftingSkin owns the crafting panel (UI audit)"); } }   // 1.0.224
                 else PanelSkin.Apply(InventoryGui.instance != null ? InventoryGui.instance.m_crafting : null,
                     PanelImage(ref s_bkgImg, "Bkg"),
@@ -422,7 +422,7 @@ namespace VerdantsAscent.Managers
             }
         }
 
-        // 1.0.88 (Fire: "the slightly darker grid squares ... on the player panel too"): every cell face on the character panel
+        // Every cell face on the character panel
         // (equipment, Misc, pouches, bag sections: the images BindChrome gave the element sprite) takes the face the main grid's
         // vanilla cells draw (PlayerGridPlate.GridCellFace). Re-applied when that face or the panel's hierarchy changes.
         static Color lastAppliedFace = new Color(-1f, 0f, 0f, 0f);
@@ -431,7 +431,7 @@ namespace VerdantsAscent.Managers
         static bool panelSkinRemoved;   // 1.0.224
         static void ApplyGridCellFace()
         {
-            if (characterPanel == null || PlayerGridPlate.GridCellFace == null) return;   // 1.0.183: runs as before 1.0.181 (part of the pre-unified look)
+            if (characterPanel == null || PlayerGridPlate.GridCellFace == null) return;   // Runs as before 1.0.181 (part of the pre-unified look)
             var face = PlayerGridPlate.GridCellFace.Value;
             int hierarchy = characterPanel.hierarchyCount;
             if (face == lastAppliedFace && hierarchy == lastHierarchyCount) return;
@@ -453,7 +453,7 @@ namespace VerdantsAscent.Managers
 
         static void ScaleToCrafting()
         {
-            if (DockOwnsPanel) return;   // 1.0.219 ([generator]): Core's dock owns this panel's position + localScale under Panels
+            if (DockOwnsPanel) return;   // Core's dock owns this panel's position + localScale under Panels
             var root = InventoryGui.instance != null ? InventoryGui.instance.m_inventoryRoot as RectTransform : null;
             var crafting = root != null ? root.Find(CraftingPanelName) as RectTransform : null;
             if (crafting == null) { fitPending = false; return; }
@@ -466,7 +466,7 @@ namespace VerdantsAscent.Managers
             fitPending = false;
             screenFitPending = true;
 
-            // 1.0.100 (Fire: "the ability to SCALE the player panel"): the config scale is the panel's size; the Crafting fit
+            // The config scale is the panel's size; the Crafting fit
             // below can only shrink it further.
             float user = UserScale;
             characterPanel.localScale = new Vector3(user, user, 1f);
@@ -487,38 +487,38 @@ namespace VerdantsAscent.Managers
         // ── Dragging the panel (Fire, 2026-09-27: move the whole equipment + preview panel "the same way we could to
         // re position our old equipment panel"). The backdrop is the handle; cells, the preview and the rows keep
         // their own mouse input on top of it. The offset is saved, relative to the prefab's spot.
-        // 1.0.100: the player panel's size from the config, [UI] PlayerPanelScale (0.6 to 1.2). A change re-runs the fit live.
+        // The player panel's size from the config, [UI] PlayerPanelScale (0.6 to 1.2). A change re-runs the fit live.
         internal static bool DockOwnsPanel => PanelsMode && PanelsDock.Registered;   // 1.0.219
         internal static float UserScale => Mathf.Clamp(ConfigManager.Instance?.configPlayerPanelScale?.Value ?? 1f, 0.6f, 1.2f);
         static float lastLoggedScale = float.NaN;
 
         static void LogUserScale(float user, float applied)
         {
-            PanelLayout.Report(applied);   // 1.0.101: other mods follow the applied scale
+            PanelLayout.Report(applied);   // Other mods follow the applied scale
             if (Mathf.Approximately(applied, lastLoggedScale)) return;
             lastLoggedScale = applied;
             EquipmentPanel.PanelLog?.LogDebug($"player panel scale: config {user:0.00}, applied {applied:0.00}");
         }
 
-        // 1.0.171 (Fire / [visual]: the player panel ran off the bottom, the second backpack cut off): under Panels, Core's dock moves the panel
+        // Under Panels, Core's dock moves the panel
         // after the open-time fit, so PanelsLayout asks for a re-fit whenever the panel's bottom is below the screen; PanelScroll then caps it
         // and the bag sections scroll inside.
         internal static void RequestScreenFit() { screenFitPending = true; fitLogPending = true; }
 
-        // 1.0.174: EquipmentPanel asks for this when a refresh leaves slots without a cell (a new bag's storage mid-drag); run next Tick
+        // EquipmentPanel asks for this when a refresh leaves slots without a cell (a new bag's storage mid-drag); run next Tick
         static bool cellRebuildPending;
         internal static void RequestCellRebuild() => cellRebuildPending = true;
 
         internal static void RequestRescale()
         {
             if (characterPanel == null) return;
-            if (PanelsMode && PanelsDock.Registered) return;   // 1.0.169: Core's dock owns the panel's scale under Panels
+            if (PanelsMode && PanelsDock.Registered) return;   // Core's dock owns the panel's scale under Panels
             characterPanel.localScale = new Vector3(UserScale, UserScale, 1f);
             fitPending = true;
             lastCraftingX = float.NaN;
         }
 
-        // 1.0.105: the player panel hidden/shown by VAInventoryApi's owners, via a CanvasGroup on the panel.
+        // The player panel hidden/shown by VAInventoryApi's owners, via a CanvasGroup on the panel.
         static bool appliedSuppressed;
 
         internal static void ApplySuppression()
@@ -532,7 +532,7 @@ namespace VerdantsAscent.Managers
             group.interactable = !want;
             group.blocksRaycasts = !want;
             appliedSuppressed = want;
-            // 1.0.106 (Fire's NPC-book shot: the whole middle column overlapped the book): the character panel carries the
+            // The character panel carries the
             // preview, equipment grid, extra slots (Tools/Ammo/Food/coin, Misc) and the bag sections; any Legacy-layout
             // equipment / bag panels under the vanilla Player panel and the open pouch popups go with it. Only the main
             // inventory grid and Crafting stay.
@@ -563,14 +563,14 @@ namespace VerdantsAscent.Managers
             AddResizeGrip();
         }
 
-        // 1.0.102 (Fire: "there is no drag handle to scale the player panel in the bottom right"): a grip in the panel's
+        // A grip in the panel's
         // bottom-right corner. Dragging it scales the whole panel live; letting go saves [UI] PlayerPanelScale, which re-runs
         // the fit, and PanelLayout tells the companion panel. Double-click puts it back to 1.
         const string ResizeGripName = "VAInventoryResizeGrip";
 
         static void AddResizeGrip()
         {
-            // 1.0.272 (Fire 10-20: the player panel resize corner did nothing; [generator]/[lead]: one implementation): under Panels Core's dock
+            // Under Panels Core's dock
             // grip (FiresDockGrip3) owns resize; this grip sat on top of it and took his presses. Panels = no VAInventory grip (any old one goes).
             if (characterPanel != null && PanelsMode && PanelsDock.Available) { RemoveResizeGrip("Panels with Core's dock: its grip owns resize"); return; }   // Fire: VAInventory doesn't need Core; without it this grip stays
             if (characterPanel == null || characterPanel.Find(ResizeGripName) != null) return;
@@ -582,7 +582,7 @@ namespace VerdantsAscent.Managers
             rt.anchoredPosition = new Vector2(-4f, 4f);
             rt.sizeDelta = new Vector2(18f, 18f);
             var image = go.GetComponent<Image>();
-            // 1.0.104 (Fire: the corner showed a plain square): a drawn three-line grip sprite, white-tinted so its gold shows.
+            // A drawn three-line grip sprite, white-tinted so its gold shows.
             image.sprite = GripSprite.Get(GoldEdge);
             image.color = Color.white;
             image.raycastTarget = true;
@@ -603,14 +603,14 @@ namespace VerdantsAscent.Managers
 
         internal static void BeginResize(PointerEventData e)
         {
-            if (DockOwnsPanel) return;   // 1.0.219 ([generator]): Core's dock owns this panel's position + localScale under Panels
+            if (DockOwnsPanel) return;   // Core's dock owns this panel's position + localScale under Panels
             resizeStartScale = characterPanel != null ? characterPanel.localScale.x : 1f;
             resizeStartDistance = Mathf.Max(1f, DistanceFromTopLeft(e));
         }
 
         internal static void Resize(PointerEventData e)
         {
-            if (DockOwnsPanel) return;   // 1.0.219 ([generator]): Core's dock owns this panel's position + localScale under Panels
+            if (DockOwnsPanel) return;   // Core's dock owns this panel's position + localScale under Panels
             if (characterPanel == null) return;
             float s = Mathf.Clamp(resizeStartScale * DistanceFromTopLeft(e) / resizeStartDistance, 0.6f, 1.2f);
             characterPanel.localScale = new Vector3(s, s, 1f);
@@ -619,7 +619,7 @@ namespace VerdantsAscent.Managers
 
         internal static void EndResize()
         {
-            if (DockOwnsPanel) return;   // 1.0.219 ([generator]): Core's dock owns this panel's position + localScale under Panels
+            if (DockOwnsPanel) return;   // Core's dock owns this panel's position + localScale under Panels
             var config = ConfigManager.Instance;
             if (characterPanel == null || config?.configPlayerPanelScale == null) return;
             float s = Mathf.Round(characterPanel.localScale.x * 100f) / 100f;
@@ -647,12 +647,12 @@ namespace VerdantsAscent.Managers
 
         static void PlacePanel()
         {
-            if (PanelsMode && PanelsDock.Registered) return;   // 1.0.169 (Fire: 'dragging immediately fucks everything up'): Core's dock owns it
+            if (PanelsMode && PanelsDock.Registered) return;   // Core's dock owns it
             if (characterPanel != null) characterPanel.anchoredPosition = authoredPosition + PanelOffset;
             KeepOnScreen();
         }
 
-        // 1.0.176 ([lead] R-NIGHT3 Unified at 1024x768: 'Cell_0 is OFF SCREEN at (-457,823)', panel fit 'room=2559 canvasH=1440'): a saved
+        // 1.0.176 (R-NIGHT3 Unified at 1024x768: 'Cell_0 is OFF SCREEN at (-457,823)', panel fit 'room=2559 canvasH=1440'): a saved
         // [UI] CharacterPanelOffset of (-1710, 553) put the panel far left and above the screen, and nothing brought it back (the screen fit
         // only sizes it). The panel is now kept on the canvas: left / right edge inside, top under the top edge (the fit caps the bottom).
         // Only the drawn spot moves; the saved offset is left as it is (no config writes).
@@ -670,7 +670,7 @@ namespace VerdantsAscent.Managers
             float dx = min.x < area.xMin ? area.xMin - min.x : max.x > area.xMax ? Mathf.Max(area.xMax - max.x, area.xMin - min.x) : 0f;
             float dy = max.y > area.yMax ? area.yMax - max.y : min.y < area.yMin && max.y - min.y <= area.height ? area.yMin - min.y : 0f;
             if (Mathf.Abs(dx) < 0.5f && Mathf.Abs(dy) < 0.5f) return;
-            // 1.0.177 ([lead] R-NIGHT7 Unified A/B: 'moved 1012,-512' left the panel ON the grid - 'topmost hit at (78,727) is
+            // 1.0.177 (R-NIGHT7 Unified A/B: 'moved 1012,-512' left the panel ON the grid - 'topmost hit at (78,727) is
             // CharacterPanel/Top/ColumnCentre/PreviewMount, not Player/PlayerGrid'): an off-screen saved spot goes back to the authored spot
             // (the layout's own place beside the grid) first; only what is still off the canvas then is nudged in from the edge.
             string how = "edge clamp";
@@ -690,7 +690,7 @@ namespace VerdantsAscent.Managers
 
         internal static void MovePanel(PointerEventData eventData)
         {
-            if (DockOwnsPanel) return;   // 1.0.219 ([generator]): Core's dock owns this panel's position + localScale under Panels
+            if (DockOwnsPanel) return;   // Core's dock owns this panel's position + localScale under Panels
             var parent = characterPanel != null ? characterPanel.parent as RectTransform : null;
             if (parent == null) return;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(parent, eventData.position, eventData.pressEventCamera, out var now)) return;
@@ -773,17 +773,17 @@ namespace VerdantsAscent.Managers
             var railRight = FindDeep(characterPanel, RailRightName);
             if (railLeft == null || railRight == null) return;
 
-            // Fire 10-07 (approved panel_backpack mockup): rails 6 / 6 in a fixed order. Left = armour + trinket + ring,
+            // rails 6 / 6 in a fixed order. Left = armour + trinket + ring,
             // right = the RPGClasses bar slots, Torch, Backpack, Pet. Inactive slots drop out (no gaps, no balancing).
             // Layout only: every slot keeps its grid position, so no saved item moves.
             var equipment = Slots.AllSlots()
                 .Where(s => s != null && s.IsActive && !s.IsCurrencyVaultSlot && !s.IsBackpackStorageSlot
                             && !s.IsFoodSlot && !s.IsAmmoSlot && !s.IsMiscSlot && !s.IsCoinPurseSlot
-                            && !IsJewelrySlot(s)   // 1.0.110: in the Jewelry popup; the rail shows its face instead
+                            && !IsJewelrySlot(s)   // In the Jewelry popup; the rail shows its face instead
                             && s.ID != Slots.emptySlotID && s.Index >= Slots.InventorySizePlayer)
                 .OrderBy(s => s.Index)
                 .ToList();
-            // Fire 10-07 (rails 7 / 7): Shoulder ends the left rail, TeleportBypass the right; the coin purse is the 4th
+            // Shoulder ends the left rail, TeleportBypass the right; the coin purse is the 4th
             // cell of the pouch row (BuildPouches).
             var left = TakeInOrder(equipment, LeftRailOrder);
             var right = TakeInOrder(equipment, RightRailOrder);
@@ -795,21 +795,21 @@ namespace VerdantsAscent.Managers
             BackpackLog.LogDebug($"[VAInventory] rails: left {left.Count} [{string.Join(",", left.Select(s => s.ID))}], "
                 + $"right {right.Count} [{string.Join(",", right.Select(s => s.ID))}]");
 
-            // Pouches (Fire 10-07): the Tools / Ammo / Food rows are hidden; their real slots live in pouch popups.
+            // Pouches: the Tools / Ammo / Food rows are hidden; their real slots live in pouch popups.
             AssignRow("Tools", []);
             AssignRow("Food", []);
             AssignRow("Ammo", []);
             BuildPouches();
             AssignRow("Misc", Slots.AllSlots().Where(s => s != null && s.IsActive && s.IsMiscSlot).OrderBy(s => s.Index).ToList());
             BuildBagSections();
-            // 1.0.111 (R-1012J: empty pouch popups + 141 ElemGo NREs after the inventory-open rebuild): the cells above are new and
+            // The cells above are new and
             // the old slot elements died with the old ones; EquipmentPanel re-creates them into these cells on its next update.
             EquipmentPanel.RequestElementRebuild();
         }
 
         static readonly string[] LeftRailOrder =
             [Slots.helmetSlotID, Slots.chestSlotID, Slots.legsSlotID, Slots.utilitySlotID, Slots.trinketSlotID,
-             Slots.shoulderSlotID];   // 1.0.110: Ring's place holds the Jewelry face (BuildPouches), right after Trinket
+             Slots.shoulderSlotID];   // Ring's place holds the Jewelry face (BuildPouches), right after Trinket
         static readonly string[] RightRailOrder =
             [Slots.frontWeaponSlotID, Slots.frontOffhandSlotID, Slots.backWeaponSlotID, Slots.backOffhandSlotID,
              Slots.torchSlotID, Slots.backpackSlotID, Slots.petSlotID, Slots.teleportBypassSlotID];
@@ -830,7 +830,7 @@ namespace VerdantsAscent.Managers
 
         // A rail with fewer prefab cells than slots grows: extra cells are cloned from its first cell (already stripped
         // by StripCellChrome), so nothing is dropped. Unused cells are hidden.
-        // 1.0.143 ([seasons], Fire 10-14: the belt and capes were invisible): the old Jewelry face is only DEACTIVATED by
+        // The old Jewelry face is only DEACTIVATED by
         // DropRuntimeViews (Destroy lands at end of frame), so it was still a rail child here; it took the 6th place - the
         // Shoulder slot was mapped onto it - and the real Shoulder cell, now 7th, was switched off. Only the rail's own slot
         // cells count now (runtime views and pouch faces are skipped).
@@ -853,7 +853,7 @@ namespace VerdantsAscent.Managers
                 bool used = i < slots.Count;
                 cell.gameObject.SetActive(used);
                 if (used) cells[CellKey(slots[i])] = cell;
-                if (used) RailCaptions[cell] = CaptionFor(slots[i]); else RailCaptions.Remove(cell);   // 1.0.170: Panels' in-cell placeholders
+                if (used) RailCaptions[cell] = CaptionFor(slots[i]); else RailCaptions.Remove(cell);   // Panels' in-cell placeholders
             }
             // Room for each cell's caption strip above it (PlaceCaption), so no caption reaches the cell above.
             var vlg = rail.GetComponent<VerticalLayoutGroup>();
@@ -873,7 +873,7 @@ namespace VerdantsAscent.Managers
             BackpackLog.LogDebug($"[VAInventory] rail {rail.name}: {slots.Count} slot cell(s) shown [{string.Join(",", slots.Select(s => s.ID))}], {rail.childCount - own.Count} other child(ren) skipped");
         }
 
-        // ── Pouches (Fire 10-07, Tools\VAINVENTORY_POUCHES_PLAN.md). UI only: the same Slots and grid positions; the pouch
+        // ── Pouches. UI only: the same Slots and grid positions; the pouch
         // popups hold the cells those slots map to, so EquipmentPanel builds, drags and tooltips them as before.
         static readonly List<GameObject> runtimeViews = [];
         static readonly string[] PouchGroups = ["tools", "ammo", "food"];
@@ -883,7 +883,7 @@ namespace VerdantsAscent.Managers
             "tools" => Slots.toolHotbarSlots.Where(s => s != null && s.IsActive).ToList(),
             "ammo" => Slots.GetAmmoSlots().ToList(),
             "food" => Slots.GetFoodSlots().ToList(),
-            // 1.0.110: Necklace, Left ring, Right ring (the popup's cell order).
+            // Necklace, Left ring, Right ring (the popup's cell order).
             "jewelry" => new[] { Slots.necklaceSlotID, Slots.ringSlotID, Slots.ringRightSlotID }
                 .Select(id => Slots.AllSlots().FirstOrDefault(s => s != null && s.ID == id && s.IsActive)).Where(s => s != null).ToList(),
             _ => []
@@ -936,12 +936,12 @@ namespace VerdantsAscent.Managers
         }
 
         static readonly Color Gold = new(0.93f, 0.78f, 0.37f, 1f);
-        static readonly Color GoldEdge = new(0.55f, 0.42f, 0.20f, 1f);   // 1.0.183: back (Fire)
-        const float CellEdgeAlpha = 0.7f;   // 1.0.183: back (Fire)
+        static readonly Color GoldEdge = new(0.55f, 0.42f, 0.20f, 1f);   // Back
+        const float CellEdgeAlpha = 0.7f;   // Back
 
         static void BuildPouches()
         {
-            Slots.ClearCachedItems();   // 1.0.81: the pouch counts read live, never a stale grid-position cache
+            Slots.ClearCachedItems();   // The pouch counts read live, never a stale grid-position cache
             DropRuntimeViews();
             var toolsRow = FindDeep(characterPanel, RowPrefix + "Tools");
             var template = toolsRow?.Find(CellsName)?.Find(CellTemplateName);
@@ -955,7 +955,7 @@ namespace VerdantsAscent.Managers
             var face = InventoryGui.instance?.m_playerGrid?.m_elementPrefab?.GetComponent<Image>();
             var faceTint = InventoryGui.instance?.m_playerGrid?.m_elementPrefab?.GetComponent<Selectable>();
 
-            // One centred row where the Tools row was (Fire 10-07): Tools, Ammo, Food pouches + the coin purse, normal-size
+            // One centred row where the Tools row was: Tools, Ammo, Food pouches + the coin purse, normal-size
             // cells at the row pitch, so four fill the centre column exactly like the Misc row.
             var row = NewRect(toolsRow.parent, "RowPouches");
             row.SetSiblingIndex(toolsRow.GetSiblingIndex() + 1);
@@ -981,7 +981,7 @@ namespace VerdantsAscent.Managers
                 BuildPouchPopup(group, title + " pouch", slots, cell, template, cellSize, spacing, font);
             }
 
-            // 1.0.110 (Fire 10-12, choice (a)): the Jewelry pouch's face sits in the LEFT RAIL where the Ring slot was, captioned
+            // 1.0.110 (choice (a)): the Jewelry pouch's face sits in the LEFT RAIL where the Ring slot was, captioned
             // "Jewelry" like a rail cell; its popup holds the Necklace, Left ring and Right ring cells (real slots, real grid
             // positions, so nothing saved moves).
             var jewelry = PouchSlots("jewelry");
@@ -1126,7 +1126,7 @@ namespace VerdantsAscent.Managers
             return holder;
         }
 
-        // ── The worn bag(s) inside the panel (Fire 10-07, panel_backpack mockup): below Misc, a header "Backpack: <name>"
+        // ── The worn bag(s) inside the panel: below Misc, a header "Backpack: <name>"
         // with "Quality N · C × R" on the right, the bag's storage grid (its IsBackpackStorageSlot slots, mapped to cells so
         // EquipmentPanel fills them as any other), and an upgraded bag's special-slot rail at the right edge. Replaces the
         // floating bag window in Unified. Two bags = two sections. The panel's VerticalLayoutGroup + size fitter grow the
@@ -1260,7 +1260,7 @@ namespace VerdantsAscent.Managers
         // (amount, quality, durability text). Each cell is only a container for the live element instantiated
         // into it, which brings its own face and overlays; left in, the placeholders drew under every slot.
         /// <summary>
-        /// 1.0.196 (Fire: the companion gets "an IDENTICAL panel setup"): a second CharacterPanel built from the SAME prefab asset by the
+        /// A second CharacterPanel built from the SAME prefab asset by the
         /// SAME steps the player panel takes (StripEditorOnly, the cell-chrome strip, BindChrome), under <paramref name="parent"/>. Inactive
         /// until the caller fills it. Null when the bundle or the vanilla Player panel is missing.
         /// </summary>
@@ -1280,7 +1280,7 @@ namespace VerdantsAscent.Managers
                 if (!cells.TryGetValue(CellKey(s), out var cell) || cell == null || !cell.IsChildOf(characterPanel)) continue;
                 string path = cell.name;
                 for (var t = cell.parent; t != null && t != characterPanel; t = t.parent) path = t.name + "/" + path;
-                RailCaptions.TryGetValue(cell, out var caption);   // 1.0.200: the rail label (Helmet, Chest, ...) - it lived on the player's element
+                RailCaptions.TryGetValue(cell, out var caption);   // The rail label (Helmet, Chest, ...) - it lived on the player's element
                 list.Add((section, i, path, caption));
             }
             return list;
@@ -1325,7 +1325,7 @@ namespace VerdantsAscent.Managers
         }
 
         /// <summary>
-        /// 1.0.187 (R-1015J probe: on the FIRST open the empty Misc / bag cells drew NOTHING - "Cell_0 ... item_background ... enabled False"):
+        /// 
         /// StripCellChrome turns every cell's own face off because the live element instantiated into it brings its own; but an EMPTY cell
         /// gets no element until a later rebuild, so on the first open it had no face at all. Under Panels each cell's face is on exactly
         /// while it holds no InventoryElement (Core's skin then styles it as a Slot); a cell with an element keeps its face off (one face per
@@ -1341,13 +1341,13 @@ namespace VerdantsAscent.Managers
                 var face = cell.GetComponent<Image>();
                 if (face == null) continue;
                 bool empty = cell.GetComponentInChildren<InventoryElement>(true) == null;
-                if (!face.enabled) { face.enabled = true; n++; }   // 1.0.214: the Cell_ face is THE square (the element face inside is transparent); was "on only while empty"
+                if (!face.enabled) { face.enabled = true; n++; }   // The Cell_ face is THE square (the element face inside is transparent); was "on only while empty"
             }
             return n;
         }
 
         /// <summary>
-        /// 1.0.195 ([lead] for Fire: Misc / bag squares GREY on later opens): Core's Slot pass treats a Cell_ that holds an InventoryElement
+        /// Core's Slot pass treats a Cell_ that holds an InventoryElement
         /// as a FRAME and leaves its face vanilla (grey item_background). Under Panels every Cell_ face in the character panel takes the SAME
         /// look Core gave the main grid's cells - copied from main grid cell 0 (sprite, type, colour, material) with a neutral (white) tint -
         /// so whatever draws in a cell is brown. Runs right after each Core skin pass. Returns the faces changed.
@@ -1359,7 +1359,7 @@ namespace VerdantsAscent.Managers
         internal static int StyleCellFramesLikeGrid(RectTransform panel)
         {
             if (panel == null || !PanelsMode) return 0;
-            return ApplySlotLook(panel);   // 1.0.210: the ONLY slot-face writer (the old copy below is dead code, kept for history)
+            return ApplySlotLook(panel);   // The ONLY slot-face writer (the old copy below is dead code, kept for history)
             var grid = InventoryGui.instance != null ? InventoryGui.instance.m_playerGrid : null;
             var model = grid != null && grid.m_gridRoot != null && grid.m_gridRoot.childCount > 0 ? grid.m_gridRoot.GetChild(0).GetComponent<Image>() : null;
             if (model == null || model.sprite == null || model.sprite.name.StartsWith("item_background", System.StringComparison.Ordinal)) return 0;   // Core hasn't styled the grid yet
@@ -1375,13 +1375,13 @@ namespace VerdantsAscent.Managers
                 if (face.material != model.material) { face.material = model.material; changed = true; }
                 var sel = cell.GetComponent<Selectable>();
                 if (sel != null && sel.colors.normalColor != Color.white) { var cb = sel.colors; cb.normalColor = Color.white; sel.colors = cb; changed = true; }
-                if (CopyOutline(cell, grid.m_gridRoot.GetChild(0))) changed = true;   // 1.0.200: the grid cell's KitSlotOutline too (same look, not just the fill)
+                if (CopyOutline(cell, grid.m_gridRoot.GetChild(0))) changed = true;   // The grid cell's KitSlotOutline too (same look, not just the fill)
                 if (changed) n++;
             }
             return n;
         }
 
-        /// <summary>1.0.197 ([lead]: Misc / bag squares still GREY on open #3 with 1.0.195): every InventoryElement on the character panel
+        /// <summary>1.0.197: every InventoryElement on the character panel
         /// copies the MAIN grid's element 0 as rendered: its face Image (sprite, type, colour, material), its Selectable ColorBlock and its
         /// CanvasRenderer colour. Idempotent; returns how many changed. Logs both rendered colours once per open.</summary>
         internal static int StyleElementsLikeGrid(bool log) => StyleElementsLikeGrid(characterPanel, log);
@@ -1392,7 +1392,7 @@ namespace VerdantsAscent.Managers
             if (panel == null || !PanelsMode) return 0;
             { int c = log ? ForceSlotLook(panel) : ApplySlotLook(panel); if (log) EquipmentPanel.PanelLog?.LogDebug($"panels: slot look = the Tools pouch cell (Core ApplySlotLook) under {panel.name}: {c} changed"); return c; }   // 1.0.210: the ONLY writer
             var grid = InventoryGui.instance != null ? InventoryGui.instance.m_playerGrid : null;
-            var modelEl = EmptyGridCell(grid);   // 1.0.201 ([lead]: copy an EMPTY cell, never cell 0 with its item)
+            var modelEl = EmptyGridCell(grid);   // 1.0.201
             var model = modelEl != null ? modelEl.GetComponent<Image>() : null;
             if (model == null || model.sprite == null || model.sprite.name.StartsWith("item_background", System.StringComparison.Ordinal)) return 0;   // Core hasn't styled the grid yet
             var modelSel = modelEl.GetComponent<Selectable>();
@@ -1409,7 +1409,7 @@ namespace VerdantsAscent.Managers
                 var sel = el.GetComponent<Selectable>();
                 if (sel != null && modelSel != null && !sel.colors.Equals(modelSel.colors)) { sel.colors = modelSel.colors; changed = true; }
                 if (face.canvasRenderer.GetColor() != modelCr) { face.canvasRenderer.SetColor(modelCr); changed = true; }
-                // 1.0.201 (R-1015T: 1.0.200 copied cell 0's ITEM children - icon, equiped - onto every slot): ONLY the empty-slot look,
+                // ONLY the empty-slot look,
                 // KitSlotOutline + dropFocus; icon / equiped / queued / amount / quality / durability / binding / noteleport / food stay vanilla's
                 foreach (var g in el.GetComponentsInChildren<Graphic>(true))
                 {
@@ -1462,7 +1462,7 @@ namespace VerdantsAscent.Managers
         }
 
         // one face: the pouch look; returns true when something changed
-        // 1.0.224 (UI audit, [generator]/[lead]: ONE slot-look API): Core 0.2.572 FiresCore.UI.Shell.FiresSkin.ApplySlotLook(Image, SlotState)
+        // Core 0.2.572 FiresCore.UI.Shell.FiresSkin.ApplySlotLook(Image, SlotState)
         // is THE writer of a slot face; VAInventory calls it (by reflection: older Core = the pouch look below, as before). Counted for the
         // READY proof: "N faces via FiresSkin.ApplySlotLook".
         static System.Reflection.MethodInfo s_coreSlotLook; static object s_coreNormal; static bool s_coreLooked;
@@ -1492,7 +1492,7 @@ namespace VerdantsAscent.Managers
             return true;
         }
 
-        // 1.0.229 ([lead]/Fire TARGET_slot_style: a visible GAP of dark plate between the gold borders on every grid): the square is drawn on an
+        // The square is drawn on an
         // INSET child face (2 px in on each side, behind the icon), and the slot's own Image becomes a transparent click area - ~4 px of plate
         // between neighbours everywhere, with NO layout change (panel sizes, pitches and fits stay exactly as they are)
         const string InsetName = "VAInvSlotFace";
@@ -1500,7 +1500,7 @@ namespace VerdantsAscent.Managers
         internal static bool ApplyLook(Image face, in SlotLookData look)
         {
             if (face == null) return false;
-            return ApplyLookDirect(face, look);   // 1.0.230 ([lead]/Fire: the "gap" was background - no inset; the slot Image itself carries the look)
+            return ApplyLookDirect(face, look);   // 1.0.230
 #pragma warning disable CS0162
             if (face.name == InsetName) return ApplyLookDirect(face, look);
             var inner = face.transform.Find(InsetName)?.GetComponent<Image>();
@@ -1537,7 +1537,7 @@ namespace VerdantsAscent.Managers
 
         static bool ApplyLookDirect(Image face, in SlotLookData look)
         {
-            if (CoreSlotLook(face)) { NoteWrite(face); return false; }   // 1.0.224: Core is the slot-face writer (it is idempotent; "changed" is Core's)
+            if (CoreSlotLook(face)) { NoteWrite(face); return false; }   // Core is the slot-face writer (it is idempotent; "changed" is Core's)
             bool changed = false;
             if (face.sprite != look.Sprite) { face.sprite = look.Sprite; changed = true; }
             if (face.type != look.Type) { face.type = look.Type; changed = true; }
@@ -1550,7 +1550,7 @@ namespace VerdantsAscent.Managers
             if (o.effectColor != look.Edge) { o.effectColor = look.Edge; changed = true; }
             if (o.effectDistance != look.EdgeDistance) { o.effectDistance = look.EdgeDistance; changed = true; }
             if (!o.enabled) { o.enabled = true; changed = true; }
-            // 1.0.210 ([lead]: ONE writer): Core's CraftingSkin skips a graphic carrying KitLeaf, so its Role.Slot pass never repaints a slot
+            // Core's CraftingSkin skips a graphic carrying KitLeaf, so its Role.Slot pass never repaints a slot
             // face again; the panels keep Core's plates (skin still runs for them), the slots have exactly one writer: this
             if (!s_leafLooked) { s_leafLooked = true; s_leaf = System.Type.GetType("FiresCore.UI.Shell.Kit.KitLeaf, FiresUnifiedCore"); }
             if (s_leaf != null && face.GetComponent(s_leaf) == null) { face.gameObject.AddComponent(s_leaf); changed = true; }
@@ -1564,15 +1564,15 @@ namespace VerdantsAscent.Managers
 
         static System.Type s_leaf; static bool s_leafLooked;
 
-        // ── 1.0.210 PROOF ([lead]: "log the count of writers that touched cell 0 of Misc in one open (must be 1)") ──
+        // ── 1.0.210 PROOF ("log the count of writers that touched cell 0 of Misc in one open (must be 1)") ──
         // The watched face = Misc cell 0's visible face (its element's Image when it holds one, else the cell's own). ApplyLook notes its own
         // writes; every frame the face's look (sprite, colour, material, type, rendered colour) is compared with what ApplyLook last left:
         // any other difference = a FOREIGN writer. Logged once per open, 6 s in.
         static Image s_watch; static string s_watchSig; static int s_ownWrites, s_foreign; static float s_watchFrom; static bool s_watchLogged;
         static readonly List<string> s_foreignWhat = new List<string>();
 
-        // 1.0.214 ([lead]): every graphic of a panel's Misc cell 0 (the Cell_ itself and everything under it), draw order, what it renders
-        // 1.0.227 ([lead]/Fire: the EMPTY rail slots still render GREY): the first empty rail cell's every graphic (draw order, on/off,
+        // Every graphic of a panel's Misc cell 0 (the Cell_ itself and everything under it), draw order, what it renders
+        // The first empty rail cell's every graphic (draw order, on/off,
         // colour, rendered colour, alpha, sprite, outline), so the grey layer is named, not guessed
         internal static void DumpEmptyRails(string when) =>
             EquipmentPanel.PanelLog?.LogDebug($"panels: EMPTY rail cell STACKS ({when}): left [{EmptyRailStack(RailLeftName)}] right [{EmptyRailStack(RailRightName)}]");
@@ -1630,7 +1630,7 @@ namespace VerdantsAscent.Managers
                 if (row != null) foreach (var t in row.GetComponentsInChildren<RectTransform>(false)) if (t.name.StartsWith(CellPrefix, System.StringComparison.Ordinal)) { cell = t; break; }
                 if (cell == null) return;
                 var el = cell.GetComponentInChildren<InventoryElement>(false);
-                s_watch = cell.GetComponent<Image>();   // 1.0.214: the Cell_ face is the square now
+                s_watch = cell.GetComponent<Image>();   // The Cell_ face is the square now
                 s_watchSig = Sig(s_watch);
             }
             else
@@ -1652,13 +1652,13 @@ namespace VerdantsAscent.Managers
         internal static int ApplySlotLook(Transform root)
         {
             if (root == null || !PanelsMode || !PouchLook(out var look)) return 0;
-            // 1.0.229 ([generator], InventoryGui.Update 95 ms/s: ~450 faces re-painted per pass): a root is walked only when its hierarchy changed
+            // A root is walked only when its hierarchy changed
             // (faces created / re-created) or a re-create was flagged (ForceSlotLook); otherwise the pass is a dictionary compare
             int hc = root.hierarchyCount;
             if (!s_forceLook && s_lookHierarchy.TryGetValue(root.GetInstanceID(), out int had) && had == hc) return 0;
             s_lookHierarchy[root.GetInstanceID()] = hc;
             int n = 0;
-            // 1.0.214 ([lead], R-1015AB: player Misc / bags GREY while the companion's are right): the companion's cells draw ONE square,
+            // The companion's cells draw ONE square,
             // the Cell_ face. A player cell drew the element's face too (the slot look at half alpha, over the Cell_ face), so it came out
             // lighter. Now every slot inside a Cell_ draws exactly the companion's stack: the Cell_ face carries the look (always on), the
             // element's own face is fully transparent (it still takes clicks), its dropFocus stays clear unless vanilla lights it in a drag.
@@ -1671,7 +1671,7 @@ namespace VerdantsAscent.Managers
             int equip = 0;
             foreach (var t in root.GetComponentsInChildren<RectTransform>(true))
             {
-                // 1.0.226 (Fire: the EQUIPMENT slots still grey): the pouch faces (Tools / Ammo / Food / Coin purse, and Jewelry on the
+                // The pouch faces (Tools / Ammo / Food / Coin purse, and Jewelry on the
                 // rail) are "PouchCell", not Cell_, so they never got the look; now every slot face, rails and pouches, goes the same way
                 bool pouch = t.name == "PouchCell";
                 if (!pouch && !t.name.StartsWith(CellPrefix, System.StringComparison.Ordinal)) continue;
@@ -1707,14 +1707,14 @@ namespace VerdantsAscent.Managers
         }
 
         static float s_nextEquipLog;   // 1.0.226
-        static readonly Dictionary<int, int> s_lookHierarchy = new Dictionary<int, int>();   // 1.0.229: root -> hierarchy count at its last look pass
+        static readonly Dictionary<int, int> s_lookHierarchy = new Dictionary<int, int>();   // Root -> hierarchy count at its last look pass
         static bool s_forceLook;
         /// <summary>1.0.229: one forced look pass over a root (after an element re-create: same count, new objects).</summary>
         internal static int ForceSlotLook(Transform root) { s_forceLook = true; try { return ApplySlotLook(root); } finally { s_forceLook = false; } }
         static bool InRail(Transform t) { for (; t != null; t = t.parent) if (t.name == RailLeftName || t.name == RailRightName) return true; return false; }
         static bool InBag(Transform t) { for (; t != null; t = t.parent) if (t.name.StartsWith("BagSection_", System.StringComparison.Ordinal)) return true; return false; }
 
-        // 1.0.201: the first main-grid element with no item (its icon off): the model for the EMPTY slot look; null = none yet
+        // The first main-grid element with no item (its icon off): the model for the EMPTY slot look; null = none yet
         internal static InventoryElement EmptyGridCell(InventoryGrid grid)
         {
             if (grid == null || grid.m_gridRoot == null) return null;
@@ -1735,7 +1735,7 @@ namespace VerdantsAscent.Managers
             return string.Join(" ; ", parts.ToArray());
         }
 
-        // 1.0.200: a Cell_ frame gets the grid cell's KitSlotOutline (Core's slot outline), once
+        // A Cell_ frame gets the grid cell's KitSlotOutline (Core's slot outline), once
         static bool CopyOutline(Transform cell, Transform modelCell)
         {
             var mo = modelCell != null ? modelCell.Find("KitSlotOutline") : null;
@@ -1850,7 +1850,7 @@ Transform parent, string name)
             var element = InventoryGui.instance?.m_playerGrid?.m_elementPrefab;
             var elementImage = element?.GetComponent<Image>();
             var elementTint = element?.GetComponent<Selectable>();
-            if (elementImage != null && characterPanel != null && !PanelsMode)   // 1.0.210 ([lead]: ONE slot-face writer under Panels = ApplySlotLook)
+            if (elementImage != null && characterPanel != null && !PanelsMode)   // 1.0.210
             {
                 var backing = characterPanel.Find(BackingName);
                 foreach (var image in characterPanel.GetComponentsInChildren<Image>(true))
@@ -1859,7 +1859,7 @@ Transform parent, string name)
                     image.sprite = elementImage.sprite;
                     image.type = Image.Type.Sliced;
                     image.color = elementTint != null ? elementTint.colors.normalColor : elementImage.color;
-                    // Fire 10-07 (1.0.69): a thin gold edge on every cell face (rails, rows, and the templates the
+                    // a thin gold edge on every cell face (rails, rows, and the templates the
                     // Misc / bag / pouch cells are cloned from), so an empty slot reads against the panel.
                     if (!PanelsMode && image.name.StartsWith("Cell") && image.GetComponent<Outline>() == null)   // 1.0.184: under Panels Core's Role.Slot draws the outline
                     {
@@ -1882,7 +1882,7 @@ Transform parent, string name)
 
     // The character panel's drag handle, on its backdrop. It only drags: no click or release here ever touches an
     // item, and with an item on the cursor it does nothing at all. A double-click puts the panel back.
-    // 1.0.102: the bottom-right resize grip.
+    // The bottom-right resize grip.
     internal sealed class CharacterPanelResize : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
     {
         bool dragging;

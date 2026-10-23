@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // 1.0.170 (Fire: "use vanilla's world-delete trash icon" - the delete button on each world in the world list): 1.0.166 took the delete BUTTON's own image, which is the generic button
+    // 1.0.166 took the delete BUTTON's own image, which is the generic button
     // background (the log said "icon button"). The trash can is a separate sprite somewhere under the start screen. This walks every Image
     // under FejdStartup (inactive ones too: the world list is often closed at Awake), logs each sprite whose name says trash / delete /
     // remove / bin, and keeps the best: one under the world-remove button first, then any "trash" sprite that isn't a world prop (rubble,
@@ -24,7 +24,7 @@ namespace VerdantsAscent.Managers
             try
             {
                 var candidates = new List<(Sprite sprite, string path, int score)>();
-                // [lead]/Fire: the trash can is the delete button on each WORLD in the world list, so the world-list element PREFAB (an asset,
+                // /Fire: the trash can is the delete button on each WORLD in the world list, so the world-list element PREFAB (an asset,
                 // not under FejdStartup's children) and the world-list panel are searched first, at the highest score
                 var sources = new List<(Image img, int bonus)>();
                 if (__instance.m_worldListElement != null) foreach (var i in __instance.m_worldListElement.GetComponentsInChildren<Image>(true)) sources.Add((i, 20));

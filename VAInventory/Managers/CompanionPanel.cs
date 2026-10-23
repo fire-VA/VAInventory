@@ -10,7 +10,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.198 (Fire, FINAL: "a DIRECT COPY of the player panel's layout, with the ONLY changes being the companion's name instead of
+    /// ("a DIRECT COPY of the player panel's layout, with the ONLY changes being the companion's name instead of
     /// ours, the health/stamina/eitr stats under the preview, and pills to swap to stats"): the companion's panel is a clone of the LIVE
     /// player panel - every section as the player sees it (header, armour / weight, preview, rails incl. the Jewelry face, Tools / Ammo /
     /// Food pouches + Coin purse, Misc, Backpack, Pet, Bypass) - stripped of the player's items and behaviours; only the trash can goes.
@@ -20,7 +20,7 @@ namespace VerdantsAscent.Managers
     ///   - the storage grid: VAInventoryGridApi.MountGrid on FiresCompanions' Storage();
     ///   - the data: FiresCompanions 0.1.59 CompanionPanelSource (Worn, Pouch, Storage, Unequip) and CompanionPanelApi.Stats().
     /// Sections the companion model doesn't have yet (Jewelry, Coin purse, Misc, Backpack, Pet, Bypass) stay as empty identical cells
-    /// until Core / FiresCompanions expose them ([generator] / [ghost], keyed by VAInventory's Slots IDs).
+    /// until Core / FiresCompanions expose them.
     /// </summary>
     internal sealed class CompanionPanel
     {
@@ -60,7 +60,7 @@ namespace VerdantsAscent.Managers
             Current = this;
             if (Root != null) return true;
             var live = UnifiedScreen.CharacterPanel;
-            var sectionMap = UnifiedScreen.SectionCells();   // 1.0.199: before the clone (the player's cell -> slot map)
+            var sectionMap = UnifiedScreen.SectionCells();   // Before the clone (the player's cell -> slot map)
             if (live != null)
             {
                 var go = UnityEngine.Object.Instantiate(live.gameObject, parent, false);
@@ -72,7 +72,7 @@ namespace VerdantsAscent.Managers
             else Root = UnifiedScreen.BuildCharacterPanelCopy(parent, PanelName);   // fallback: the prefab copy (1.0.196)
             if (Root == null) { EquipmentPanel.PanelLog?.LogDebug("panels: companion panel REFUSED (no player panel / prefab)"); return false; }
             Root.anchorMin = Root.anchorMax = Root.pivot = new Vector2(0f, 1f);
-            // 1.0.205 (R-1015X self-check: panel 568x759, Stats page 0x0): the clone carries the player panel's ContentSizeFitter (it
+            // The clone carries the player panel's ContentSizeFitter (it
             // shrank the panel to its preferred size once the bag sections hid) and its LayoutGroup (it sized our own children to 0):
             // the fitter goes off (VAInventory sizes the panel), our children ignore the layout (Free)
             var layoutParts = new List<string>();
@@ -92,10 +92,10 @@ namespace VerdantsAscent.Managers
                 trt.sizeDelta = new Vector2(-12f, 40f); trt.anchoredPosition = new Vector2(0f, -6f);
                 title.alignment = TextAlignmentOptions.Center;
             }
-            // 1.0.313: the player panel's own vital lines (PanelsChrome "PlayerVital*") must not ride along in this copy
+            // The player panel's own vital lines (PanelsChrome "PlayerVital*") must not ride along in this copy
             foreach (var t in Root.GetComponentsInChildren<TMP_Text>(true))
                 if (t != null && t.name.StartsWith("PlayerVital", System.StringComparison.Ordinal)) UnityEngine.Object.Destroy(t.gameObject);
-            foreach (var t in Root.GetComponentsInChildren<TMP_Text>(true))   // 1.0.200: PanelsChrome's footers (VAInventoryPanelsArmor / ...Weight)
+            foreach (var t in Root.GetComponentsInChildren<TMP_Text>(true))   // PanelsChrome's footers (VAInventoryPanelsArmor / ...Weight)
             {
                 if (t.name == "VAInventoryPanelsArmor") armorText = t;
                 else if (t.name == "VAInventoryPanelsWeight") weightText = t;
@@ -105,7 +105,7 @@ namespace VerdantsAscent.Managers
             float mountBottom = mount != null ? mount.anchoredPosition.y - mount.rect.height : -560f;
             if (mount != null)
             {
-                // 1.0.209 (Fire: no bars over the preview): HP / Stamina / Eitr read as labels on the RIGHT of the head, stacked under
+                // HP / Stamina / Eitr read as labels on the RIGHT of the head, stacked under
                 // Weight, in the Armor / Weight label style (clones of the Weight footer)
                 vitals = PanelsChrome.MakeVitals(weightText, "CompanionVital");   // 1.0.313: the one shared implementation (the player panel uses it too)
             }
@@ -114,8 +114,8 @@ namespace VerdantsAscent.Managers
             // the Stats page covers the sections under the preview while the Stats pill is on
             statsPage = (RectTransform)new GameObject("CompanionStatsPage_NoKitSkin", typeof(RectTransform), typeof(Image)).transform; NoSkin(statsPage.gameObject);
             statsPage.SetParent(Root, false); Free(statsPage);
-            statsPage.anchorMin = statsPage.anchorMax = statsPage.pivot = new Vector2(0f, 1f);   // 1.0.203: an explicit rect (LayoutStatsPage)
-            // 1.0.206 ([lead], R-1015Y: the rails showed through): an OPAQUE plate, the panel Bkg's sprite at full alpha
+            statsPage.anchorMin = statsPage.anchorMax = statsPage.pivot = new Vector2(0f, 1f);   // An explicit rect (LayoutStatsPage)
+            // An OPAQUE plate, the panel Bkg's sprite at full alpha
             var spi = statsPage.GetComponent<Image>(); var pbk = Root.Find("Bkg")?.GetComponent<Image>();
             if (pbk != null) { spi.sprite = pbk.sprite; spi.type = pbk.type; spi.material = pbk.material; }
             spi.color = new Color(0.086f, 0.067f, 0.047f, 1f);
@@ -128,21 +128,21 @@ namespace VerdantsAscent.Managers
             // the companion's storage grid hangs under the panel (the panel keeps the player's height and sections)
             gridHost = (RectTransform)new GameObject("CompanionGrid", typeof(RectTransform)).transform;
             gridHost.SetParent(Root, false); Free(gridHost);
-            gridHost.anchorMin = new Vector2(0f, 1f); gridHost.anchorMax = new Vector2(1f, 1f); gridHost.pivot = new Vector2(0.5f, 1f);   // 1.0.202: placed under the bag section each tick
+            gridHost.anchorMin = new Vector2(0f, 1f); gridHost.anchorMax = new Vector2(1f, 1f); gridHost.pivot = new Vector2(0.5f, 1f);   // Placed under the bag section each tick
             gridHost.offsetMin = new Vector2(14f, 0f); gridHost.offsetMax = new Vector2(-14f, 0f);
             gridHost.anchoredPosition = new Vector2(0f, -900f);
             invLabel = Text(Root, "CompanionInventoryLabel", 14f, new Color(0.941f, 0.706f, 0.298f), FontStyles.Bold, font);   // 1.0.202: "Inventory", like a bag header
             var ilr = invLabel.rectTransform; ilr.anchorMin = new Vector2(0f, 1f); ilr.anchorMax = new Vector2(1f, 1f); ilr.pivot = new Vector2(0f, 1f);
             ilr.offsetMin = new Vector2(16f, 0f); ilr.offsetMax = new Vector2(-16f, 0f); ilr.sizeDelta = new Vector2(ilr.sizeDelta.x, 20f);
             invLabel.text = "Inventory"; invLabel.alignment = TextAlignmentOptions.BottomLeft; invLabel.enableWordWrapping = false;
-            BindBagSections();   // 1.0.203: after the grid host + label exist (it parents them into the lower body)
+            BindBagSections();   // After the grid host + label exist (it parents them into the lower body)
 
             if (live != null) BindSections(sectionMap, font);
             BindRail(UnifiedScreen.LeftRail, LeftKeys);
             BindRail(UnifiedScreen.RightRail, RightKeys);
             BindPouchFaces();
             { var vg = FindDeep(Root, "VAInventoryResizeGrip"); if (vg != null) { vg.gameObject.SetActive(false); UnityEngine.Object.Destroy(vg.gameObject); } }   // 1.0.272: the copy never carries VAInventory's old grip (Core's dock grip resizes it)
-            PanelsDock.Skin(Root);   // 1.0.270 ([ghost]/[lead]): the copy can be made before Core skins the player panel; skin the copy itself
+            PanelsDock.Skin(Root);   // The copy can be made before Core skins the player panel; skin the copy itself
             EquipmentPanel.PanelLog?.LogDebug($"panels: companion panel built as a copy of the {(live != null ? "live player panel" : "prefab")} ({secCells.Count} section cell(s), {rails.Count} rail cell(s), {pouchFaces.Count} pouch face(s), title '{title.name}', armour {(armorText != null)}, weight {(weightText != null)})");
             return true;
         }
@@ -196,7 +196,7 @@ namespace VerdantsAscent.Managers
         internal void SetPageFromApi(bool statsOn) { EquipmentPanel.PanelLog?.LogDebug($"panels: companion page set by VAInventoryApi.SetCompanionPage ({(statsOn ? "Stats" : "Equipment")})"); SetPage(statsOn); }
         TMP_Text invLabel;
 
-        // 1.0.202 (R-1015U: the bars drew hairline-thin): Core's kit skin repaints every Graphic under a skinned panel; our own bars, pills
+        // Core's kit skin repaints every Graphic under a skinned panel; our own bars, pills
         // and Stats page opt out (KitLeaf + the _NoKitSkin name)
         static Type s_kitLeaf; static bool s_kitLeafLooked;
         static void NoSkin(GameObject go)
@@ -205,19 +205,19 @@ namespace VerdantsAscent.Managers
             if (s_kitLeaf != null && go.GetComponent(s_kitLeaf) == null) go.AddComponent(s_kitLeaf);
         }
 
-        // 1.0.203 (R-1015V: the page drew in a ZERO-WIDTH rect, its text one character wide below the panel): the page covers the panel
+        // The page covers the panel
         // body - from under the pills down to the Misc row - at the panel's full width less a margin, the topmost child
         void LayoutStatsPage()
         {
             if (statsPage == null || Root == null) return;
             float top = -48f, bottom = -Root.rect.height * 0.55f;
-            if (pillMount != null) { var c = new Vector3[4]; pillMount.GetWorldCorners(c); top = Root.InverseTransformPoint(c[1]).y; }   // 1.0.209: the whole body, from the preview's top
+            if (pillMount != null) { var c = new Vector3[4]; pillMount.GetWorldCorners(c); top = Root.InverseTransformPoint(c[1]).y; }   // The whole body, from the preview's top
             if (miscRow != null && miscRow.gameObject.activeInHierarchy) { var c = new Vector3[4]; miscRow.GetWorldCorners(c); bottom = Root.InverseTransformPoint(c[0]).y; }
             float w = Mathf.Max(200f, Root.rect.width - 24f), h = Mathf.Max(160f, top - bottom);
             statsPage.anchoredPosition = new Vector2(12f, top);
             statsPage.sizeDelta = new Vector2(w, h);
             statsPage.SetAsLastSibling();
-            if (pillRow != null) pillRow.SetAsLastSibling();   // 1.0.209: the pills stay on top of the page
+            if (pillRow != null) pillRow.SetAsLastSibling();   // The pills stay on top of the page
 EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0} at y {top:0} (applied {statsPage.rect.width:0}x{statsPage.rect.height:0})");
         }
 
@@ -226,7 +226,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             statsShown = statsOn;
             if (statsOn) LayoutStatsPage();
             if (statsPage != null) statsPage.gameObject.SetActive(statsOn);
-            BuildPills();   // 1.0.209: the kit pills redraw with the new active one
+            BuildPills();   // The kit pills redraw with the new active one
             if (statsOn) nextPage = 0f;
             nextRefresh = 0f;
             EquipmentPanel.PanelLog?.LogDebug($"panels: companion page {(statsOn ? "Stats" : "Equipment")}");
@@ -241,7 +241,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             foreach (Transform t in rail)
             {
                 if (!t.name.StartsWith(UnifiedScreen.CellPrefixName, StringComparison.Ordinal) || !t.gameObject.activeSelf) continue;
-                if (secCells.Exists(s => s.Cell == t)) continue;   // 1.0.199: a section cell (Core's grid) already
+                if (secCells.Exists(s => s.Cell == t)) continue;   // A section cell (Core's grid) already
                 string key = null;
                 foreach (var cap in t.GetComponentsInChildren<TMP_Text>(true))
                     if (CaptionKeys.TryGetValue((cap.text ?? "").Trim(), out var k)) { key = k; break; }
@@ -263,7 +263,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             foreach (var t in Root.GetComponentsInChildren<RectTransform>(true))
             {
                 if (!t.name.StartsWith("Pouch_", StringComparison.Ordinal)) continue;
-                // 1.0.262 ([ghost], HOWTO limits: the companion's jewelry cells stayed empty; FiresCompanions 0.1.66 serves Pouch("Jewelry") =
+                // 1.0.262 (HOWTO limits: the companion's jewelry cells stayed empty; FiresCompanions 0.1.66 serves Pouch("Jewelry") =
                 // Necklace + Ring + RingRight): the Jewelry face shows the companion's first jewelry item, and a click opens its popup
                 string kind = t.name.Substring(6) switch { "Tools" => "Tool", "Ammo" => "Ammo", "Food" => "Food", "Jewelry" => "Jewelry", _ => null };
                 if (kind == null) continue;   // Coin purse: its own section cell
@@ -336,7 +336,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             if (Root == null || !Root.gameObject.activeInHierarchy || source == null || Time.unscaledTime < nextRefresh) return;
             nextRefresh = Time.unscaledTime + 0.5f;
             if (statsShown && statsPage != null && (statsPage.rect.width < 1f || statsPage.rect.height < 1f)) LayoutStatsPage();   // 1.0.205
-            UnifiedScreen.StyleCellFramesLikeGrid(Root);   // 1.0.200: the companion's cells = the main grid's slot look
+            UnifiedScreen.StyleCellFramesLikeGrid(Root);   // The companion's cells = the main grid's slot look
             RefreshSections();
             RefreshRails();
             RefreshPouches();
@@ -400,7 +400,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
         }
 
         // ── 1.0.199: every section = Core's CompanionGridLayout cell on the companion's backing grid (Core 0.2.563) ──
-        // [generator]'s 8 x 18 map; read from Core at runtime when present (CompanionGridLayout.Sections: Name + Cells)
+        // 's 8 x 18 map; read from Core at runtime when present (CompanionGridLayout.Sections: Name + Cells)
         static readonly Dictionary<string, Vector2i[]> StaticLayout = new Dictionary<string, Vector2i[]>
         {
             { "Tools", Row(4, 8) }, { "Ammo", Row(5, 4) }, { "Food", Row(6, 4) },   // Core 0.2.564 widths
@@ -450,7 +450,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             {
                 var cell = Root.Find(path) as RectTransform;
                 if (cell == null) continue;
-                if (!string.IsNullOrEmpty(caption))   // 1.0.200: the rail label above the cell, as on the player panel
+                if (!string.IsNullOrEmpty(caption))   // The rail label above the cell, as on the player panel
                 {
                     var cap = Text(cell, "CompanionCaption", 11f, new Color(0.92f, 0.86f, 0.72f), FontStyles.Bold, font);
                     var crt = cap.rectTransform; crt.anchorMin = new Vector2(0f, 1f); crt.anchorMax = new Vector2(1f, 1f); crt.pivot = new Vector2(0.5f, 0f);
@@ -491,7 +491,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
                 else if (inv != null && layout.TryGetValue(sc.Section, out var cells) && sc.Index < cells.Length) item = inv.GetItemAt(cells[sc.Index].x, cells[sc.Index].y);
                 sc.Item = item;
                 bool has = item != null;
-                // 1.0.208 (Fire: the Coin purse must look the same on both panels): an empty companion Coin purse shows the faint coin,
+                // An empty companion Coin purse shows the faint coin,
                 // as the player's does (PanelsGridLook.CoinPurseLook)
                 bool ghost = !has && sc.Section == "CoinPurse" && CoinIcon() != null;
                 if (sc.Icon.enabled != (has || ghost)) sc.Icon.enabled = has || ghost;
@@ -506,7 +506,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             RefreshBag(bagArr);
         }
 
-        // 1.0.203 (R-1015V: no companion bag section; the "Inventory" header over the grid's numbers; the grid see-through): the cloned
+        // The cloned
         // player bag sections all hide, and the companion's LOWER BODY is built here, under Misc, on its own plate (the panel's Bkg look):
         //   "Backpack: <its bag | none>"  Quality n   +  its bag cells (FiresCompanions Bag(), the bag's cols x rows)
         //   "Inventory"                                 +  its storage grid (MountGrid, Core's storage rows), each cell the main grid's look
@@ -517,11 +517,11 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
         RectTransform miscRow;
         bool loggedLayout;
 
-        // 1.0.246 (Fire, live on 1.0.245: a stray row of 4 short lines just above "Backpack: none"): every THIN Graphic (<= 4 px tall) of the
+        // Every THIN Graphic (<= 4 px tall) of the
         // cloned panel in the band between the Misc row's bottom and the lower body's bag header, that is NOT part of our lower body, is
         // switched off (the clone's leftover cell borders / durability bars / dividers); logged once per panel with path + size so the
         // culprit is named. Root space.
-        int strayChecked;   // 1.0.247: bit 1 = Gear page checked, bit 2 = Stats page checked (Fire saw the marks on Stats)
+        int strayChecked;   // Bit 1 = Gear page checked, bit 2 = Stats page checked
         void StrayLinesOff(float top)
         {
             int bit = statsShown ? 2 : 1;
@@ -586,7 +586,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
         static Sprite s_coin;
         static Sprite CoinIcon() => s_coin != null ? s_coin : (s_coin = ObjectDB.instance?.GetItemPrefab("Coins")?.GetComponent<ItemDrop>()?.m_itemData?.GetIcon());
 
-        // 1.0.205: one of OUR objects directly under the panel: the cloned LayoutGroup must not size or move it
+        // One of OUR objects directly under the panel: the cloned LayoutGroup must not size or move it
         static void Free(Transform t)
         {
             if (t == null) return;
@@ -698,19 +698,19 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             StrayLinesOff(top);   // 1.0.246
             float y = -24f - bagH - (bagH > 0f ? 8f : 0f);
             invLabel.rectTransform.anchoredPosition = new Vector2(0f, y);
-            y -= 24f;   // the header has its own row (R-1015V: it sat over the grid's column numbers)
+            y -= 24f;   // the header has its own row
             gridHost.anchoredPosition = new Vector2(0f, y);
             float total = -y + gridHost.rect.height + 12f;
             lower.sizeDelta = new Vector2(lower.sizeDelta.x, total);
             lowerPlate.anchoredPosition = new Vector2(0f, top + 8f);
             lowerPlate.sizeDelta = new Vector2(0f, total + 12f);
-            NeededHeight = -top + total + 24f;   // 1.0.204: PanelsLayout grows the panel to this
+            NeededHeight = -top + total + 24f;   // PanelsLayout grows the panel to this
 
-            // 1.0.204 (R-1015W: the clone's Bkg ended right after Misc, everything below drew over the world): the panel's plates stretch
+            // The panel's plates stretch
             // over the WHOLE panel rect (insets as the player's: Bkg 0, OpaqueUnderlay 6, Backing 20)
             StretchPlate("Bkg", 0f); StretchPlate("OpaqueUnderlay", 6f); StretchPlate("Backing", 20f);
 
-            // SELF-CHECK ([lead]): the panel rect contains the lower body, the Stats page has a size inside the panel
+            // SELF-CHECK: the panel rect contains the lower body, the Stats page has a size inside the panel
             if (Time.unscaledTime >= nextSelfCheck)
             {
                 nextSelfCheck = Time.unscaledTime + 5f;
@@ -753,7 +753,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
         {
             if (sc == null || source == null) return;
             var gui = InventoryGui.instance;
-            // 1.0.319 (Fire 10-23: "our companions grid needs the proper fixes to allow us to grab items from it properly as well like we did
+            // 1.0.319 ("our companions grid needs the proper fixes to allow us to grab items from it properly as well like we did
             // with ours"): a plain LEFT click on a filled section cell (Tools / Ammo / Food / Coin purse ...) puts its item ON THE CURSOR -
             // taken through FiresCompanions' Take into the companion's storage, then vanilla's own drag from there, so it drops anywhere
             // (either panel's cells, the grids, a chest, the world) like the player's special slots; with an item already on the cursor, an
@@ -834,12 +834,12 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
                 hp = P<float>(st, "Health"); maxHp = P<float>(st, "MaxHealth"); sta = P<float>(st, "Stamina"); maxSta = P<float>(st, "MaxStamina");
                 eitr = P<float>(st, "Eitr"); maxEitr = P<float>(st, "MaxEitr"); armor = P<float>(st, "Armor");
             }
-            if (maxHp <= 0f && body != null) { hp = body.GetHealth(); maxHp = body.GetMaxHealth(); }   // 1.0.201: the body when Stats has none
+            if (maxHp <= 0f && body != null) { hp = body.GetHealth(); maxHp = body.GetMaxHealth(); }   // The body when Stats has none
             if (armor <= 0f && body != null) armor = body.GetBodyArmor();
             if (logStats) { logStats = false; EquipmentPanel.PanelLog?.LogDebug($"panels: companion stats {(st != null ? st.GetType().Name : "none")}: HP {hp:0}/{maxHp:0}, stamina {sta:0}/{maxSta:0}, eitr {eitr:0}/{maxEitr:0}, armour {armor:0.#}"); }
-            if (vitals != null)   // 1.0.209: HP red, Stamina yellow, Eitr purple; labels as Armor / Weight
+            if (vitals != null)   // HP red, Stamina yellow, Eitr purple; labels as Armor / Weight
             {
-                PanelsChrome.SetVitals(vitals, hp, maxHp, sta, maxSta, eitr, maxEitr);   // 1.0.313: shared with the player panel
+                PanelsChrome.SetVitals(vitals, hp, maxHp, sta, maxSta, eitr, maxEitr);   // Shared with the player panel
             }
             if (armorText != null) { string a = $"<color=#9C8F78>Armor</color>  {armor:0.#}"; if (armorText.text != a) armorText.text = a; }
             if (weightText != null)
@@ -874,7 +874,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
                     var parts = new List<string>();
                     foreach (var kv in skills) { var k = (kv.GetType().GetProperty("Key")?.GetValue(kv) ?? kv.GetType().GetField("Key")?.GetValue(kv))?.ToString();   /* 1.0.206: enum / any key (a string-only cast dropped them) */ var v = kv.GetType().GetProperty("Value")?.GetValue(kv) ?? kv.GetType().GetField("Value")?.GetValue(kv); if (k != null) parts.Add(R(k, $"{Convert.ToSingle(v):0}")); }
                     if (parts.Count > 0) text += "\n<b>Skills</b>\n" + string.Join("", parts.ToArray());
-                    else text += NoSkills;   // 1.0.207 ([lead]: a fresh summon has none)
+                    else text += NoSkills;   // 1.0.207
                 }
                 else text += NoSkills;
             }
@@ -895,19 +895,19 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
         RectTransform pillMount;
         float nextPage;
 
-        // 1.0.209: kit pills (Widgets.SubTabs) at the top edge of the preview
+        // Kit pills (Widgets.SubTabs) at the top edge of the preview
         void BuildPills()
         {
             if (Root == null || !CompanionKitPage.Available) return;
             float y = 52f;
             if (pillMount != null) { var c = new Vector3[4]; pillMount.GetWorldCorners(c); y = statsShown ? Mathf.Max(40f, -Root.InverseTransformPoint(c[1]).y + 8f) : Mathf.Max(40f, -Root.InverseTransformPoint(c[0]).y - 38f); }   // Equipment: the preview bottom edge (clear of Armor / Weight); Stats: the page top
-            // 1.0.276 (Fire V3: the in-panel Stats "doesn't work"): with the hub page registered, Stats opens the full companion Stats page
+            // With the hub page registered, Stats opens the full companion Stats page
             // (F1 > Player > Stats, companion view: preview, gear, every stat + skill, Attributes); without Core's hub the old in-panel page stays
-            try { pillRow = CompanionKitPage.Pills(Root, y, statsShown, on => { if (on && PlayerStatsPage.Registered) PlayerStatsPage.OpenForCompanion(); else SetPage(on); }, BarberAction(), statsShown ? null : armorText?.rectTransform); }   // 1.0.298: a column under Armor on the Gear page
+            try { pillRow = CompanionKitPage.Pills(Root, y, statsShown, on => { if (on && PlayerStatsPage.Registered) PlayerStatsPage.OpenForCompanion(); else SetPage(on); }, BarberAction(), statsShown ? null : armorText?.rectTransform); }   // A column under Armor on the Gear page
             catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning("panels: companion pills failed: " + e.Message); }
         }
 
-        // 1.0.293 ([ghost], Fire 10-21 Unified ON: "no appearance options to edit the companions here"): the Appearance pill opens FiresCompanions'
+        // The Appearance pill opens FiresCompanions'
         // barber (0.1.83+ CompanionBarberScreen.OpenFor(Humanoid), the same screen as Unified OFF / the roster, FCC's editor when FCC takes it),
         // by reflection on the open companion; the inventory closes first so the barber is not hidden behind it. No hook = no pill.
         static MethodInfo s_barber; static bool s_barberLooked;
@@ -1003,7 +1003,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
         }
         const string NoSkills = "\n<b>Skills</b>\n<color=#9C8F78>No skills trained yet</color>\n";
 
-        // 1.0.320 (Fire 10-23: "no clicking a companions grid slot just moves the armor to their inventory it does not pick it up"): a plain
+        // A plain
         // LEFT click on a worn piece (helmet / chest / legs / weapon bars ...) with nothing on the cursor lifts it ONTO the cursor like the
         // player's slots - unequipped through FiresCompanions' Unequip (it lands in the companion's storage) and vanilla's drag starts from
         // there, so it drops wherever he clicks. One Debug line per click.
@@ -1019,7 +1019,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             try { ok = unequip != null && unequip(item); } catch (Exception e) { EquipmentPanel.PanelLog?.LogDebug($"panels: companion Unequip threw {e.Message}"); }
             var storage = Storage(source);
             bool inStorage = storage != null && storage.ContainsItem(item);
-            if (inStorage)   // also when another handler already unequipped it this click (Fire saw it land in storage)
+            if (inStorage)   // also when another handler already unequipped it this click
             {
                 s_setupDrag ??= typeof(InventoryGui).GetMethod("SetupDragItem", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Public);
                 try { s_setupDrag?.Invoke(gui, new object[] { item, storage, item.m_stack }); } catch (Exception e) { EquipmentPanel.PanelLog?.LogDebug($"panels: companion worn pick SetupDragItem threw {(e.InnerException ?? e).Message}"); }
@@ -1044,7 +1044,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
 
         static T P<T>(object o, string name)
         {
-            // 1.0.201: properties OR fields (CompanionPanelStats carries fields: everything read 0 in R-1015T), any numeric type
+            // Properties OR fields, any numeric type
             try
             {
                 var ty = o.GetType();
@@ -1056,7 +1056,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             catch { return default; }
         }
 
-        // 1.0.262: the companion's Jewelry face opens / closes ITS jewelry popup (the clone of the player's PouchPopup_jewelry; its Necklace /
+        // The companion's Jewelry face opens / closes ITS jewelry popup (the clone of the player's PouchPopup_jewelry; its Necklace /
         // Ring / RingRight cells are section cells bound to the companion by BindSections), as the player's face does
         sealed class JewelryToggle : MonoBehaviour, IPointerClickHandler
         {

@@ -4,18 +4,18 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // Fire 10-13 (1.0.136, the approved mockup on R-1013AK's open-chest shot): the CHEST grid gets the player grid's three layers
+    // the CHEST grid gets the player grid's three layers
     // (PlayerGridPlate) so chests match the inventory: the dark frame, the lighter inner panel with its edge, and the cells, Pad
     // apart on every side. The plate hugs the container's cells (a 5 x 2 wood chest gets a small plate, a bigger chest a bigger
-    // one) and leaves the chest panel's own art, title row and buttons as they are (room for [wishbone]'s Tags button under
-    // "Place stacks"). The empty cells take the main grid's cell face and edge (R-1013AK: the chest showed no cells at all).
+    // one) and leaves the chest panel's own art, title row and buttons as they are (room for 's Tags button under
+    // "Place stacks"). The empty cells take the main grid's cell face and edge.
     internal static class ContainerGridPlate
     {
         const float Pad = 6f;
         const string FrameName = "VAInventoryChestFrame";
         const string InnerUnderName = "VAInventoryChestInnerUnder";
         const string InnerName = "VAInventoryChestInner";
-        static readonly Color FallbackDark = new Color(0.10f, 0.08f, 0.06f, 0.92f);   // 1.0.183: back (Fire)
+        static readonly Color FallbackDark = new Color(0.10f, 0.08f, 0.06f, 0.92f);   // Back
 
         static RectTransform frame, innerUnder, inner, plateParent;
         static bool PanelsBuilt() => frame != null || innerUnder != null || inner != null || faced.Count > 0;   // 1.0.182
@@ -28,10 +28,10 @@ namespace VerdantsAscent.Managers
 
         internal static void Tick(Image backdrop, Image inlay, Image panelUnderlay, Color goldEdge, float edgeAlpha)
         {
-            // 1.0.182 (Fire: copy the originals): under Panels the grid keeps vanilla's OWN panel (wood Bkg + item_background cells, as with
+            // Under Panels the grid keeps vanilla's OWN panel (wood Bkg + item_background cells, as with
             // the unified UI off). No plate, nothing hidden; whatever an earlier Tick built is taken down once.
-            // 1.0.183: the 1.0.182 Panels early-out is gone; the plate is part of the pre-unified look Fire wants back (as with the unified UI off)
-            // 1.0.307 ([lead] / Fire, shot 20261022-002741: the chest showed TWO frames, a stray plate poking out right and the grid cut):
+            // The 1.0.182 Panels early-out is gone; the plate is part of the pre-unified look Fire wants back (as with the unified UI off)
+            // 
             // under Panels with Core's Fires UI override ON, ChestSections (1.0.282) lays the chest out and draws its own gold frame
             // (KitWell_ChestFrame) around a panel sized to the grid, and Core's CraftingSkin draws the kit look. This plate was a SECOND
             // frame + inner, sized to the cells and placed by its own rule, and re-ordered siblings around the grid every frame. It stands
@@ -77,7 +77,7 @@ namespace VerdantsAscent.Managers
                 }
             }
             // just above the panel's own background art, below the grid root (so the cells and items draw on top).
-            // 1.0.137 (Fire: the chest flickered every other frame between the cells and a blank plate): 1.0.136 put the three
+            // 1.0.136 put the three
             // layers AT the grid's index, which pushed the grid 3 down; the next frame then moved the frame past the grid, covering
             // it, and so on. Now the order is only checked (frame, inner under, inner directly before the grid) and repaired when
             // wrong, each layer moved to just before the grid's CURRENT index. A repair every frame shows in the Debug count.
@@ -94,7 +94,7 @@ namespace VerdantsAscent.Managers
             }
 
             Color face = PlayerGridPlate.GridCellFace ?? new Color(45f / 255f, 39f / 255f, 28f / 255f, 1f);
-            // 1.0.184: under Panels Core's CraftingSkin Role.Slot styles the chest cells; VAInventory adds no face / outline there
+            // Under Panels Core's CraftingSkin Role.Slot styles the chest cells; VAInventory adds no face / outline there
             for (int i = 0; i < count && !UnifiedScreen.PanelsMode; i++)
             {
                 var cellImage = gridRoot.GetChild(i).GetComponent<Image>();

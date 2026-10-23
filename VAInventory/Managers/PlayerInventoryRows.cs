@@ -21,13 +21,13 @@ namespace VerdantsAscent
             if (Slots.VanillaPlayerRows != savedRows)
             {
                 Slots.VanillaPlayerRows = savedRows;
-                Slots.InitializeSlotsForRelayout();   // 1.0.145: a plain rebuild - the items are already at the coordinates of this layout
+                Slots.InitializeSlotsForRelayout();   // A plain rebuild - the items are already at the coordinates of this layout
             }
             Relayout.MarkLayoutAdopted(player);   // from here on every rebuild carries the items by address
             Debug.Log($"[VAInventory] saved layout adopted for {player.GetPlayerName()}: vanilla rows {savedRows}; relayouts carry items from now on");
         }
 
-        // 1.0.141 ([seasons], R12B Fire's character: every equipped item sat one ROW above its cell - the helmet in the main grid,
+        // 1.0.141 (R12B Fire's character: every equipped item sat one ROW above its cell - the helmet in the main grid,
         // the chest in the Helmet cell, the belt in Shoulder, the bag in Trinket - because the slot block moved when the vanilla row count
         // changed and the items were not moved with it). On spawn: the equipped items not on a cell that fits them, and any slot-area
         // item on a cell that does not fit it, are checked for ONE row offset (+-1..3) that puts them on fitting cells. With a consistent
@@ -39,8 +39,8 @@ namespace VerdantsAscent
             {
                 var inv = player.GetInventory();
                 if (inv == null) return;
-                // 1.0.142 (the lead: the rig IS Fire's game; nothing may touch his save before his OK): behind a client key, default OFF
-                // 1.0.152 (Fire's fix rule; PROVEN R-C2 10-14: 5 shifted items back on their cells, still worn, 0 misplaced): always on, no key
+                // Behind a client key, default OFF
+                // Always on, no key
                 int slotTop = Slots.InventoryHeightPlayer;
                 var wrong = new List<ItemDrop.ItemData>();
                 foreach (var it in inv.GetAllItems())
@@ -92,18 +92,18 @@ namespace VerdantsAscent
             catch (System.Exception e) { Debug.LogWarning($"[VAInventory] row-shift repair failed (nothing changed after the failure point): {e.Message}"); }
         }
 
-        // 1.0.144 ([seasons], Fire 10-14: pants in the ammo slot): any item on an equipment-panel cell whose ROLE does not take it moves to
+        // Any item on an equipment-panel cell whose ROLE does not take it moves to
         // a free cell of its own role (TryFindFreeEquipmentSlotForItem, which prefers its saved cell), else a free main-grid cell. Matched
         // by role, not by row, so it also covers a column shift, a bag-block shift and a lone stray. Behind a client key, default OFF.
         internal static void RemapMisplacedByRole(Player player)
         {
             try
             {
-                // 1.0.151 (Fire 10-14 TEAM RULE: "legitimate fixes should not be a toggle"): the role remap is a fix, always on, no key
-                // (proven: R_INV run 4/5 + Fire's hand-test, 4 of 4 to their own cells, worn)
+                // The role remap is a fix, always on, no key
+                // 
                 var inv = player.GetInventory();
                 if (inv == null) return;
-                // 1.0.145 (R_INV run 1: Fire's legs were WORN from TeleportBypass, which takes any item, so "does not fit" never caught them): a worn
+                // A worn
                 // equipment item sitting in TeleportBypass or Misc counts as off its role too
                 var wrong = inv.GetAllItems().Where(it => { var s = Slots.GetSlotInGrid(it.m_gridPos); return s != null && s.IsEquipmentSlot && (!s.ItemFits(it) || (player.IsItemEquiped(it) && Slots.IsEquipmentSlotItem(it) && (s.IsTeleportBypassSlot || s.IsMiscSlot))); }).ToList();
                 // 1.0.150 (Fire's hand-test 10-14: his worn Eye of the Beholder stayed on the orphan cell (0,10) with the Helmet slot free): a
@@ -150,7 +150,7 @@ namespace VerdantsAscent
             player.m_customData[SavedLayoutRowsKey] = targetRows.ToString();
             if (rowDelta == 0) return;
 
-            // 1.0.144: the rows change and the slots are rebuilt INSIDE Relayout, so every item keeps its address (a slot id, or its
+            // The rows change and the slots are rebuilt INSIDE Relayout, so every item keeps its address (a slot id, or its
             // main-grid x,y); items of removed main rows go to a free cell, never dropped (overflow if there is none)
             int fromRows = Slots.VanillaPlayerRows;
             Relayout.Run($"vanilla rows {fromRows}->{targetRows}", () => { Slots.VanillaPlayerRows = targetRows; Slots.InitializeSlotsForRelayout(); });

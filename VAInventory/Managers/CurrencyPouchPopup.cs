@@ -6,7 +6,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     // The coin purse's popup: every configured currency; click one to display it in the purse. Plain Unity UI (VAInventory
-    // doesn't reference FUC's helpers). Fire 10-07 (1.0.69): it opens on a LEFT click in Unified (right click in Legacy) and
+    // doesn't reference FUC's helpers). (1.0.69): it opens on a LEFT click in Unified (right click in Legacy) and
     // looks like the Tools / Ammo / Food pouch popups: a title bar over slot-face cells, just above the purse, no screen
     // dimming. Closes on an outside click, Esc, or the inventory closing.
     internal static class CurrencyPouchPopup

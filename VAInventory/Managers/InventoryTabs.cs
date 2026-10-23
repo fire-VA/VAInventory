@@ -28,7 +28,7 @@ namespace VerdantsAscent.Managers
     /// The REGISTRY is order-free, but RESOLVING it by reflection is not: AccessTools.TypeByName only sees
     /// assemblies already loaded, and VAInventory loads LAST (measured: consumers at log lines 81/205/218,
     /// VAInventory at 280). Calling from your own Awake returns null and registers nothing. Add
-    /// [BepInDependency("com.Fire.VAInventory", DependencyFlags.SoftDependency)] or resolve from an
+    /// [BepInDependency] or resolve from an
     /// InventoryGui.Awake postfix. Registrations themselves are replayed on the next inventory open.
     /// </summary>
     public static class InventoryTabs
@@ -153,9 +153,9 @@ namespace VerdantsAscent.Managers
             }
         }
 
-        // Fire 10-12 (option B): EVERY tab in the row - vanilla's Craft and Upgrade, FATI's, these - one size, one font, Title Case,
+        // EVERY tab in the row - vanilla's Craft and Upgrade, FATI's, these - one size, one font, Title Case,
         // spread evenly across the Crafting panel's inner width with the same margin left of the first and right of the last
-        // (Fire 10-12, on 1.0.114: room to spare left of Craft, Leaderboards crowding the right frame). Fewer tabs, wider tabs. FATI moves its tab
+        // . Fewer tabs, wider tabs. FATI moves its tab
         // on every UpdateCraftingPanel and on its clicks, so this runs after FATI there and re-checks every InventoryGui.Update;
         // the sizes are worked out only when the tab set or the panel width changes, otherwise it only puts moved tabs back.
         const float TabGap = 7f;
@@ -179,7 +179,7 @@ namespace VerdantsAscent.Managers
         internal static IReadOnlyList<RectTransform> RowTabs => rowTabs;
         internal static float RowFont => rowFont;
 
-        // 1.0.237 (Fire 10-19: crafting tabs jammed, Upgrade pushed behind them; [generator] moves these into the Core hub): in the unified /
+        // In the unified /
         // Panels layout the Classes, Leaderboards and Guilds tabs are hidden on the crafting panel (whoever owns the button). Matched by label.
         static readonly HashSet<string> HubTabs = new(StringComparer.OrdinalIgnoreCase) { "Classes", "Leaderboards", "Guilds" };
         static readonly HashSet<GameObject> s_hubHidden = [];
@@ -220,7 +220,7 @@ namespace VerdantsAscent.Managers
             float right = row.InverseTransformPoint(corners[TopRightCorner]).x - FrameInset - EdgeGap;
 
             HubTabsOff(row);   // 1.0.237
-            // 1.0.318 (Fire 10-23 at the Tinkerer bench: "shows nothing and the ui is broken with overlapping tabs"; log "tab row: 2 tabs
+            // 1.0.318 (at the Tinkerer bench: "shows nothing and the ui is broken with overlapping tabs"; log "tab row: 2 tabs
             // [Craft, FATI]"): the row takes only tabs on the Craft tab's exact anchors + y, and vanilla's Upgrade tab was off that line, so
             // it kept its own spot ON TOP of Craft - a click on "Craft" hit Upgrade, and the empty Upgrade view looked like a bench with no
             // recipes. Vanilla's Upgrade and every other active tab button already in the row (FATI's) are put on Craft's line first.
@@ -281,7 +281,7 @@ namespace VerdantsAscent.Managers
                     if (wide > 0f) fit = Mathf.Min(fit, (rowWidth - LabelPad) / wide);
                 }
                 rowFont = vanillaFont * fit;
-                // 1.0.171 ([classes-ui], Fire's night shot: tiny tabs on a narrow crafting panel): under Panels the font never drops below
+                // Under Panels the font never drops below
                 // PanelsTabFontFloor; a label wider than its pill then ends in an ellipsis instead of shrinking the whole row
                 bool floor = UnifiedScreen.PanelsMode && rowFont < PanelsTabFontFloor;
                 if (floor) rowFont = PanelsTabFontFloor;
@@ -300,12 +300,12 @@ namespace VerdantsAscent.Managers
             PutBack(craft);
         }
 
-        // 1.0.172 ([classes-ui]'s Panels crafting header: a button row, then the CRAFTING title, ~80 px from crafting's top): under Panels the
+        // Under Panels the
         // tab row sits at least PanelsHeaderClear below crafting's top. The row's y is taken from vanilla Craft's ORIGINAL y (captured once per
         // Craft tab, before this row moves it), so it never chases its own moves. Unified / Legacy: vanilla's y, as before.
         const float PanelsHeaderClear = 80f;
         static RectTransform s_baseCraft; static float s_baseY, s_panelsDrop;
-        internal static float PanelsDrop => UnifiedScreen.PanelsMode ? s_panelsDrop : 0f;   // 1.0.173: PanelsCraftShift moves crafting's content by this
+        internal static float PanelsDrop => UnifiedScreen.PanelsMode ? s_panelsDrop : 0f;   // PanelsCraftShift moves crafting's content by this
 
         static float RowY(RectTransform craft)
         {

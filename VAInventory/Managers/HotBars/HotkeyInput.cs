@@ -56,7 +56,7 @@ namespace VerdantsAscent.Managers.HotBars
 
                 if (!ModifiersMatch(wantAlt, wantCtrl, wantShift)) return false;
 
-                // 1.0.103 (Fire: no keybinds while typing): raw hotkeys wait while a text field has input.
+                // Raw hotkeys wait while a text field has input.
                 if (InputGate.Typing && !VaInventoryKeys.Injecting) return false;
                 return VaInventoryKeys.GetKeyDown(key) || VaInventoryKeys.GetKeyDown(GetEquivalentKeypadKey(key));
             }
@@ -111,7 +111,7 @@ namespace VerdantsAscent.Managers.HotBars
             var keypadKey = (KeyCode)((int)KeyCode.Keypad1 + slotIndex);
             if (key != alphaKey && key != keypadKey) return false;
 
-            if (InputGate.Typing && !VaInventoryKeys.Injecting) return false;   // 1.0.103: not while typing
+            if (InputGate.Typing && !VaInventoryKeys.Injecting) return false;   // Not while typing
             return VaInventoryKeys.GetKeyDown(alphaKey) || VaInventoryKeys.GetKeyDown(keypadKey);
         }
 

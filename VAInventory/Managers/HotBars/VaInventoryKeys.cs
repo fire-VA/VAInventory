@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace VerdantsAscent.Managers
 {
-    // 1.0.107: where VAInventory's slot hotkeys read the keyboard, so a test can press Ctrl+1 through the same
+    // Where VAInventory's slot hotkeys read the keyboard, so a test can press Ctrl+1 through the same
     // IsShortcutDown -> TryUseSlotItems -> Player.UseItem path a player's key goes through (Valcast's ValcastKeys pattern;
     // UnityEngine.Input itself can't be patched). Outside a test this IS UnityEngine.Input: nothing is injected unless a
     // test owner holds the seam.

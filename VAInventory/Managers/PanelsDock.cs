@@ -6,15 +6,15 @@ using UnityEngine;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.160 (Fire 10-15: "everything dockable, movable and resizable", and Fire arranges the shipped default himself): in the Panels
+    /// In the Panels
     /// layout, every inventory panel becomes a Core FiresDock element (FiresCore.UI.Dock.DockService, Core 0.2.522+), layer "inventory".
     /// Resolved by exact Type.GetType; on an older Core this is inert and PanelsLayout keeps placing the fixed row as in 1.0.159.
     ///   vainv.grid       vanilla m_player (the carry grid)          root of the default row
-    ///   vainv.chest      vanilla m_container                         docked under vainv.grid (Fire: its own panel, movable)
+    ///   vainv.chest      vanilla m_container                         docked under vainv.grid
     ///   vainv.character  the character panel                         docked right of vainv.grid
     ///   vainv.companion  the companion column (while one is open)    docked right of vainv.info
     ///   vainv.info       vanilla m_info (the player name plate)      docked right of vainv.character
-    ///   vainv.crafting   vanilla m_crafting                          docked under vainv.info (Fire: "attached like vanilla")
+    ///   vainv.crafting   vanilla m_crafting                          docked under vainv.info
     /// Core places only position + localScale; nothing is re-parented except OUR character panel, lifted off vanilla's Player panel so
     /// it moves on its own. Defaults = where 1.0.159's row put them on the first open (DefaultRect null = the spot at Register); Fire's own
     /// arrangement replaces that via Core's "fires_layout_capture inventory".
@@ -69,7 +69,7 @@ namespace VerdantsAscent.Managers
         {
             if (character == null || inventoryRoot == null || character.parent == inventoryRoot) return;
             character.SetParent(inventoryRoot, true);   // world position and size kept
-            // 1.0.169 (Fire's live edit: 'dragging immediately fucks everything up'): the Unified layout's own drag handler (on the panel's
+            // The Unified layout's own drag handler (on the panel's
             // backdrop) and its resize grip moved the SAME panel Core's dock was moving. Under the dock, they go.
             foreach (var drag in character.GetComponentsInChildren<CharacterPanelDrag>(true)) UnityEngine.Object.Destroy(drag);
             var grip = character.Find("VAInventoryResizeGrip");
@@ -77,7 +77,7 @@ namespace VerdantsAscent.Managers
             EquipmentPanel.PanelLog?.LogDebug("panels: character panel lifted off vanilla's Player panel for docking");
         }
 
-        /// <summary>1.0.160: the grid's first row (the 1-8 slots) as a Passive element ([generator], Core 0.2.525: no handles, never dragged,
+        /// <summary>1.0.160: the grid's first row (the 1-8 slots) as a Passive element (Core 0.2.525: no handles, never dragged,
         /// not saved, moved by its parent); the HUD hotbar follows it (FollowId, HUD layout part 2). A rect over row 0 inside the grid root.</summary>
         internal static void RegisterGridRow1(InventoryGrid grid)
         {
@@ -106,15 +106,15 @@ namespace VerdantsAscent.Managers
                 if (dockTo != null) { Set(o, "DefaultDockTo", dockTo); Set(o, "DefaultEdge", Enum.Parse(s_edge, edge)); }
                 if (visible != null) Set(o, "Visible", visible);
                 if (passive) Set(o, "Passive", true);   // Core 0.2.525 3BF4095EC804+; an older Core has no field and it stays a normal element
-                // 1.0.178: an owner default spot (Core reads DefaultRect at Register and at Reset); then the seeded row spot must not replace it
+                // An owner default spot (Core reads DefaultRect at Register and at Reset); then the seeded row spot must not replace it
                 if (defaultRect != null) Set(o, "DefaultRect", defaultRect);
-                // 1.0.223 (Fire: "move by header, resize bottom-right, dock, all without Alt"; Core 0.2.570 LiveEdit): every inventory panel
+                // Every inventory panel
                 // moves by its header and resizes by Core's bottom-right handle at any time; the Alt editor stays for the extras
-                var handle = passive ? null : LiveHandle(id, rect);   // 1.0.227 ([generator]): a PASSIVE element (vainv.grid.row1, a FollowId reference) gets no drag in Core; the strip belongs to vainv.grid
+                var handle = passive ? null : LiveHandle(id, rect);   // A PASSIVE element (vainv.grid.row1, a FollowId reference) gets no drag in Core; the strip belongs to vainv.grid
                 if (handle != null) { Set(o, "DragHandle", handle); Set(o, "LiveEdit", true); }
-                Vector2? seeded = passive || defaultRect != null ? (Vector2?)null : ScreenTopLeft(rect);   // 1.0.171: BEFORE Register (it may move the panel to a saved spot)
+                Vector2? seeded = passive || defaultRect != null ? (Vector2?)null : ScreenTopLeft(rect);   // BEFORE Register (it may move the panel to a saved spot)
                 s_register.Invoke(null, new[] { o });
-                if (seeded.HasValue) SetDefault(id, seeded.Value);   // 1.0.171 ([generator], Core 0.2.534): Reset returns here (the seeded row)
+                if (seeded.HasValue) SetDefault(id, seeded.Value);   // Reset returns here (the seeded row)
                 s_ids.Add(id);
                 Registered = true;
             }
@@ -122,7 +122,7 @@ namespace VerdantsAscent.Managers
         }
 
         /// <summary>
-        /// 1.0.178 (Fire, many times: "get crafting AWAY from the player grid, flush against the RIGHT edge, vertically centred"): the
+        /// The
         /// crafting panel's default spot, screen px top-left (y down): zero gap to the right edge, centred top to bottom, from its own
         /// on-screen size. It is no longer docked to the character panel (that dock rule glued it beside the grid).
         /// </summary>
@@ -141,7 +141,7 @@ namespace VerdantsAscent.Managers
         static bool s_craftingLogged; static Vector2 s_craftingLast;
 
         /// <summary>
-        /// 1.0.178 (so Fire never has to press Reset): ONCE per install, drop the saved "vainv.crafting" spot (and anything docked to it) from
+        /// ONCE per install, drop the saved "vainv.crafting" spot (and anything docked to it) from
         /// every saved inventory dock layout, before Core loads them, so the new right-edge default applies. A marker in
         /// BepInEx\cache\VAInventory records that it ran; later moves Fire makes are saved and kept as usual.
         /// </summary>
@@ -215,7 +215,7 @@ namespace VerdantsAscent.Managers
             catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"panels: layout migration {marker} failed: {e.Message}"); }
         }
 
-        // 1.0.171: DockService.SetDefault(id, screen top-left, y down), Core 0.2.534+; skipped on an older Core
+        // DockService.SetDefault(id, screen top-left, y down), Core 0.2.534+; skipped on an older Core
         static MethodInfo s_setDefault; static bool s_setDefaultLooked;
 
         static void SetDefault(string id, Vector2 topLeft)
@@ -243,7 +243,7 @@ namespace VerdantsAscent.Managers
             try { s_skin.Invoke(null, new object[] { rect }); } catch { }
         }
 
-        // 1.0.223: the panel's header as Core's live drag handle - the name header (character / companion), the CRAFTING title, or (the
+        // The panel's header as Core's live drag handle - the name header (character / companion), the CRAFTING title, or (the
         // grid has no header) a thin transparent strip just ABOVE the grid's top edge. Never the whole rect: slots and buttons keep their clicks.
         internal static RectTransform LiveHandle(string id, RectTransform panel)
         {

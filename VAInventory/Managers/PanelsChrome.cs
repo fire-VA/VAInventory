@@ -9,7 +9,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.161 (Fire's Panels asks, 10-15, via [lead]). Panels layout only; Unified / Legacy never see any of it. NOTHING VANILLA IS MOVED:
+    /// 1.0.161. Panels layout only; Unified / Legacy never see any of it. NOTHING VANILLA IS MOVED:
     /// the vanilla pieces are hidden (CanvasGroup alpha 0, no raycasts) and OUR mirrors stand in for them, invoking the original
     /// Button.onClick / setting the original Toggle.isOn, so vanilla's and every other mod's listeners still run. Leaving Panels restores
     /// everything (the CanvasGroups go, the mirrors hide).
@@ -20,18 +20,18 @@ namespace VerdantsAscent.Managers
     ///                       (PanelsDock gives vainv.info Visible = !InfoMoved, so crafting re-docks through it)
     ///   5 trash             a trashcan right of the preview's feet: click it while dragging an item -> "Destroy <item> xN?" -> the
     ///                       stack is dropped as a real ItemDrop and its ZDO destroyed through the owner path (networked, like removedrops)
-    /// [saddles]' CraftingSkin styles everything under m_crafting (sprite / colour / material only).
+    /// ' CraftingSkin styles everything under m_crafting (sprite / colour / material only).
     /// </summary>
     internal static class PanelsChrome
     {
         const string RepairName = "VAInventoryPanelsRepair", RowName = "VAInventoryPanelsInfoRow", HeaderName = "VAInventoryPanelsHeader";
         const string ArmorName = "VAInventoryPanelsArmor", WeightName = "VAInventoryPanelsWeight", TrashName = "VAInventoryPanelsTrash";
-        // 1.0.170 [classes-ui] (Fire's hand test 2 vs layout_3panel_v4_1920): crafting gets a real title row; "Title" in the name = Core's
+        // 1.0.170 crafting gets a real title row; "Title" in the name = Core's
         // CraftingSkin colours it Gold (Heading); "NoKitSkin" opts the hairline out of the skin.
         const string TitleName = "VAInventoryPanelsTitle", TitleLineName = "VAInventoryPanelsTitleLine_NoKitSkin";
         static readonly Color MockGold = new Color(0.941f, 0.706f, 0.298f), MockMuted = new Color(0.702f, 0.631f, 0.506f), MockText = new Color(0.937f, 0.886f, 0.769f);
         static readonly Color MockHairline = new Color(0.29f, 0.22f, 0.14f);
-        const float Slot = 48f, Small = 40f, InfoIcon = 30f, TopRow = 32f, TopPad = 8f, TitleH = 30f;   // 1.0.172: Fire's order = button row, then title, then tabs   // 1.0.171: the info icons sit in crafting's footer at 30   // 1.0.167: the stat boxes a little smaller (Fire's shot), the info icons larger
+        const float Slot = 48f, Small = 40f, InfoIcon = 30f, TopRow = 32f, TopPad = 8f, TitleH = 30f;   // Fire's order = button row, then title, then tabs   // 1.0.171: the info icons sit in crafting's footer at 30   // 1.0.167: the stat boxes a little smaller, the info icons larger
 
         static readonly List<CanvasGroup> s_hidden = new List<CanvasGroup>();
         static readonly List<GameObject> s_ours = new List<GameObject>();
@@ -72,10 +72,10 @@ namespace VerdantsAscent.Managers
             // 1 armour + weight
             if (gui.m_armor != null && gui.m_weight != null)
             {
-                // 1.0.170 [classes-ui] (mock v4): plain labels in the GRID panel's footer, "Armor 73.75" bottom-left, "Weight 142 / 300"
+                // 1.0.170 (mock v4): plain labels in the GRID panel's footer, "Armor 73.75" bottom-left, "Weight 142 / 300"
                 // bottom-right of InventoryGui.m_player; the two stat boxes are gone.
-                // 1.0.171 (night shot: drawn over the grid's middle row): under the GRID itself (m_playerGrid), not m_player's bottom
-                // 1.0.180 (Fire 10-15, shot 0886e386: still drawn over the grid's 6th row; the grid's own transform is a scroll view taller than its
+                // Under the GRID itself (m_playerGrid), not m_player's bottom
+                // 1.0.180 (shot 0886e386: still drawn over the grid's 6th row; the grid's own transform is a scroll view taller than its
                 // cells): OFF the grid entirely. In the PLAYER panel, either side of the character's head: Armor LEFT, Weight RIGHT.
                 s_armorText = MakeFooter(ArmorName, anchor, true, font);
                 s_weightText = MakeFooter(WeightName, anchor, false, font);
@@ -88,10 +88,10 @@ namespace VerdantsAscent.Managers
 
             // 3 header
             {
-                // 1.0.170 [classes-ui] (mock v4): the name centred at the TOP of the preview plate, full size, Gold serif, no box
+                // 1.0.170 (mock v4): the name centred at the TOP of the preview plate, full size, Gold serif, no box
                 var go = new GameObject(HeaderName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
                 go.GetComponent<LayoutElement>().ignoreLayout = true;
-                var prt = (RectTransform)go.transform; prt.SetParent(character, false); prt.SetAsLastSibling();   // 1.0.171: the panel's top band ([seasons]: +48 px top padding), above the preview
+                var prt = (RectTransform)go.transform; prt.SetParent(character, false); prt.SetAsLastSibling();   // The panel's top band, above the preview
                 prt.anchorMin = new Vector2(0f, 1f); prt.anchorMax = new Vector2(1f, 1f); prt.pivot = new Vector2(0.5f, 1f);
                 prt.sizeDelta = new Vector2(-12f, 40f); prt.anchoredPosition = new Vector2(0f, -6f);
                 s_header = go.GetComponent<TextMeshProUGUI>();
@@ -108,7 +108,7 @@ namespace VerdantsAscent.Managers
             {
                 var b = MakeButton(RepairName, gui.m_crafting, VanillaRepairIcon(gui), cellSprite, () =>
                 {
-                    // 1.0.172 (Fire: "the repair button still broken"): one proof line per press; vanilla only repairs at a station in range
+                    // One proof line per press; vanilla only repairs at a station in range
                     Debug.Log($"[VAInventory] panels: repair pressed -> vanilla OnRepairPressed (interactable {gui.m_repairButton.interactable})");
                     gui.m_repairButton.onClick.Invoke();
                 });
@@ -118,7 +118,7 @@ namespace VerdantsAscent.Managers
                 var glow = new GameObject("Glow", typeof(RectTransform), typeof(Image));
                 glow.transform.SetParent(rt, false); Stretch((RectTransform)glow.transform, -4f);
                 s_repairGlow = glow.GetComponent<Image>();
-                // 1.0.171 (night shot: a white square): vanilla's glow sprite stretched over our button read as a white box; a soft gold tint instead
+                // Vanilla's glow sprite stretched over our button read as a white box; a soft gold tint instead
                 s_repairGlow.sprite = null; s_repairGlow.color = new Color(0.94f, 0.71f, 0.30f, 0.35f);
                 s_repairGlow.raycastTarget = false; glow.transform.SetAsFirstSibling();
                 s_repair = b;
@@ -130,10 +130,10 @@ namespace VerdantsAscent.Managers
             {
                 var row = new GameObject(RowName, typeof(RectTransform), typeof(HorizontalLayoutGroup));
                 var rrt = (RectTransform)row.transform; rrt.SetParent(gui.m_crafting, false);
-                // 1.0.170 [classes-ui] (Fire: the info buttons as a real header row INSIDE crafting, with padding): the right side of the
+                // 1.0.170 the right side of the
                 // title row, top-right corner inset 12; the repair button holds the top-left. No plate of its own (the panel is the plate).
-                // 1.0.171 (night shot: 5 x 40 px icons covered the CRAFTING title at this panel width): crafting's bottom-left FOOTER
-                // 1.0.172 (Fire, R-NIGHT1: "in the header with the buttons and then the header text under them"): the TOP row, after repair
+                // Crafting's bottom-left FOOTER
+                // The TOP row, after repair
                 rrt.anchorMin = rrt.anchorMax = new Vector2(0f, 1f); rrt.pivot = new Vector2(0f, 1f);
                 rrt.sizeDelta = new Vector2(0f, TopRow); rrt.anchoredPosition = new Vector2(12f + TopRow + 8f, -TopPad);
                 var fit = row.AddComponent<ContentSizeFitter>(); fit.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
@@ -147,7 +147,7 @@ namespace VerdantsAscent.Managers
                     var m = MakeButton("Btn_" + btn.name, rrt, IconOf(btn), cellSprite, () =>
                     {
                         if (src == null || !src.interactable) return;
-                        if (OpenOurs(src)) return;   // 1.0.211 (Fire): Skills / Trophies open OUR windows; vanilla only without our mods
+                        if (OpenOurs(src)) return;   // Skills / Trophies open OUR windows; vanilla only without our mods
                         src.onClick.Invoke();
                     });
                     ((RectTransform)m.transform).sizeDelta = new Vector2(TopRow, TopRow); n++;
@@ -167,7 +167,7 @@ namespace VerdantsAscent.Managers
                 EquipmentPanel.PanelLog?.LogDebug($"panels: info panel's {n} button(s) mirrored onto crafting; info panel hidden");
             }
 
-            // 5 trash (1.0.162, Fire's render fire_trashcan_ref.png): a regular equipment-style CELL, same size and face as the panel's
+            // 5 trash: a regular equipment-style CELL, same size and face as the panel's
             // slot cells, with a trash-can icon, in the preview's bottom-right corner (right of the feet, just above the Coin purse row).
             // A drop target the vanilla way: click it while carrying an item (InventoryGui's drag) -> confirm -> networked destroy.
             {
@@ -175,12 +175,12 @@ namespace VerdantsAscent.Managers
                 var b = MakeButton(TrashName, anchor, null, cellSprite, OnTrash);
                 var rt = (RectTransform)b.transform; rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(1f, 0f);
                 rt.sizeDelta = cellSize; rt.anchoredPosition = new Vector2(-4f, 4f);
-                // 1.0.284 (Fire 10-21 V5, shot 20261021_0040/16: "the trashcan shows a white box"): an Image with no sprite draws WHITE. With
+                // An Image with no sprite draws WHITE. With
                 // Unified UI off there is no pouch-cell sprite, so the cell face is the kit's dark slot colour instead; and the icon (borrowed
                 // from the start screen) is only used while it is still alive - a destroyed one falls back to the red ×.
                 var cellImg = b.GetComponent<Image>();
                 if (cellImg != null && cellImg.sprite == null) cellImg.color = new Color(0.227f, 0.165f, 0.071f, 1f);   // FiresTokens.SlotFace #3A2A12
-                // 1.0.290 (Fire 10-21 non-unified round, shots 20261021_0120_nonunified/3,4: "trashcan is still white; when clicked it faintly
+                // 1.0.290 (non-unified round, shots 20261021_0120_nonunified/3,4: "trashcan is still white; when clicked it faintly
                 // shows"): the cell HAS a sprite but keeps MakeButton's white colour - with Unified ON Core's kit skin tints it like every slot,
                 // with it OFF nothing does, so the white face covered the icon. TrashLook gives it the Tools pouch cell's look (UnifiedScreen.
                 // ApplyLook, what every slot face uses) on each enable, ONLY while the override is OFF - Unified is left exactly as it is.
@@ -207,7 +207,7 @@ namespace VerdantsAscent.Managers
         static Image s_pvpCheck;
         static int s_recipeCount = -1;
 
-        // ── 1.0.313 (Fire 10-22: "the players should get a health stam eitr display like companions have under the weight"): ONE
+        // ── 1.0.313: ONE
         // implementation for both panels - three clones of the Weight label stacked under it (22 px apart), "HP" red, "Stamina" yellow,
         // "Eitr" purple, label muted like Armor / Weight; a pool with no max (e.g. 0 eitr) shows nothing. CompanionPanel uses the same two. ──
         internal static TMP_Text[] MakeVitals(TMP_Text weightText, string namePrefix)
@@ -244,7 +244,7 @@ namespace VerdantsAscent.Managers
         {
             if (s_armorText != null && gui.m_armor != null) SetFooter(s_armorText, "Armor", gui.m_armor.text);
             if (s_weightText != null && gui.m_weight != null) SetFooter(s_weightText, "Weight", gui.m_weight.text);
-            // 1.0.313: the local player's HP / Stamina / Eitr under the player panel's Weight (current values, as the companion panel shows)
+            // The local player's HP / Stamina / Eitr under the player panel's Weight (current values, as the companion panel shows)
             var me = Player.m_localPlayer;
             if (s_playerVitals != null && me != null) SetVitals(s_playerVitals, me.GetHealth(), me.GetMaxHealth(), me.GetStamina(), me.GetMaxStamina(), me.GetEitr(), me.GetMaxEitr());
             CheckStatsOffGrid();   // 1.0.180
@@ -258,7 +258,7 @@ namespace VerdantsAscent.Managers
                 bool can = gui.m_repairButton.interactable;
                 s_repair.interactable = can;
                 if (s_repairIcon != null) s_repairIcon.color = can ? Color.white : new Color(0.55f, 0.52f, 0.47f, 0.45f);   // greyed, never white, with no station
-                // 1.0.214 (Fire: the hammer was ALWAYS highlighted): the gold glow mirrors vanilla's own m_repairButtonGlow (on only when
+                // The gold glow mirrors vanilla's own m_repairButtonGlow (on only when
                 // something is repairable at this station) AND the button being interactable; never a fixed tint
                 if (s_repairGlow != null)
                 {
@@ -270,9 +270,9 @@ namespace VerdantsAscent.Managers
                 var face = s_repair.GetComponent<Image>();   // the button face never sits in a 'selected' state
                 if (face != null && s_repair.transition == Selectable.Transition.ColorTint) { var cb = s_repair.colors; if (cb.selectedColor != cb.normalColor) { cb.selectedColor = cb.normalColor; s_repair.colors = cb; } }
             }
-            // 1.0.233 (Fire: wrench ALWAYS gold): removed the line that copied vanilla glow Image.enabled here every frame - that Image stays enabled while its object is inactive, so it overrode the glow rule above
+            // Removed the line that copied vanilla glow Image.enabled here every frame - that Image stays enabled while its object is inactive, so it overrode the glow rule above
             if (s_pvpCheck != null && gui.m_pvp != null) s_pvpCheck.enabled = gui.m_pvp.isOn;
-            // 1.0.171 (night shot: "x20" wrapped onto a second line): recipe names stay on one line, ellipsis when too long; flags only
+            // Recipe names stay on one line, ellipsis when too long; flags only
             var list = gui.m_recipeListRoot;
             if (list != null && list.childCount != s_recipeCount)
             {
@@ -295,7 +295,7 @@ namespace VerdantsAscent.Managers
             if (item == null || inv == null) { EquipmentPanel.PanelLog?.LogDebug("trash: clicked with nothing dragged"); return; }
             amount = Mathf.Min(amount, item.m_stack);
             string label = Localization.instance != null ? Localization.instance.Localize(item.m_shared.m_name) : item.m_shared.m_name;
-            // 1.0.212 (Fire: the Destroy dialog drew UNDER our panel, and Yes / No couldn't be clicked with the stack still on the cursor):
+            // 
             // (b) the drag is HELD (cleared, as vanilla does before its own confirm) while the dialog is up; No puts it back on the cursor;
             // (a) vanilla's UnifiedPopup gets its own canvas sorted above every Panels canvas while it is shown
             try { SetupDrag?.Invoke(gui, new object[] { null, null, 1 }); } catch { }
@@ -361,7 +361,7 @@ namespace VerdantsAscent.Managers
 
         // a trash-can icon from what the game has loaded (vanilla and mods ship one under a few names); null = the × fallback
         static Sprite s_trash; static bool s_trashLooked;
-        // 1.0.163 (Fire, via [lead]: "vanilla already has a trash-can sprite, the one on the world-select screen's DELETE button"): the icon
+        // The icon
         // on FejdStartup's world / character delete button, captured while the start scene is up (FejdStartupDeleteIcon below) and held
         // so it outlives the scene. Fallbacks: a loaded sprite of the same name, then the old name search.
         internal static Sprite s_menuTrash;
@@ -369,7 +369,7 @@ namespace VerdantsAscent.Managers
 
         static Sprite TrashSprite()
         {
-            if (s_menuTrash != null && s_menuTrash.texture != null) return s_menuTrash;   // 1.0.284: a start-screen sprite can be gone after the scene unloads
+            if (s_menuTrash != null && s_menuTrash.texture != null) return s_menuTrash;   // A start-screen sprite can be gone after the scene unloads
             if (s_trashLooked) return s_trash;
             s_trashLooked = true;
             foreach (var sp in Resources.FindObjectsOfTypeAll<Sprite>())
@@ -377,7 +377,7 @@ namespace VerdantsAscent.Managers
                 if (sp == null) continue;
                 if (s_menuTrashName != null && sp.name == s_menuTrashName) { s_trash = sp; return s_trash; }
             }
-            return s_trash;   // 1.0.166: no name search (it found a rubble pile); the cell shows × instead
+            return s_trash;   // No name search (it found a rubble pile); the cell shows × instead
         }
 
         // ── helpers ──
@@ -416,7 +416,7 @@ namespace VerdantsAscent.Managers
             return b;
         }
 
-        // 1.0.170 [classes-ui]: crafting's title row (mock v4): "CRAFTING" centred, tracked, Gold serif; a hairline under it. Vanilla's
+        // 1.0.170 crafting's title row (mock v4): "CRAFTING" centred, tracked, Gold serif; a hairline under it. Vanilla's
         // "topic" text (same spot) hides. The repair button (left) and the info row (right) share the row.
         static void BuildCraftingTitle(InventoryGui gui, TMP_FontAsset fallback)
         {
@@ -427,7 +427,7 @@ namespace VerdantsAscent.Managers
             go.GetComponent<LayoutElement>().ignoreLayout = true;
             var rt = (RectTransform)go.transform; rt.SetParent(crafting, false);
             rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f); rt.pivot = new Vector2(0.5f, 1f);
-            rt.sizeDelta = new Vector2(-24f, TitleH); rt.anchoredPosition = new Vector2(0f, -(TopPad + TopRow + 6f));   // 1.0.172: under the button row
+            rt.sizeDelta = new Vector2(-24f, TitleH); rt.anchoredPosition = new Vector2(0f, -(TopPad + TopRow + 6f));   // Under the button row
             s_title = go.GetComponent<TextMeshProUGUI>();
             var f = topic != null ? topic.font : fallback;
             if (f != null) s_title.font = f;
@@ -454,7 +454,7 @@ namespace VerdantsAscent.Managers
             go.GetComponent<LayoutElement>().ignoreLayout = true;
             var rt = (RectTransform)go.transform; rt.SetParent(parent, false); rt.SetAsLastSibling();
             float x = left ? 0f : 1f;
-            // 1.0.180: the top corners of the character preview, level with the head (the name band sits above the preview)
+            // The top corners of the character preview, level with the head (the name band sits above the preview)
             rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(x, 1f);
             rt.sizeDelta = new Vector2(150f, 26f); rt.anchoredPosition = new Vector2(left ? 6f : -6f, -HeadDrop);
             var t = go.GetComponent<TextMeshProUGUI>(); if (font != null) t.font = font;
@@ -466,11 +466,11 @@ namespace VerdantsAscent.Managers
         }
 
         // "Armor  73.75" / "Weight  142 / 300": the label muted, the value as vanilla wrote it (its own colour tags kept), "/" spaced
-        const float HeadDrop = 26f;   // 1.0.180: below the preview's top edge, beside the head
+        const float HeadDrop = 26f;   // Below the preview's top edge, beside the head
         static Transform s_statsGrid;
         static float s_nextStatsCheck;
 
-        /// <summary>1.0.180: Armor / Weight must never overlap the inventory grid's cells (Fire's 10-15 shot). Checked twice a second; a hit is
+        /// <summary>1.0.180: Armor / Weight must never overlap the inventory grid's cells. Checked twice a second; a hit is
         /// logged as a warning with both rects, once per layout.</summary>
         static void CheckStatsOffGrid()
         {
@@ -501,7 +501,7 @@ namespace VerdantsAscent.Managers
 
         static void SetFooter(TMP_Text t, string label, string value)
         {
-            // 1.0.316 (Fire 10-22 shot weight_color_tag_broken: "Weight 536</ color> / 504"): vanilla wraps an over-max weight in
+            // Vanilla wraps an over-max weight in
             // <color=red>..</color>; spacing EVERY "/" also split the closing tag. Only the separator slash is spaced now, never "</".
             string v = (value ?? "").Replace("</", "\u0001").Replace("/", " / ").Replace("  /  ", " / ").Replace("\u0001", "</");
             string want = "<color=#B3A181>" + label + "</color>  " + v;
@@ -514,10 +514,10 @@ namespace VerdantsAscent.Managers
         static GameObject TabOf(TMP_Text t) => t.transform.parent != null && t.transform.parent.GetComponent<Image>() != null ? t.transform.parent.gameObject : t.gameObject;
 
         // a vanilla control's icon: the first child Image with a sprite that isn't the control's own background
-        // 1.0.210 (Fire: "the top-left button in crafting is NOT the vanilla repair sprite"; the log said 'repair mirror icon
+        // ("the top-left button in crafting is NOT the vanilla repair sprite"; the log said 'repair mirror icon
         // FiresKit_roundPill_6_False'): Core's skin had already replaced the vanilla button's icon when it was read. A kit sprite read there
         // falls back to vanilla's own loaded repair sprite, by name.
-        // 1.0.211 (Fire: the crafting icon row's TROPHY and SKILLS buttons must open OUR UI): Skills -> RPGClasses' Classes window on its
+        // Skills -> RPGClasses' Classes window on its
         // Skills tab (ClassesPanel.Instance.Open(ClassesTab.Skills), the same call its own OnOpenSkills patch makes); Trophies -> the Fires hub's
         // Achievements module (FiresShell.Open("fires.achievements")). Each falls back to vanilla's button when its mod / the hub isn't there.
         static bool OpenOurs(Button src)
@@ -528,7 +528,7 @@ namespace VerdantsAscent.Managers
             bool trophies = gui != null && n.Contains("troph");
             try
             {
-                // 1.0.213 ([wishbone]): ClassesPanel.Open(tab) is RPGClasses' public call; it routes to the Fires hub when hosted
+                // ClassesPanel.Open(tab) is RPGClasses' public call; it routes to the Fires hub when hosted
                 // ("rpgclasses.classes" / "skills" | "achievements") and to its own window otherwise. Trophies live there as Achievements.
                 if (skills || trophies)
                 {
@@ -583,7 +583,7 @@ namespace VerdantsAscent.Managers
             if (c == null) return null;
             var root = c is TMP_Text t ? TabOf(t).transform : c.transform;
             var own = root.GetComponent<Image>();
-            // 1.0.170 [classes-ui] (Fire: info icons not rendering): Tools\VAInventoryUI\inventory_screen.txt shows each info button as
+            // 1.0.170 Tools\VAInventoryUI\inventory_screen.txt shows each info button as
             // Background + Icon (Texts, Skills) or Background + Image (Trophies, Achievements), and the PvP toggle as Background + Checked.
             // The first child sprite was the BACKGROUND. Named children first, then any non-background child, then the control's own image.
             foreach (string want in new[] { "Icon", "Image", "Checked" })
@@ -635,7 +635,7 @@ namespace VerdantsAscent.Managers
         }
     }
 
-    // 1.0.163: grabs the trash-can icon from the start screen's delete button (world remove, else character remove) when FejdStartup wakes.
+    // Grabs the trash-can icon from the start screen's delete button (world remove, else character remove) when FejdStartup wakes.
     [HarmonyPatch(typeof(FejdStartup), "Awake")]
     internal static class FejdStartupDeleteIcon
     {
@@ -656,7 +656,7 @@ namespace VerdantsAscent.Managers
                         return;
                     }
                 }
-                // 1.0.166 (Fire's hand test: no child icon on the button, so the old name search picked 'Morkhalla_rubble_trashpile_icon'): the button's
+                // The button's
                 // OWN image is the trash can
                 foreach (var b in new[] { __instance.m_worldRemove, __instance.m_csRemoveButton })
                 {

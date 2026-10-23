@@ -6,7 +6,7 @@ using UnityEngine;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.316 (Fire 10-22: "coins and currency in the coin pouch should be weightless"): what sits in the coin pouch (the visible
+    /// What sits in the coin pouch (the visible
     /// CoinPurse slot + its hidden CurrencyVault cells) adds nothing to the player's carry weight, and its tooltip says so. Only the
     /// weight SUM and the tooltip change; the item's own m_weight is untouched, so the same stack in the grid, dropped or in a chest
     /// weighs what vanilla says.

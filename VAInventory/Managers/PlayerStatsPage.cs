@@ -11,7 +11,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.248 (Fire, F1 hub restructure; [generator]'s Core 0.2.606 API): the Player tab's default "Stats" pill.
+    /// The Player tab's default "Stats" pill.
     /// LEFT: a live preview of the player with their gear (reused: FCC's ModelPreview camera, copied below as PlayerPreview, since
     /// VAInventory does not depend on FCC) and the equipped items as rows; hover one = its vanilla tooltip, nothing can be dragged.
     /// RIGHT: the player's name, then every stat with HOW it is made up. Sources (no new formulas where code exists):
@@ -89,21 +89,21 @@ namespace VerdantsAscent.Managers
             EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] Player > Stats built: content {content.rect.width:0}x{content.rect.height:0}");
         }
 
-        // 1.0.276 (Fire 10-20 V3: "the Stats screen doesn't work for companions; build one like the player's - reuse, don't build a second"):
+        // 
         // the SAME page, sub-view "companion" = the open companion (FiresCompanions CompanionPanelApi.Current.Target): its preview, gear,
         // pools / armour / damage / skills from CompanionPanelApi.Stats (Core CompanionStats + CompanionSkills), its active effects, and an
         // "Attributes" button to FiresCompanions' CompanionAttributesUi (0.1.76+). The companion panel's Stats pill opens it:
         // PlayerStatsPage.OpenForCompanion() -> FiresShell.Open("vainv.player.stats", "companion").
         Humanoid _companion;
         internal static bool Registered => s_handle != null;
-        // 1.0.291 ([ghost], Fire 10-21 Unified ON: the hub Companions > Stats "opens the companion inventory and our inventory, no stat screen,
+        // 1.0.291 (Unified ON: the hub Companions > Stats "opens the companion inventory and our inventory, no stat screen,
         // and closes our hub"): VAInventoryApi.OpenCompanionStats(Humanoid) hands the companion here and opens THIS page on it - no inventory.
         static Humanoid s_pendingCompanion;
         internal static bool OpenFor(Humanoid companion)
         {
             if (companion == null || s_handle == null) return false;
             s_pendingCompanion = companion;
-            // 1.0.293 (Fire 10-21: "clicking stats still leaves the inventory open so we cannot see the screen"): the inventory closes first
+            // The inventory closes first
             if (InventoryGui.IsVisible() && InventoryGui.instance != null) InventoryGui.instance.Hide();
             try { FiresShell.Open(ModuleId, "companion"); EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] OpenCompanionStats: hub Player > Stats for '{companion.m_name}'"); return true; }
             catch (Exception e) { s_pendingCompanion = null; EquipmentPanel.PanelLog?.LogDebug("[VAInventory] OpenCompanionStats failed: " + e.Message); return false; }
@@ -111,7 +111,7 @@ namespace VerdantsAscent.Managers
 
         internal static void OpenForCompanion()
         {
-            // 1.0.293 (Fire 10-21: "clicking stats in unified mode still leaves the inventory open"): the panel's Stats pill takes the SAME path as
+            // The panel's Stats pill takes the SAME path as
             // VAInventoryApi.OpenCompanionStats - the companion is captured first, the inventory closes, then the hub page opens on it
             var c = CompanionStats.Target();
             if (c != null) { OpenFor(c); return; }
@@ -129,7 +129,7 @@ namespace VerdantsAscent.Managers
             Transform who = _companion != null ? _companion.transform : p != null ? p.transform : null;
             if (who != null && _preview != null) { _preview.SetTarget(who); _preview.Show(); }
             _equipSig = null;
-            if (_ticker != null) { _ticker.enabled = true; _ticker.ProbeAt = Time.unscaledTime + 1.5f; }   // 1.0.267: one raycast probe 1.5 s after show
+            if (_ticker != null) { _ticker.enabled = true; _ticker.ProbeAt = Time.unscaledTime + 1.5f; }   // One raycast probe 1.5 s after show
             Refresh();
         }
 
@@ -161,7 +161,7 @@ namespace VerdantsAscent.Managers
         static string F(float v) => Mathf.Abs(v - Mathf.Round(v)) < 0.05f ? Mathf.Round(v).ToString("0", Inv) : v.ToString("0.#", Inv);
         static string Pct(float v) => (v >= 0f ? "+" : "") + v.ToString("0.#", Inv) + "%";
 
-        // 1.0.276 (Fire 10-20, shots 6/7: "colour and flavour; negative in RED, positive in GREEN"): Core's own kit colours (FiresTokens.Ok /
+        // Core's own kit colours (FiresTokens.Ok /
         // Danger) as TMP rich text (kit labels have richText on). sign > 0 = good, < 0 = bad, 0 = left as it is.
         static readonly string GoodHex = "#" + ColorUtility.ToHtmlStringRGB(FiresTokens.Ok), BadHex = "#" + ColorUtility.ToHtmlStringRGB(FiresTokens.Danger);
         static string Tint(string s, float sign) => sign > 0f ? $"<color={GoodHex}>{s}</color>" : sign < 0f ? $"<color={BadHex}>{s}</color>" : s;
@@ -176,7 +176,7 @@ namespace VerdantsAscent.Managers
             var p = Player.m_localPlayer;
             if (p == null || _rightBody == null) return;
             BuildEquipped(p);
-            // 1.0.253 (Fire: the column FLASHED empty every few frames): Core's kit finds Section/Row groups BY NAME and Destroy is deferred, so the
+            // Core's kit finds Section/Row groups BY NAME and Destroy is deferred, so the
             // rebuilt rows landed in the old (dying) groups. Detach first, then destroy (memory kit-redraw-detach-before-destroy).
             for (int i = _rightBody.childCount - 1; i >= 0; i--) { var c = _rightBody.GetChild(i); c.SetParent(null, false); UnityEngine.Object.Destroy(c.gameObject); }
             float width = Mathf.Max(300f, ((RectTransform)_rightBody.parent).rect.width - 16f);
@@ -255,7 +255,7 @@ namespace VerdantsAscent.Managers
                     if (se == null) continue;
                     float left = 0f; try { left = se.GetRemaningTime(); } catch { }
                     string tip = ""; try { tip = se.GetTooltipString(); } catch { }
-                    // 1.0.276 (Fire, shot 7: "say what each effect DOES"): "Sunburnt: -25% health regen, ..." from its own SE_Stats values,
+                    // "Sunburnt: -25% health regen, ..." from its own SE_Stats values,
                     // coloured by the net sign; no stat values = vanilla's own one-line tooltip text
                     string does = EffectDoes(se, out float net);
                     var row = Widgets.Row(s, "se_" + se.name, Tint(Loc(se.m_name) + (does.Length > 0 ? ": " + does : ""), net), left > 0f ? Mathf.CeilToInt(left) + " s" : "");
@@ -275,7 +275,7 @@ namespace VerdantsAscent.Managers
             var s = Widgets.Section(_rightBody, id, title, 0f, y, width, "total " + F(total));
             Widgets.Row(s, id + "_base", "Base", F(baseV));
             if (food > 0f) Widgets.Row(s, id + "_food", "Food", "+" + F(food));
-            // 1.0.249 (Fire: "from class passives, food, armor, set bonuses" - named lines, not one Other): every class-side source by name
+            // Every class-side source by name
             // (RPGClasses ClassStatsApi.Breakdown - their own calc), then the active effects' own SE_Stats values; Other = the remainder
             float named = ClassLines(s, id, classStat, out bool anyPct);
             SeLines(s, id, classStat);
@@ -453,7 +453,7 @@ namespace VerdantsAscent.Managers
             s_progress = Type.GetType("FiresRPGClasses.ClassProgressApi, FiresRPGClasses");
             s_tryGet = s_progress?.GetMethod("TryGet", BindingFlags.Public | BindingFlags.Static);
         }
-        // 1.0.249: RPGClasses ClassStatsApi.Breakdown(Player, string stat) -> per-source (label, flat, percent). Accepts a list of
+        // RPGClasses ClassStatsApi.Breakdown(Player, string stat) -> per-source (label, flat, percent). Accepts a list of
         // ValueTuple<string,float,float>, KeyValuePair<string,Vector2> (x flat, y %) or any object with Label/Flat/Percent. Missing API =
         // the 1.0.248 single "class attribute bonus %" line. Returns the FLAT total it listed (so Other is only the remainder).
         static MethodInfo s_breakdown; static bool s_bdLooked, s_bdWarned;
@@ -473,7 +473,7 @@ namespace VerdantsAscent.Managers
                         bool hasF = Mathf.Abs(flat) >= 0.05f, hasP = Mathf.Abs(pct) >= 0.05f;
                         if (!hasF && !hasP) continue;
                         string v = (hasF ? Signed(flat) : "") + (hasP ? (hasF ? "  " : "") + SignedPct(pct) : "");
-                        // 1.0.276 (Fire: "never just 'Class: Skills'"): the source's own name as RPGClasses gives it (per skill / passive /
+                        // The source's own name as RPGClasses gives it (per skill / passive /
                         // attribute once ClassStatsApi.Breakdown lists them one by one), coloured by its sign
                         Widgets.Row(s, id + "_c" + (n++), Tint(label, hasF ? flat : pct), v);
                         flatSum += flat; if (hasP) anyPct = true;
@@ -493,7 +493,7 @@ namespace VerdantsAscent.Managers
             return !string.IsNullOrEmpty(label);
         }
 
-        // 1.0.249: each active effect's own SE_Stats value for this stat, named ("Effect: Rested (health regen)  x1.5"); vanilla field
+        // Each active effect's own SE_Stats value for this stat, named ("Effect: Rested (health regen)  x1.5"); vanilla field
         // names read by reflection (a renamed field = that line skipped). Vanilla SE_Stats has no max HP / stamina / eitr field, so the
         // pools show the effects' regen multipliers.
         static readonly Dictionary<string, (string field, bool mult, string what)> SeFields = new Dictionary<string, (string, bool, string)>
@@ -516,12 +516,12 @@ namespace VerdantsAscent.Managers
                 if (spec.mult ? Mathf.Abs(v - 1f) < 0.005f : Mathf.Abs(v) < 0.005f) continue;
                 float sign = spec.mult ? v - 1f : v;
                 string val = spec.mult ? Mult(v) : (spec.field == "m_speedModifier" ? SignedPct(v * 100f) : Signed(v));
-                // 1.0.276 (Fire: "'Overheated (stamina regen)' in red"): the whole line in the effect's colour
+                // ("'Overheated (stamina regen)' in red"): the whole line in the effect's colour
                 Widgets.Row(s, id + "_se" + (n++), Tint($"{Loc(se.m_name)} ({spec.what})", sign), val);
             }
         }
 
-        // 1.0.276: what an effect does, from vanilla SE_Stats fields (read by name; a missing field is skipped). net = +1 / -1 / 0 by the sum of
+        // What an effect does, from vanilla SE_Stats fields (read by name; a missing field is skipped). net = +1 / -1 / 0 by the sum of
         // the signs (a mix reads neutral). Nothing found = the effect's own vanilla tooltip line (m_tooltip, localized).
         static readonly (string field, bool mult, string what)[] DoesFields =
         {
@@ -616,8 +616,8 @@ namespace VerdantsAscent.Managers
             catch { return ""; }
         }
 
-        // 1.0.276: FLO by reflection (soft): FloApi.GetRarity (0.1.8+) / GetRarityColor (its slot tint, used at full alpha) / GetDisplayName +
-        // GetRarityName (0.1.28+, [fgn]). No FLO = the vanilla name, no rarity. Common shows "(Common)" in the normal text colour.
+        // FLO by reflection (soft): FloApi.GetRarity (0.1.8+) / GetRarityColor (its slot tint, used at full alpha) / GetDisplayName +
+        // GetRarityName. No FLO = the vanilla name, no rarity. Common shows "(Common)" in the normal text colour.
         static readonly string[] RarityNames = { "Common", "Magic", "Rare", "Epic", "Legendary" };
         static MethodInfo s_floRarity, s_floColor, s_floName, s_floRarityName; static bool s_floLooked;
         static void ItemLook(ItemDrop.ItemData it, out string shown, out string rarity, out string hex)
@@ -651,12 +651,12 @@ namespace VerdantsAscent.Managers
             string sig = string.Join("|", items.ConvertAll(i => i.m_shared.m_name + i.m_quality + (int)i.m_durability).ToArray());
             if (sig == _equipSig) return;
             _equipSig = sig;
-            for (int i = _equipList.childCount - 1; i >= 0; i--) { var c = _equipList.GetChild(i); c.SetParent(null, false); UnityEngine.Object.Destroy(c.gameObject); }   // 1.0.253: detach first
+            for (int i = _equipList.childCount - 1; i >= 0; i--) { var c = _equipList.GetChild(i); c.SetParent(null, false); UnityEngine.Object.Destroy(c.gameObject); }   // Detach first
             float w = Mathf.Max(200f, _equipList.rect.width);
             var s = Widgets.Section(_equipList, "equipped", "Equipped", 0f, 0f, w, items.Count + " item(s)");
             foreach (var it in items)
             {
-                // 1.0.276 (Fire: "Q4 isn't intuitive"): FLO's rolled name in its rarity colour, then "Quality 4 (Legendary)"
+                // FLO's rolled name in its rarity colour, then "Quality 4 (Legendary)"
                 ItemLook(it, out string shown, out string rarity, out string hex);
                 var row = Widgets.Row(s, "e_" + it.m_shared.m_name, hex != null ? $"<color={hex}>{shown}</color>" : shown,
                     $"Quality {it.m_quality}" + (rarity != null ? $" ({(hex != null ? $"<color={hex}>{rarity}</color>" : rarity)})" : ""));
@@ -724,7 +724,7 @@ namespace VerdantsAscent.Managers
             foreach (var gr in _tip.GetComponentsInChildren<Graphic>(true))
             {
                 gr.raycastTarget = false;
-                // 1.0.253 (Fire, tooltip_overlap_hint: text showed through): the kit tooltip's fill + shadow are fully opaque
+                // The kit tooltip's fill + shadow are fully opaque
                 if (gr is Image im && (gr.name == "Fill" || gr.name == "Shadow")) { var col = im.color; col.a = 1f; im.color = col; }
             }
             // drawn above EVERYTHING (the hub's footer and pills included): its own canvas, sorted on top

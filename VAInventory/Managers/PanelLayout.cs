@@ -4,7 +4,7 @@ using UnityEngine;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.101 (Fire: "when the player panel is scaled, the companion panel scales alongside it so they are always the same
+    /// ("when the player panel is scaled, the companion panel scales alongside it so they are always the same
     /// size and clamped together"). Read-only view of the player panel for other mods: the scale VAInventory applied (the
     /// [UI] PlayerPanelScale config, possibly shrunk further to clear Crafting) and where the panel is on screen. Subscribe
     /// to <see cref="ScaleChanged"/> or poll <see cref="CurrentScale"/>; both are safe to use when the panel is closed.

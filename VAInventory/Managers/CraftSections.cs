@@ -5,9 +5,9 @@ using UnityEngine;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.278 (Fire 10-20 V4/V5: crafting + Chunk Seed "look cheap and thrown together"; split agreed with [generator]: Core 0.2.637
+    /// 1.0.278 (V4/V5: crafting + Chunk Seed "look cheap and thrown together"; split agreed with Core 0.2.637
     /// CraftingSkin draws the look, VAInventory the layout/content). Under Panels the crafting panel gets two named section rects that
-    /// Core's CraftingSkin turns into inset gold-edged wells (agreed names, [generator] 10-20):
+    /// Core's CraftingSkin turns into inset gold-edged wells:
     ///   KitWell_Description  behind the item description (the top-level child of m_crafting holding m_recipeDecription), Pad around it;
     ///   KitWell_Requirements behind the requirement row (the union of the requirement cells + the station slot), Pad around it;
     /// and a gold caps label KitCaps_Requires ("REQUIRES") just above the requirement well. Rects follow the LIVE rects (measured, never
@@ -24,7 +24,7 @@ namespace VerdantsAscent.Managers
 
         static void Postfix(InventoryGui __instance)
         {
-            if (!UnifiedScreen.PanelsMode || !FiresCore.UI.Shell.FiresShell.OverrideOn || Time.unscaledTime < s_next) return;   // 1.0.283: Unified UI OFF = untouched
+            if (!UnifiedScreen.PanelsMode || !FiresCore.UI.Shell.FiresShell.OverrideOn || Time.unscaledTime < s_next) return;   // Unified UI OFF = untouched
             s_next = Time.unscaledTime + 0.25f;
             var root = __instance.m_crafting;
             if (root == null || !root.gameObject.activeInHierarchy) return;

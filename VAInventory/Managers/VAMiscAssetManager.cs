@@ -9,7 +9,7 @@ namespace VerdantsAscent.Managers
 {
  public static class VAMiscAssetManager
  {
- // 1.0.153 ([visual] 10-14, TEAM RULE "no assets in BepInEx/config"; caches/assets go under <BepInEx>\cache\<Mod>): the panel
+ // The panel
  // backgrounds live in BepInEx\cache\VAInventory\Backgrounds. The old config\VAInventoryBackgrounds is read once: its images are COPIED
  // across (never deleted, never overwritten), logged; the config folder is never created any more.
  private static readonly string BackgroundsDir = Path.Combine(Paths.BepInExRootPath, "cache", "VAInventory", "Backgrounds");

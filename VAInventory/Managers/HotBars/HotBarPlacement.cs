@@ -24,7 +24,7 @@ namespace VerdantsAscent.Managers.HotBars
                 position.Value = fallback;
                 saved = fallback;
             }
-            bar.anchoredPosition = ClampOnScreen(bar, saved);   // 1.0.210 (Fire: bars half off-screen): the default spot is always fully on screen
+            bar.anchoredPosition = ClampOnScreen(bar, saved);   // The default spot is always fully on screen
         }
 
         internal static Vector2 ClampOnScreen(RectTransform bar, Vector2 anchored)
@@ -35,9 +35,9 @@ namespace VerdantsAscent.Managers.HotBars
                 Mathf.Clamp(anchored.y, MinimumVisibleSpan, area.height + MinimumVisibleSpan));
         }
 
-        // 1.0.94 (Fire: "our quick slots are still not showing, or they're off screen"): every 10 s, one Debug line per bar with
+        // Every 10 s, one Debug line per bar with
         // its state, and a bar whose screen rect left the screen (any aspect ratio: 3440x1440 included) is put back on it.
-        // 1.0.130 (the lead, R-1013Q: 121 lines per bar per round): a bar's state line is logged once at start and again only when it
+        // A bar's state line is logged once at start and again only when it
         // changes; a bar moved back on-screen logs that move once (below).
         static readonly System.Collections.Generic.Dictionary<string, string> lastState = new System.Collections.Generic.Dictionary<string, string>();
         static void LogOnChange(string name, string line)
@@ -66,11 +66,11 @@ namespace VerdantsAscent.Managers.HotBars
             Vector2 min = RectTransformUtility.WorldToScreenPoint(cam, corners[0]);
             Vector2 max = RectTransformUtility.WorldToScreenPoint(cam, corners[2]);
             bool inside = min.x >= 0f && min.y >= 0f && max.x <= Screen.width && max.y <= Screen.height;
-            if (!inside && bar.parent is RectTransform && !HotbarHudDock.Owns(bar))   // 1.0.221: never while Core's dock owns the bar (it fought every drag)
+            if (!inside && bar.parent is RectTransform && !HotbarHudDock.Owns(bar))   // Never while Core's dock owns the bar (it fought every drag)
             {
                 Vector2 before = bar.anchoredPosition;
                 Vector2 after = ClampOnScreen(bar, before);
-                if ((after - before).sqrMagnitude > 0.01f)   // 1.0.97: only a real move is applied and logged
+                if ((after - before).sqrMagnitude > 0.01f)   // Only a real move is applied and logged
                 {
                     bar.anchoredPosition = after;
                     EquipmentPanel.PanelLog?.LogDebug($"[Hotbars] {name}: screen rect ({min.x:0},{min.y:0})-({max.x:0},{max.y:0}) was off the {Screen.width}x{Screen.height} screen; moved {before} -> {after}");
@@ -85,7 +85,7 @@ namespace VerdantsAscent.Managers.HotBars
             LogOnChange(name, $"[Hotbars] {name}: active {bar.gameObject.activeInHierarchy}, items {items}, anchored {bar.anchoredPosition}, scale {bar.localScale.x:0.##}, canvas scale {(canvas != null ? canvas.scaleFactor : 0f):0.##}, screen rect ({min.x:0},{min.y:0})-({max.x:0},{max.y:0}) of {Screen.width}x{Screen.height}, inside {inside}");
         }
 
-        // 1.0.97 (Fire: the bars belong ABOVE the health globe; the tool row drew on the globes): the lowest bar's bottom edge is
+        // The lowest bar's bottom edge is
         // kept GlobeClearance above the top of the vanilla vitals (health panel, stamina and eitr roots, children included),
         // measured live in the bars' parent space. The whole stack moves up together by the shortfall; nothing moves when it
         // already clears.
@@ -104,7 +104,7 @@ namespace VerdantsAscent.Managers.HotBars
 
         internal static void KeepAboveVitals(params RectTransform[] bars)
         {
-            // 1.0.98 (round 43: the tool row still sat on the globes and no move was logged): the rects' relative bounds did not
+            // The rects' relative bounds did not
             // match what is drawn. Now the DRAWN images count: every active, enabled Graphic under the vitals roots and under the
             // bars, compared in world space, the shift converted into the bars' parent space. Both edges are logged every 10 s.
             var hud = Hud.instance;
@@ -158,7 +158,7 @@ namespace VerdantsAscent.Managers.HotBars
         static float nextVitalsLog;
         static Vector3 lastStack = new Vector3(float.NaN, 0f, 0f);
 
-        // 1.0.99 (Fire: "They should start at the AMMO position and go up from there."): the stack is laid out from the Ammo
+        // The stack is laid out from the Ammo
         // bar's saved position: Tool at that height, Food one pitch above, Ammo two pitches above (pitch = the saved Food-Tool
         // gap, or the default bar pitch), each keeping its own x. Nothing sits below the old Ammo row.
         internal static void StackFromAmmo(RectTransform tool, RectTransform food, RectTransform ammo,

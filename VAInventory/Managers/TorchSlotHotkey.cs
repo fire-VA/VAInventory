@@ -5,7 +5,7 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // The Torch slot's key (Fire, 2026-09-30: "a configurable double tap hotkey"): [TorchSlot] Key, double-tapped by default,
+    // The Torch slot's key: [TorchSlot] Key, double-tapped by default,
     // takes out or puts away whatever is in the Torch slot. Nothing happens while text is being typed or a menu is up.
     internal class TorchSlotHotkey : MonoBehaviour
     {
@@ -16,7 +16,7 @@ namespace VerdantsAscent.Managers
             var config = ConfigManager.Instance;
             if (config?.configTorchSlotKey == null || Player.m_localPlayer == null) return;
             KeyCode key = config.configTorchSlotKey.Value;
-            // 1.0.103 (Fire: no keybinds while typing): not while a text field has input.
+            // Not while a text field has input.
             if (key == KeyCode.None || HotBars.InputGate.Typing || !Input.GetKeyDown(key) || Busy()) return;
 
             if (config.configTorchSlotDoubleTap.Value)

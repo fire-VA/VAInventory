@@ -3,19 +3,19 @@ using UnityEngine;
 
 namespace VerdantsAscent.Managers
 {
-    // The chest panel (Fire, 2026-09-27). It opens below the carry grid's real bottom, whose backdrop reaches past
+    // The chest panel. It opens below the carry grid's real bottom, whose backdrop reaches past
     // vanilla's rows to cover the extra ones, with room between the two. The player can drag it anywhere by its backdrop
-    // (UniversalDragHandler): the dragged offset is kept as [UI] ContainerOffset and applied each time a chest opens. The
+    // the dragged offset is kept as [UI] ContainerOffset and applied each time a chest opens. The
     // spot is taken on the panel's first visible frame after the inventory shows, then held there every frame except
     // while it is being dragged (the old hold kept only the first frame's x, which allowed dragging up and down only).
     //
-    // 1.0.49 (Fire, 2026-09-30: "containers just dont show when opened"): the spot is worked out from vanilla's own
+    // The spot is worked out from vanilla's own
     // position, read once per InventoryGui before this patch ever moves the panel. It used to start from the panel's
     // CURRENT position, which already held last time's offset, so every chest opened added ContainerOffset again: with
     // Fire's (-4.5, -209) the panel sank ~209 units per chest until it was off the screen for the rest of the session.
     // The panel is also kept fully on screen, so no saved offset can lose it again.
     //
-    // 1.0 (Fire, 2026-10-07): the default spot is now the panel's top exactly GridGap below the carry grid's lowest
+    // 1.0: the default spot is now the panel's top exactly GridGap below the carry grid's lowest
     // visible edge (its backdrop or the resized m_gridRoot, whichever is lower), re-anchored whenever that edge moves
     // while open (extra rows, bag changes). A drag stores the panel's absolute spot as [UI] ContainerWindowPosition
     // ("x,y", empty = default; the old ContainerOffset is no longer applied). Right-click the backdrop to reset.
@@ -42,7 +42,7 @@ namespace VerdantsAscent.Managers
         {
             var container = __instance.m_container;
             if (container == null || !container.gameObject.activeSelf) return;
-            // 1.0.280 (Fire 10-20, shot 20261020_2130/24: the chest "fights us every time we try to move it, forcing itself back"): under
+            // Under
             // Panels Core's dock owns the chest (vainv.chest, 1.0.239). This pre-Panels hold wrote anchoredPosition EVERY frame (vanilla's
             // UpdateContainer), so each drag was undone (Core: "re-placed vainv.chest x98", "drag ended where it started"). It never runs then.
             if (UnifiedScreen.PanelsMode && PanelsDock.Registered) return;
@@ -172,7 +172,7 @@ namespace VerdantsAscent.Managers
             Log.LogDebug($"container pos: saved ({position.x:0.#},{position.y:0.#})");
         }
 
-        // The [UI] ResetContainerWindowPosition config "button" (Fire 10-07: no right-click reset, too easy to hit by
+        // The [UI] ResetContainerWindowPosition config "button" (no right-click reset, too easy to hit by
         // accident): forget the dragged spot and open below the grid again.
         internal static void ResetToDefault()
         {

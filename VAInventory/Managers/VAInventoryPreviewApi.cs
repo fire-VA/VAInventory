@@ -3,7 +3,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.196 ([ghost], Fire's "reuse what works"): the inventory's live character preview, bound to ANY Character. ADD-ONLY contract.
+    /// The inventory's live character preview, bound to ANY Character. ADD-ONLY contract.
     /// The target itself is rendered (the camera is its child): what it wears, its real pose and idle, FCC model overrides included.
     /// Only the target is drawn (layer isolation around this camera's render); the key light is on only during that render; it renders
     /// only while the image is active (call Unbind or let the image go inactive). Orbit / zoom / pan / double-click reset on the image.

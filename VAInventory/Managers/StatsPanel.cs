@@ -37,7 +37,7 @@ namespace VerdantsAscent.Managers
         internal static void RegisterTab()
         {
             // UnifiedScreen calls this on every open. A mod that took the tab over as a launcher keeps it: with FiresRPGClasses
-            // installed, Character opens the full Classes window on its Character board (Fire, popup 2026-09-29).
+            // installed, Character opens the full Classes window on its Character board.
             if (InventoryTabs.HasLauncher(TabId)) return;
             InventoryTabs.Register(new InventoryTabs.Tab
             {

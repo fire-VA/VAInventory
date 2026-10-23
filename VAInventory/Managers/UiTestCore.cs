@@ -11,7 +11,7 @@ namespace VerdantsAscent.Managers
     {
         // Whether the window was shown this session: ConfigPanel.EverOpened (Core 0.2.122+), read by name so an older
         // Core still loads this; null when that Core cannot tell. The host object is no signal: Core creates it at the
-        // first config registration during load, so it always exists in a world ([ghost], 2026-09-28: the cold step
+        // first config registration during load, so it always exists in a world (2026-09-28: the cold step
         // always skipped and the "warm" step measured the session's first, cold open).
         static readonly PropertyInfo EverOpenedProperty = AccessTools.Property(typeof(ConfigPanel), "EverOpened");
 

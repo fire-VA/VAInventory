@@ -3,7 +3,7 @@ using UnityEngine;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.104 (Fire: the resize corner showed a plain square). A drawn resize grip: three diagonal lines in the panel's gold,
+    /// 1.0.104. A drawn resize grip: three diagonal lines in the panel's gold,
     /// on a transparent 32x32 texture, so the corner reads as "drag to resize" without depending on a font glyph or a
     /// vanilla sprite that may not exist.
     /// </summary>

@@ -255,7 +255,7 @@ namespace VerdantsAscent
                                       && !s.IsBackpackStorageSlot
                                       && s.ItemFits(item)
                                       && (s.IsFree || s.Item == item));
-                // 1.0.143 (Fire 10-14: "equipping over a filled slot left the old one sitting in the panel"): when the only fitting cells
+                // When the only fitting cells
                 // are held by items that are NOT worn (the one just replaced, or one left there), the first such item moves to a free
                 // main-grid cell and the new item takes its cell; local player only, logged
                 if (slot == null && __instance == Player.m_localPlayer)
@@ -275,7 +275,7 @@ namespace VerdantsAscent
                 // 1.0.147 (R_INV run 3: the chest re-equipped into the GRID because its Chest cell held the worn legs and its Helmet cell
                 // held nothing it could use - a chain of off-role items): with "Remap misplaced slot items" ON, a fitting cell held by a WORN item
                 // that does not fit that cell sends that item to its own cell first (chained, up to 4 deep), then this item takes the cell
-                if (slot == null && __instance == Player.m_localPlayer)   // 1.0.151: a fix, always on (Fire's rule)
+                if (slot == null && __instance == Player.m_localPlayer)   // A fix, always on
                 {
                     foreach (var s in Slots.GetEquipmentSlots().Where(s => s != null && !s.IsMiscSlot && !s.IsTeleportBypassSlot && !s.IsBackpackStorageSlot && s.ItemFits(item)).ToList())
                         if (EvictOffRole(__instance, s, item, 0)) { slot = s; break; }
@@ -299,7 +299,7 @@ namespace VerdantsAscent
         [HarmonyPatch(typeof(Humanoid), nameof(Humanoid.UnequipItem))]
         public static class Humanoid_UnequipItem_ReturnToInventory
         {
-            // Only an item that WAS equipped is moved out ([classes-ui] 10-07: vanilla UnequipItem is a no-op on an item that
+            // Only an item that WAS equipped is moved out (10-07: vanilla UnequipItem is a no-op on an item that
             // isn't worn, but this postfix still moved it, so an UnequipItem call on a Pet-slot item - never m_equipped by
             // agreement - "Returned unequipped Pocket Bonemaw from slot" and emptied the Pet slot).
             private static void Prefix(Humanoid __instance, ItemDrop.ItemData item, out bool __state) =>
@@ -312,7 +312,7 @@ namespace VerdantsAscent
              if (!Slots.IsValidPlayer(__instance) || item == null) return;
              if (!Slots.IsItemInSlot(item))
              {
-                 // 1.0.143: an unequipped item left on an equipment cell it does not fit (a shifted layout) goes to the main grid too
+                 // An unequipped item left on an equipment cell it does not fit (a shifted layout) goes to the main grid too
                  var at = Slots.GetSlotInGrid(item.m_gridPos);
                  if (__instance == Player.m_localPlayer && at != null && at.IsEquipmentSlot && !at.ItemFits(item) && Slots.TryMakeFreeSpaceInPlayerInventory(true, out Vector2i spot))
                  {
@@ -327,7 +327,7 @@ namespace VerdantsAscent
              }
              // 1.0.147 (R_INV run 3: the worn Eye on the orphan cell (0,10), between the main grid and the equipment rows, was "returned
              // from slot" to (7,7) on unequip): with "Remap misplaced slot items" ON, an item on a cell that is no slot at all stays put
-             if (__instance == Player.m_localPlayer && Slots.GetSlotInGrid(item.m_gridPos) == null)   // 1.0.151: a fix, always on
+             if (__instance == Player.m_localPlayer && Slots.GetSlotInGrid(item.m_gridPos) == null)   // A fix, always on
              {
                  Debug.Log($"[VAInventory] unequip: {item.m_shared.m_name} is on ({item.m_gridPos.x},{item.m_gridPos.y}), no slot cell; left in place");
                  return;
@@ -473,7 +473,7 @@ namespace VerdantsAscent
                 // Only handle our custom/extra slots
                 if (Slots.IsGridPositionASlot(pos))
                 {
-                    // 1.0.107 (Fire 10-12 #16): right-clicking food in a pouch eats it, like vanilla, instead of moving it out.
+                    // Right-clicking food in a pouch eats it, like vanilla, instead of moving it out.
                     if (item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable)
                     {
                         EquipmentPanel.PanelLog.LogDebug($"[VAInventory] slot right-click: {item.m_shared.m_name} at {pos.x},{pos.y} is consumable, vanilla use");
@@ -562,7 +562,7 @@ namespace VerdantsAscent
         public static bool PassDropItem(Inventory fromInventory, ItemDrop.ItemData item, Vector2i pos)
         {
             // Block if dropping a custom slot item into a container
-            // 1.0.319: the old first rule ("block a custom slot item dropped into a container": fromInventory != the player's and
+            // The old first rule ("block a custom slot item dropped into a container": fromInventory != the player's and
             // item.m_gridPos on a player slot) read ANOTHER inventory's coordinates as player-slot positions, so companion / chest items in
             // rows 4+ could not be moved at all. Removed; callers now run this only for drops on the player grid, where the target-slot
             // fit and the bounds below decide.
@@ -597,7 +597,7 @@ namespace VerdantsAscent
  {
                 if (fi_dragItem.GetValue(InventoryGui.instance) is not ItemDrop.ItemData dragItem || fi_dragInventory.GetValue(InventoryGui.instance) is not Inventory dragInventory)
                     return true;
-                // 1.0.319 (Fire 10-23, "Both": the companion's big Inventory grid would not take / give items properly): these rules use the
+                // These rules use the
                 // PLAYER grid's slot layout (custom slots from row 4 down), but this prefix ran for EVERY grid's clicks - a drop on the companion
                 // grid (or a chest) at a cell whose coordinates match a player slot was judged by that slot's rule and refused (drag cleared),
                 // and an item from a companion / chest row 4+ counted as "a custom slot item". They now apply only to drops on the player grid,

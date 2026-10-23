@@ -6,13 +6,13 @@ using UnityEngine;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.155 (lead, for Fire's Admin Dressing 3-panel): mount the REAL player inventory grid into another mod's panel.
+    /// Mount the REAL player inventory grid into another mod's panel.
     /// ADD-ONLY CONTRACT, same rules as InventoryTabs: members are only ever added, never renamed or removed, and every
     /// mount/unmount is logged. The mounted grid is a clone of vanilla's m_playerGrid (same element prefab, icons, tooltips),
     /// bound to the local player's inventory, redrawn every frame while active. Clicks go through vanilla
     /// InventoryGui.OnSelectedItem / OnRightClickItem, so drag, split and equip behave exactly like the main grid.
     ///
-    /// From another mod without a hard reference (VAInventory loads LAST: soft-depend on com.Fire.VAInventory):
+    /// From another mod without a hard reference:
     ///   var t = AccessTools.TypeByName("VerdantsAscent.Managers.VAInventoryGridApi");
     ///   object handle = t.GetMethod("MountGrid").Invoke(null, new object[] { parentRect, null });
     /// </summary>
@@ -71,7 +71,7 @@ namespace VerdantsAscent.Managers
                 EquipmentPanel.PanelLog?.LogDebug($"grid api: mount by {options.Owner} REFUSED (parent={(parent != null)}, gui={(gui != null)})");
                 return null;
             }
-            // 1.0.190 (Fire: "stop cloning the inventory grid with every child object on"): a CLEAN grid - a new GameObject with its own
+            // A CLEAN grid - a new GameObject with its own
             // RectTransform + InventoryGrid + an empty cell root, and ONLY the config vanilla's UpdateGui / clicks read, copied from the main
             // grid. Vanilla UpdateInventory then builds the cells from the element ASSET prefab. The old Instantiate(m_playerGrid) copied every
             // child and every VA / Core-added object with its live state, and left InventoryGrid.CanDropDragOntoItem (a runtime delegate
@@ -108,7 +108,7 @@ namespace VerdantsAscent.Managers
             return handle;
         }
 
-        // ---- 1.0.191 (Fire: "it's supposed to show the actual player's inventory grid right there") --------------------------------------
+        // ---- 1.0.191 --------------------------------------
         // LendPlayerGrid moves the REAL player grid (InventoryGui.m_playerGrid, VAInventory's styled grid) into a host rect of another mod's
         // window; clicks, drag, tooltips and the look are the main grid's own. InventoryGui is opened behind it (if it wasn't open) with every
         // other inventory panel invisible and click-through, because vanilla only updates the grid while the inventory is shown.
@@ -163,7 +163,7 @@ namespace VerdantsAscent.Managers
                 cg.alpha = 0f; cg.blocksRaycasts = false;
             }
             // vanilla's full-screen drop zone (IngameGui/Inventory_screen/root/dropButton, a stretched Button) would eat every click on the
-            // host window ([ghost]); off while lent, back on return
+            // host window; off while lent, back on return
             var drop = gui.m_inventoryRoot != null ? gui.m_inventoryRoot.Find("dropButton") : null;
             if (drop != null && drop.gameObject.activeSelf) { drop.gameObject.SetActive(false); l.DropButton = drop.gameObject; }
             grid.SetParent(host, false);
@@ -224,7 +224,7 @@ namespace VerdantsAscent.Managers
             Raise(() => ItemClicked?.Invoke(h, item, pos, mod), "ItemClicked");
             var dragAfter = gui != null ? gui.m_dragItem : null;
             if (dragAfter != null && dragAfter != dragBefore) Raise(() => ItemDragged?.Invoke(h, dragAfter), "ItemDragged");
-            // 1.0.319 ([lead]: nothing logged a click on the companion grid): one Debug line per click on a mounted grid - what was under the
+            // One Debug line per click on a mounted grid - what was under the
             // pointer, what the cursor held before and after, and what vanilla's OnSelectedItem did (picked up / dropped / swapped / nothing)
             var inv = g != null ? g.GetInventory() : null;
             string N(ItemDrop.ItemData i) => i == null ? "nothing" : $"{i.m_shared.m_name} x{i.m_stack}";
@@ -246,7 +246,7 @@ namespace VerdantsAscent.Managers
             catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"grid api: a {what} handler threw: {e.Message}"); }
         }
 
-        // ---- 1.0.187 probe ([lead]: the mounted grid shows the SAME pickaxe + "n/3" text on an ORANGE face in every cell; check, don't guess) --
+        // ---- 1.0.187 probe --
         static readonly Dictionary<InventoryGrid, bool> s_allowed = new Dictionary<InventoryGrid, bool>();
         static readonly Dictionary<InventoryGrid, int> s_suppressed = new Dictionary<InventoryGrid, int>();
 
@@ -376,7 +376,7 @@ namespace VerdantsAscent.Managers
                 var inv = Handle.Options?.Inventory != null ? SafeInv(Handle.Options.Inventory) : player.GetInventory();
                 if (inv == null) return;
                 var grid = Handle.Grid;
-                // 1.0.185 ([lead], R-1015H Dressing shot: 8 x 10+ orange cells off the panel): vanilla's UpdateGui builds width x GetHeight()
+                // Vanilla's UpdateGui builds width x GetHeight()
                 // cells, and the player's backing inventory also holds VAInventory's hidden storage rows (pouches, tools, ammo, food, hotbars,
                 // equipment). The main grid hides them through patches gated on m_playerGrid; this clone got none of them. Here:
                 // (2) the cells fit the host panel: element space = host width / columns, never larger than vanilla's
@@ -389,7 +389,7 @@ namespace VerdantsAscent.Managers
                     if (Mathf.Abs(space - grid.m_elementSpace) > 0.5f) grid.m_elementSpace = space;
                 }
                 if (!nullsLogged) { nullsLogged = true; LogNulls(grid); }
-                // 1.0.190: vanilla draws the cells (clean grid, CanDropDragOntoItem set); the 1.0.188 per-cell redraw workaround is gone
+                // Vanilla draws the cells (clean grid, CanDropDragOntoItem set); the 1.0.188 per-cell redraw workaround is gone
                 grid.UpdateInventory(inv, player, InventoryGui.instance != null ? InventoryGui.instance.m_dragItem : null);
                 // (1) only the VISIBLE rows of the player's own inventory (the main grid's rule: y < Slots.InventoryHeightPlayer)
                 bool playerInv = inv == player.GetInventory();

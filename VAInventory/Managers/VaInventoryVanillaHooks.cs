@@ -27,7 +27,7 @@ namespace VerdantsAscent.Managers
         {
             InventoryGridExtraSlots.ExtendGrid(__instance);
             bool runOriginal = SafeGuiPatches.AllowUpdateGui(__instance);
-            if (__instance != null) VAInventoryGridApi.NoteUpdateGui(__instance, runOriginal);   // 1.0.187: mounted-grid probe
+            if (__instance != null) VAInventoryGridApi.NoteUpdateGui(__instance, runOriginal);   // Mounted-grid probe
             __state = EquipmentPanel.CaptureGridElementCount(__instance);
             return runOriginal;
         }
@@ -60,7 +60,7 @@ namespace VerdantsAscent.Managers
     [HarmonyPatch(typeof(InventoryGui), "Update")]
     internal static class InventoryGui_Update_Hook
     {
-        // 1.0.193 perf probe ([lead]: InventoryGui.Update 88 ms/s with the inventory CLOSED; FDT LoginDiag: its patches called over
+        // Perf probe (InventoryGui.Update cost 88 ms/s with the inventory CLOSED; its patches were called over
         // 50,000 times/s = far more than one InventoryGui per frame). Every 30 s: how many InventoryGui exist and how many Update calls
         // ran in that window, with each instance's path. Debug only; FindObjectsOfType once per 30 s.
         private static int s_calls;
@@ -83,7 +83,7 @@ namespace VerdantsAscent.Managers
                 catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug("perf: InventoryGui count failed: " + e.Message); }
                 s_calls = 0;
             }
-            if (Player.m_localPlayer) Slots.EvictBagFromBypass();   // 1.0.93: open or not, ~1/s
+            if (Player.m_localPlayer) Slots.EvictBagFromBypass();   // Open or not, ~1/s
             if (!Player.m_localPlayer || !InventoryGui.IsVisible()) return;
             EquipmentPanel.UpdateEquipmentBackground();
             UnifiedScreen.Tick();
@@ -98,7 +98,7 @@ namespace VerdantsAscent.Managers
     {
         private static void Prefix()
         {
-            VAInventoryGridApi.ReturnPlayerGrid();   // 1.0.191: a lent player grid goes home before the inventory closes (Esc / Tab)
+            VAInventoryGridApi.ReturnPlayerGrid();   // A lent player grid goes home before the inventory closes (Esc / Tab)
             BackpackStorageSync.SaveEquippedBackpackContents(removeItems: false);
             InventoryGui_UpdateContainer_Patch.Reset();
             UnifiedScreen.Hide();
@@ -115,7 +115,7 @@ namespace VerdantsAscent.Managers
         {
             if (!CoinPurseStackPatch.DropItemDepositCoins(__instance, fromInventory, item, amount, pos)) return false;
             if (!InventoryInteraction.DropItemBlockInvalid(__instance, item, pos)) return false;
-            // 1.0.319: the player-grid slot rules only for the player grid (the companion grid / a chest has its own coordinates)
+            // The player-grid slot rules only for the player grid (the companion grid / a chest has its own coordinates)
             if (InventoryGui.instance == null || __instance != InventoryGui.instance.m_playerGrid) return true;
             return InventoryInteraction.DropItemRobust(fromInventory, item, pos);
         }
@@ -167,7 +167,7 @@ namespace VerdantsAscent.Managers
         {
             InventoryInteraction.OnInventoryChangedMarkDirty(__instance);
             ItemsSlotsValidation.OnInventoryChangedRefresh(__instance);
-            Slots.CheckJewelryChanged(__instance);   // 1.0.110: FiresRPGCrafting's jewelry stats
+            Slots.CheckJewelryChanged(__instance);   // FiresRPGCrafting's jewelry stats
         }
     }
 
@@ -184,7 +184,7 @@ namespace VerdantsAscent.Managers
         {
             if (__instance != Player.m_localPlayer) return;
             CoinPurseStackPatch.RestorePurseStackOnSpawn(__instance);
-            Slots.CheckJewelryChanged(__instance);   // 1.0.110: the loaded jewelry, once, for FiresRPGCrafting
+            Slots.CheckJewelryChanged(__instance);   // The loaded jewelry, once, for FiresRPGCrafting
             InventoryInteraction.UpdatePlayerInventorySize();
             PlayerInventoryRows.RepairRowShift(__instance);   // 1.0.141
             PlayerInventoryRows.RemapMisplacedByRole(__instance);   // 1.0.144

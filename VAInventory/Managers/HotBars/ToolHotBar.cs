@@ -51,12 +51,12 @@ namespace VerdantsAscent.Managers.HotBars
             if (slots == null) return;
             realPositions.Clear();
             int hotbarIndex = 0;
-            // Fire 10-06: box N = slot N = key N (empty slots stay empty boxes), matching the panel and the hotkeys.
+            // box N = slot N = key N (empty slots stay empty boxes), matching the panel and the hotkeys.
             foreach (var slot in slots)
             {
                 int slotIndex = hotbarIndex++;
                 if (slot == null) continue;
-                // 1.0.79 (Fire 10-08: the food bar showed a moose kebab with the food pouch empty): read the slot fresh from the
+                // Read the slot fresh from the
                 // inventory; the slot's cached item can outlive the item (eaten, moved), and the bar then drew a stale stack.
                 var item = slot.CacheItem();
                 if (item == null) continue;
@@ -102,7 +102,7 @@ namespace VerdantsAscent.Managers.HotBars
         /// </summary>
         internal static bool Refresh()
         {
-            // 1.0.76 (Fire 10-08: filled pouches, no hotbars on the HUD): IsEnabled() changes with the inventory being open,
+            // IsEnabled() changes with the inventory being open,
             // which never marked the bar dirty. A pouch filled with the inventory open left the bar un-built, and closing the
             // inventory never built it. Now the bar is rebuilt whenever IsEnabled() and the bar's existence disagree.
             bool enabled = IsEnabled();
@@ -140,13 +140,13 @@ namespace VerdantsAscent.Managers.HotBars
             {
                 if (ConfigManager.Instance == null) return false;
                 // Unified: the CharacterPanel's Hotbars rows show these slots while the inventory is open, so the
-                // HUD bar steps aside only then (Fire 10-06: the in-game HUD bar must still show them).
+                // HUD bar steps aside only then.
                 if (UnifiedScreen.Enabled && InventoryGui.IsVisible()) return false;
-                if (HotBarController.MapOpen) return false;   // 1.0.177 ([lead] shot 095958: the bars drew over the large map); vanilla hides its hotbar there too
+                if (HotBarController.MapOpen) return false;   // 1.0.177; vanilla hides its hotbar there too
             }
             catch { return false; }
             return Slots.toolHotbarSlots != null && Slots.toolHotbarSlots.Count > 0
-                && (Slots.toolHotbarSlots.Any(s => s != null && s.CacheItem() != null) || (ConfigManager.Instance.configToolHotbarShowWhenEmpty?.Value ?? false));   // 1.0.79: empty pouch = no bar
+                && (Slots.toolHotbarSlots.Any(s => s != null && s.CacheItem() != null) || (ConfigManager.Instance.configToolHotbarShowWhenEmpty?.Value ?? false));   // Empty pouch = no bar
         }
 
         public static bool IsOurBar(HotkeyBar bar)

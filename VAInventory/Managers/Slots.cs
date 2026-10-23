@@ -36,11 +36,11 @@ namespace VerdantsAscent
         public const string coinPurseSlotID       = "CoinPurse";
         public const string backpackSlotID        = "Backpack";
         public const string ringSlotID            = "Ring";
-        // 1.0.110 (Fire 10-12, Jewelry): the old Ring cell is the LEFT ring (same grid position, so a saved ring stays put);
+        // The old Ring cell is the LEFT ring (same grid position, so a saved ring stays put);
         // the right ring and the necklace take the two always-empty Torch-column cells (rows 3-4), which never held an item.
         public const string ringRightSlotID       = "RingRight";
         public const string necklaceSlotID        = "Necklace";
-        // The contract with FiresRPGCrafting ([fgn], FIRESRPGCRAFTING_DESIGN.md §11.2), read by reflection.
+        // The contract with FiresRPGCrafting, read by reflection.
         public const string JewelryNecklaceSlotID  = necklaceSlotID;
         public const string JewelryRingLeftSlotID  = ringSlotID;
         public const string JewelryRingRightSlotID = ringRightSlotID;
@@ -49,7 +49,7 @@ namespace VerdantsAscent
         // second cell, which was an always-inactive Empty cell, so no existing slot's index or grid position moves.
         public const string petSlotID             = "Pet";
 
-        // FiresRPGClasses' two skill bars each take their weapon and off hand from these slots (Fire, 2026-09-30),
+        // FiresRPGClasses' two skill bars each take their weapon and off hand from these slots,
         // so the bars no longer follow whatever is equipped. One column, present only when FiresRPGClasses is
         // loaded: Front bar / Front offhand / Back bar / Back offhand. The slots HOLD the items (they stay in the
         // player inventory at these grid positions); FiresRPGClasses equips the active bar's pair and reads the
@@ -82,7 +82,7 @@ namespace VerdantsAscent
 
         // Start with a reasonable default, but we'll resize dynamically
         public static Slot[] slots = new Slot[64];
-        internal static bool HasSlots => slots != null && slots.Any(s => s != null);   // 1.0.144: Relayout carries items only across a REbuild
+        internal static bool HasSlots => slots != null && slots.Any(s => s != null);   // Relayout carries items only across a REbuild
 
         private static readonly Dictionary<Vector2i, ItemDrop.ItemData> cachedItems = [];
 
@@ -163,7 +163,7 @@ namespace VerdantsAscent
             [.. AllSlots().Where(s => s != null && s.IsAmmoSlot && s.IsActive)];
 
         // Pouches (UI only, Unified layout): open one the real way for tests. Group "tools" / "ammo" / "food", any case.
-        // For tests (FDT backpack_shot): "tools" / "ammo" / "food", and from 1.0.69 "coin" (the coin purse's popup, above the purse).
+        // For tests: "tools" / "ammo" / "food", and from 1.0.69 "coin" (the coin purse's popup, above the purse).
         public static string OpenPouchGroup => CurrencyPouchPopup.IsOpen ? "coin" : PouchPopup.OpenGroup;
         public static void OpenPouch(string group)
         {
@@ -274,7 +274,7 @@ namespace VerdantsAscent
                 return true;
             }
 
-            // 1.0.92 (Fire: "a backpack in our Backpack slot and another in the Bypass slot"): the Bypass slot takes any item, so a
+            // The Bypass slot takes any item, so a
             // second bag picked up while the Backpack slot was full landed there. Bypass is a slot the player fills by hand
             // (the smuggler's pocket); automatic placement never uses it.
             slot = AllSlots().FirstOrDefault(s => s != null && s.IsActive && s.IsFree && !s.IsTeleportBypassSlot && s.ItemFits(item));
@@ -379,7 +379,7 @@ namespace VerdantsAscent
             return false;
         }
 
-        // 1.0.125 (R-1013L audit): making room never moves an item into a bag's storage block. A bag block may be one that is not
+        // Making room never moves an item into a bag's storage block. A bag block may be one that is not
         // restored yet (equip/unequip, spawn), and an item parked there was captured into that bag's blob while a live copy stayed:
         // duplicates. Typed slots (equipment, misc, hotbars) still take what fits; a bag only ever gets what the player puts in it.
         private static bool TryFindFreeNonBagSlotForItem(ItemDrop.ItemData item, out Slot slot)
@@ -491,7 +491,7 @@ namespace VerdantsAscent
         public static bool TryPutInTorchSlot(ItemDrop.ItemData item) => TryPutInSlot(s => s.IsTorchSlot, item);
 
         /// <summary>
-        /// For FiresNPCs (by reflection, [classes-ui] 10-07; Fire: "using the pet item from the inventory moves it into the Pet
+        /// For FiresNPCs (by reflection, 10-07; Fire: "using the pet item from the inventory moves it into the Pet
         /// slot AND equips it"): moves a pet item from the player's inventory into the Pet slot; an item in the Pet slot is
         /// out. A pet already there goes to this item's old cell. Reports the change through PetApi.OnPetSlotChanged, as a
         /// drop on the slot does. False when it is not a pet, the slot is not shown, the item is not in the inventory, it
@@ -792,12 +792,12 @@ namespace VerdantsAscent
             // anything I want past the teleport check" pocket — but the
             // patch in Player_IsTeleportable_Postfix only flips the
             // result for items that genuinely needed the bypass.
-            // 1.0.93 (Fire: "That slot should never have a bag in it."): never a backpack, on any path (drag, auto-place,
+            // Never a backpack, on any path (drag, auto-place,
             // restore all ask this validator through Slot.ItemFits).
             return !BackpackBridge.IsBackpack(item);
         }
 
-        // 1.0.93: a bag already in the Bypass slot (from before this rule) moves to a free main-grid cell, or is dropped at the
+        // A bag already in the Bypass slot (from before this rule) moves to a free main-grid cell, or is dropped at the
         // player's feet if the grid is full. Checked about once a second, inventory open or not, so it also runs right after load.
         static float nextBypassCheck;
         static readonly System.Reflection.MethodInfo InventoryChanged = HarmonyLib.AccessTools.Method(typeof(Inventory), "Changed");
@@ -828,7 +828,7 @@ namespace VerdantsAscent
             EquipmentPanel.PanelLog?.LogDebug($"slots: {item.m_dropPrefab?.name} moved out of the Bypass slot and dropped (main grid full; no bags in Bypass)");
         }
 
-        // 1.0.199 ([generator], Core 0.2.563: companions get every player slot): VAInventory's slot ids + validators (item-only, no local
+        // VAInventory's slot ids + validators (item-only, no local
         // player) go into Core's FiresSlotCatalog once the slots exist, so Core / FiresCompanions accept or reject by OUR rules.
         static bool s_catalogDone;
         internal static void RegisterCoreCatalog()
@@ -868,7 +868,7 @@ namespace VerdantsAscent
             R(miscSlotID, "misc", item => item != null, miscCells);
             R("BackpackStorage", "bag", item => item != null && !IsBackpackSlotItem(item), 32);
             var size = cat.GetMethod("RegisterBackpackSize", new[] { typeof(Func<ItemDrop.ItemData, Vector2i>) });
-            if (size != null) cap = null;   // [generator]: prefer the (cols, rows) size, so bag items keep their place
+            if (size != null) cap = null;   // prefer the (cols, rows) size, so bag items keep their place
             try { size?.Invoke(null, new object[] { (Func<ItemDrop.ItemData, Vector2i>)(bag => { var (r, c) = BackpackBridge.GetConfigDimensions(bag); return new Vector2i(c, r); }) }); }
             catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"slots: catalog backpack size failed: {(e.InnerException ?? e).Message}"); }
             try { cap?.Invoke(null, new object[] { (Func<ItemDrop.ItemData, int>)(bag => { var (r, c) = BackpackBridge.GetConfigDimensions(bag); return Math.Max(0, r * c); }) }); }
@@ -939,7 +939,7 @@ namespace VerdantsAscent
         internal static int LastLayoutSignature = int.MinValue;
         internal static int Generation;
 
-        // 1.0.144: every rebuild goes through Relayout, which carries each player item across it by address (slot id / main x,y)
+        // Every rebuild goes through Relayout, which carries each player item across it by address (slot id / main x,y)
         internal static void InitializeSlots()
         {
             string trigger = "rebuild";
@@ -952,7 +952,7 @@ namespace VerdantsAscent
         private static void InitializeSlotsCore()
         {
             LastLayoutSignature = LayoutSignature();
-            Generation++;   // 1.0.133: the Slot objects are new; a panel bound to the old ones must rebuild
+            Generation++;   // The Slot objects are new; a panel bound to the old ones must rebuild
             bool showFood = ConfigManager.Instance.configShowFoodSlots.Value;
             bool showAmmo = ConfigManager.Instance.configShowAmmoSlots.Value;
 
@@ -988,7 +988,7 @@ namespace VerdantsAscent
 
             // FiresRPGClasses' bar column goes LAST, so every existing slot keeps its grid position (and the items
             // saved there). Only when FiresRPGClasses is loaded, so a plain VAInventory install looks as before.
-            // 1.0.144 ([seasons], Fire 10-14: "pants in the ammo slot", belt/legs one row off): the column used to exist only when
+            // The column used to exist only when
             // FiresRPGClasses was ALREADY in Chainloader.PluginInfos at this moment. BepInEx fills that dictionary one plugin at a time, so
             // a build before RPGClasses loaded had no bar column and a later one did: the Torch column moved x 4 -> 5 and every
             // bag-storage block moved down a row (array 112 -> 116) INSIDE one session, and items saved under one layout were read under
@@ -1004,13 +1004,13 @@ namespace VerdantsAscent
             // they take nothing and show nothing), which keeps the block rectangular for SetSlotsPositions.
             // The Pet slot reuses the first of those unused cells: same index and grid position the Empty cell had (it
             // never held an item), so every existing slot and saved item stays put.
-            // 1.0.110: the two unused cells (always inactive, never held an item) are now the Necklace and the right ring.
+            // The two unused cells (always inactive, never held an item) are now the Necklace and the right ring.
             string[] torchColumn = { torchSlotID, petSlotID, necklaceSlotID, ringRightSlotID };
             for (int r = 0; r < rowDefinitions.Count && r < torchColumn.Length; r++) rowDefinitions[r].Add(torchColumn[r]);
 
             int numColumns = rowDefinitions[0].Count; // 3–6
             // The misc block keeps the old width: the bar and torch columns are not repeated under it.
-            int miscColumns = numColumns - 1 - 1;   // 1.0.144: the bar column is always there now (its width never counts toward misc)
+            int miscColumns = numColumns - 1 - 1;   // The bar column is always there now (its width never counts toward misc)
             int miscRows = Mathf.Clamp(ConfigManager.Instance.configEquipmentPanelRows.Value, 0, 3);
 
             // Backpack-storage blocks: one block per equipped bag (e.g. shoulder
@@ -1351,7 +1351,7 @@ namespace VerdantsAscent
                 get
                 {
                     if (PlayerInventory == null || _gridPos == emptyPosition) return null;
-                    // 1.0.81 ([generator]'s leak read): a cached item that left the slot (eaten, moved, removed) is not trusted.
+                    // A cached item that left the slot (eaten, moved, removed) is not trusted.
                     if (cachedItems.TryGetValue(_gridPos, out var cached)
                         && (cached == null || (cached.m_gridPos == _gridPos && PlayerInventory.ContainsItem(cached)))) return cached;
                     return CacheItem();
@@ -1390,7 +1390,7 @@ namespace VerdantsAscent
 }
 namespace VerdantsAscent.Managers
 {
-    // 1.0.199 ([generator]: register at plugin start / ObjectDB ready, not on the first inventory open - companions can open first)
+    // 1.0.199
     [HarmonyLib.HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
     internal static class SlotCatalogAtObjectDB
     {

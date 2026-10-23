@@ -5,7 +5,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.236 (Fire 10-18, rarity_bg_hidden_by_equipped_blue: the blue "equipped" fill covered the item's rarity colour): every
+    /// Every
     /// slot's 'equiped' Image keeps its on/off logic (vanilla toggles .enabled, our side slots SetActive) but draws nothing itself;
     /// a thin blue inner border (4 x 2 px edges) shows "equipped" instead, so the rarity fill stays visible. Main grid (every
     /// InventoryGrid, incl. our rails) + our side slots. Hotbars are kit slots with no equipped state.

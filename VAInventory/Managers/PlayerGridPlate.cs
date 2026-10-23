@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace VerdantsAscent.Managers
 {
-    // Fire 10-08 (1.0.85), the main inventory grid built like the character panel: "a dark background with a slightly smaller lighter
+    // (1.0.85), the main inventory grid built like the character panel: "a dark background with a slightly smaller lighter
     // background inside of that, with a little padding around all sides, and then a little padding inside of that lighter background
     // is our inventory grid squares." Three layers behind the vanilla cells, measured from the cells outward so nothing crosses a
     // frame edge:
@@ -22,7 +22,7 @@ namespace VerdantsAscent.Managers
         const string InnerUnderName = "VAInventoryGridInnerUnder";
         const string InnerName = "VAInventoryGridInner";
         static readonly string[] HiddenVanilla = { "Bkg", "Darken" };
-        static readonly Color FallbackDark = new Color(0.10f, 0.08f, 0.06f, 0.92f);   // 1.0.183: back (Fire)
+        static readonly Color FallbackDark = new Color(0.10f, 0.08f, 0.06f, 0.92f);   // Back
 
         static RectTransform frame, innerUnder, inner;
         static readonly List<Image> hidden = new List<Image>();
@@ -36,9 +36,9 @@ namespace VerdantsAscent.Managers
 
         internal static void Tick(Image backdrop, Image inlay, Image panelUnderlay, Color goldEdge, float edgeAlpha)
         {
-            // 1.0.182 (Fire: copy the originals): under Panels the grid keeps vanilla's OWN panel (wood Bkg + item_background cells, as with
+            // Under Panels the grid keeps vanilla's OWN panel (wood Bkg + item_background cells, as with
             // the unified UI off). No plate, nothing hidden; whatever an earlier Tick built is taken down once.
-            // 1.0.183: the 1.0.182 Panels early-out is gone; the plate is part of the pre-unified look Fire wants back (as with the unified UI off)
+            // The 1.0.182 Panels early-out is gone; the plate is part of the pre-unified look Fire wants back (as with the unified UI off)
             var gui = InventoryGui.instance;
             var grid = gui != null ? gui.m_playerGrid : null;
             var gridRoot = grid != null ? grid.m_gridRoot : null;
@@ -56,9 +56,9 @@ namespace VerdantsAscent.Managers
 
             int count = Mathf.Min(gridRoot.childCount, Slots.InventorySizePlayer);
             if (count <= 0 || !TryCellBounds(gridRoot, player, count, out Rect cells)) return;
-            // 1.0.171 ([classes-ui] for Fire's night shot: the Armor / Weight footer sat on the grid's rows): under Panels the plate runs 32 px
+            // Under Panels the plate runs 32 px
             // past the last row, a strip of its own for the footer (as the v4/v5 mock)
-            // 1.0.180: Armor / Weight moved to the player panel (beside the head), so the 1.0.171 footer strip under the grid is gone
+            // Armor / Weight moved to the player panel (beside the head), so the 1.0.171 footer strip under the grid is gone
             if (UnifiedScreen.PanelsMode && FooterStrip < 0f) cells = Rect.MinMaxRect(cells.xMin, cells.yMin - FooterStrip, cells.xMax, cells.yMax);
 
             HideVanilla(player);
@@ -68,7 +68,7 @@ namespace VerdantsAscent.Managers
             if (inner == null) inner = NewImage(player, InnerName).rectTransform;
             SetColor(frame, dark);
             SetColor(innerUnder, dark);
-            // 1.0.86 (round 30: the grid's inner layer came out dark grey with the VA emblem): the tan is the panel's lighter
+            // The tan is the panel's lighter
             // Backing inlay, not its Bkg art, exactly as the crafting skin (which came out right) uses it. Same Outline too.
             var innerSrc = inlay != null ? inlay : backdrop;
             var innerImage = inner.GetComponent<Image>();
@@ -90,9 +90,9 @@ namespace VerdantsAscent.Managers
             if (innerUnder.GetSiblingIndex() != 1) innerUnder.SetSiblingIndex(1);
             if (inner.GetSiblingIndex() != 2) inner.SetSiblingIndex(2);
 
-            // 1.0.86: the empty cells get the Misc / backpack cell edge (UnifiedScreen.BindChrome: gold, 1 px, the panel's cell edge
+            // The empty cells get the Misc / backpack cell edge (UnifiedScreen.BindChrome: gold, 1 px, the panel's cell edge
             // alpha), so the 8 x N squares read on the tan like the panel's own.
-            // 1.0.184 ([lead]/Fire: "the correct fix"): under Panels Core's CraftingSkin Role.Slot (0.2.558) styles every slot, identically on
+            // Under Panels Core's CraftingSkin Role.Slot (0.2.558) styles every slot, identically on
             // every open; VAInventory adds nothing of its own to the cells there (no outline, no face), so nothing fights it
             for (int i = 0; i < count && !UnifiedScreen.PanelsMode; i++)
             {
@@ -104,7 +104,7 @@ namespace VerdantsAscent.Managers
                 edged.Add(cellEdge);
             }
 
-            // 1.0.88 (Fire: the grid's darker squares, on the player panel's cells too): the colour the main grid's empty cells
+            // The colour the main grid's empty cells
             // render at, measured from round 31's shot (docs_vainventory_full_panel 18:45, RGB 45/39/28), opaque, so the panel's
             // cells show the same square whatever is under them.
             GridCellFace = UnifiedScreen.PanelsMode ? (Color?)null : new Color(45f / 255f, 39f / 255f, 28f / 255f, 1f);   // 1.0.184: none under Panels (Core styles the slots)

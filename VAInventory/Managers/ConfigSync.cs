@@ -16,6 +16,14 @@ namespace VerdantsAscent
 {
     public class ConfigSync
     {
+        // Packages above this size are deflated before sending.
+        const int CompressThresholdBytes = 10000;
+        // Packages above this size are split into fragments of this size.
+        const int FragmentSizeBytes = 250000;
+        // Sending waits while a peer's socket queue is above this, for at most SendQueueTimeoutSeconds.
+        const int MaxSendQueueBytes = 20000;
+        const float SendQueueTimeoutSeconds = 30f;
+
         public static bool ProcessingServerUpdate = false;
 
         public readonly string Name;
@@ -606,7 +614,7 @@ namespace VerdantsAscent
 
             byte[] data = package.GetArray();
 
-            if (data.Length > 10000)
+            if (data.Length > CompressThresholdBytes)
             {
                 var compressed = new ZPackage();
                 compressed.Write(COMPRESSED_CONFIG);
@@ -634,9 +642,9 @@ namespace VerdantsAscent
         {
             byte[] data = package.GetArray();
 
-            if (data.Length > 250000)
+            if (data.Length > FragmentSizeBytes)
             {
-                int fragments = (data.Length + 249999) / 250000;
+                int fragments = (data.Length + FragmentSizeBytes - 1) / FragmentSizeBytes;
                 long packageId = ++packageCounter;
 
                 for (int i = 0; i < fragments; i++)
@@ -652,7 +660,7 @@ namespace VerdantsAscent
                     pkg.Write(packageId);
                     pkg.Write(i);
                     pkg.Write(fragments);
-                    pkg.Write([.. data.Skip(250000 * i).Take(250000)]);
+                    pkg.Write([.. data.Skip(FragmentSizeBytes * i).Take(FragmentSizeBytes)]);
 
                     SendPackage(pkg);
 
@@ -670,9 +678,9 @@ namespace VerdantsAscent
 
             IEnumerable<bool> waitForQueue()
             {
-                float timeout = Time.time + 30f;
+                float timeout = Time.time + SendQueueTimeoutSeconds;
 
-                while (peer.m_socket.GetSendQueueSize() > 20000)
+                while (peer.m_socket.GetSendQueueSize() > MaxSendQueueBytes)
                 {
                     if (Time.time > timeout)
                     {

@@ -7,8 +7,8 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers
 {
     /// <summary>
-    /// 1.0.282 (Fire 10-21, shot 20261021_0010/4: the chest drags right now but "still LOOKS like shit - elements hanging off the edges, the
-    /// grid and the border the same size, tabs overlapping"). VAInventory owns the chest panel's LAYOUT under Panels (split with [generator]:
+    /// 1.0.282 (shot 20261021_0010/4: the chest drags right now but "still LOOKS like shit - elements hanging off the edges, the
+    /// grid and the border the same size, tabs overlapping"). VAInventory owns the chest panel's LAYOUT under Panels (split with
     /// Core 0.2.649 CraftingSkin draws the look - kit pills, the gold rule under the name, the inset gold-edged well for any KitWell_*, and
     /// places Tags 8 px right of Place stacks). Fire's spec, outside in:
     ///   panel background | Pad1 | gold border (KitWell_ChestFrame) | Pad2 | name (header) | row: Take all . Place stacks . Tags |
@@ -21,11 +21,11 @@ namespace VerdantsAscent.Managers
     internal static class ChestSections
     {
         const float Pad1 = 6f, Pad2 = 12f, HeaderH = 44f, Gap = 10f, TagsW = 72f, ButtonGap = 8f, WeightH = 24f;
-        // 1.0.309 (Fire watching 1.0.308: "a little less padding between the top of the background and the header text, and a little padding
+        // ("a little less padding between the top of the background and the header text, and a little padding
         // between the bottom of the tabs and the top of the grid, because right now they overlap"): the title sits TopPad (not Pad2) under
         // Pad1; the grid starts RowGridGap below the LOWEST drawn bottom of the button row (Take all / Place stacks / Core's Tags).
         const float TopPad = 4f, RowGridGap = 10f;
-        static float s_ruleH = 14f;   // 1.0.313: the divider's drawn height, measured each layout tick
+        static float s_ruleH = 14f;   // The divider's drawn height, measured each layout tick
         static float s_next;
         static string s_lastLog, s_weightSized;
         static bool s_hierLogged;
@@ -33,7 +33,7 @@ namespace VerdantsAscent.Managers
 
         static void Postfix(InventoryGui __instance)
         {
-            if (!UnifiedScreen.PanelsMode || !FiresCore.UI.Shell.FiresShell.OverrideOn) return;   // 1.0.283: Unified UI OFF (Core override) = vanilla chest, untouched
+            if (!UnifiedScreen.PanelsMode || !FiresCore.UI.Shell.FiresShell.OverrideOn) return;   // Unified UI OFF (Core override) = vanilla chest, untouched
             var root = __instance.m_container;
             if (root == null || !root.gameObject.activeInHierarchy) return;
             WeightText(__instance);   // every call: vanilla rewrites the number each frame
@@ -57,7 +57,7 @@ namespace VerdantsAscent.Managers
             if (grid == null || !grid.gameObject.activeInHierarchy) return;
             if (!s_hierLogged) { s_hierLogged = true; LogHierarchy(root); }
 
-            // 1.0.283 (Fire 10-21 shot 20261021_0040/01: "starts at a decent size and grows the whole time it's open"; log: 'chest layout:
+            // 1.0.283 (shot 20261021_0040/01: "starts at a decent size and grows the whole time it's open"; log: 'chest layout:
             // panel 606' -> 642 -> ... -> 4890, +36 a tick): ContainerGrid/Root is STRETCHED across the panel, so its rect = the panel's width
             // and every resize fed the next. The grid is measured by its CELLS (the union of Root's active children), which never stretch.
             Rect g = CellsBounds(root, grid);
@@ -77,7 +77,7 @@ namespace VerdantsAscent.Managers
             var bkg = root.Find("Bkg") as RectTransform;
             if (bkg != null && (bkg.anchorMin != Vector2.zero || bkg.anchorMax != Vector2.one || bkg.offsetMin != Vector2.zero || bkg.offsetMax != Vector2.zero))
             { bkg.anchorMin = Vector2.zero; bkg.anchorMax = Vector2.one; bkg.offsetMin = bkg.offsetMax = Vector2.zero; }
-            // 1.0.312 ([lead] from golden_chest [ChestDiag]: "Container/Darken [-3,313..553,767]" - vanilla's container Darken, kit-skinned,
+            // 1.0.312 (from golden_chest [ChestDiag]: "Container/Darken [-3,313..553,767]" - vanilla's container Darken, kit-skinned,
             // larger than the panel and offset = the dark outer plate / "two frames" Fire saw): under Panels it covers exactly the panel,
             // like Bkg, so it sits hidden behind Bkg instead of framing it.
             var darken = root.Find("Darken") as RectTransform;
@@ -87,7 +87,7 @@ namespace VerdantsAscent.Managers
             Rect r = root.rect;   // local space, after the resize
             float left = r.xMin + Pad1 + Pad2, top = r.yMax - Pad1 - TopPad, cx = r.center.x;
 
-            // 1.0.308 (Fire 10-22, hand-over shot chest_fire_placement_layout_broken: "fix the messed-up layout of the chest" - an inner box
+            // 1.0.308 (hand-over shot chest_fire_placement_layout_broken: "fix the messed-up layout of the chest" - an inner box
             // offset inside the outer frame): ONE frame, the panel's own. The inner gold well (KitWell_ChestFrame) is no longer drawn; an
             // already-built one is switched off.
             var oldFrame = root.Find("KitWell_ChestFrame"); if (oldFrame != null && oldFrame.gameObject.activeSelf) oldFrame.gameObject.SetActive(false);
@@ -96,14 +96,14 @@ namespace VerdantsAscent.Managers
             // header: the name, centred, filling the inner width
             if (name != null)
             {
-                gui.m_containerName.alignment = TextAlignmentOptions.Center;   // 1.0.313 (Fire 10-22: "chest" centered); 1.0.308 had it top-left
+                gui.m_containerName.alignment = TextAlignmentOptions.Center;   // 1.0.313; 1.0.308 had it top-left
                 gui.m_containerName.enableWordWrapping = false;
                 gui.m_containerName.enableAutoSizing = true; gui.m_containerName.fontSizeMax = Mathf.Max(gui.m_containerName.fontSizeMax, 30f); gui.m_containerName.fontSizeMin = 14f;
                 SetSize(name, inner, HeaderH);
                 Move(root, name, new Vector2(left, top));
             }
             float y = top - HeaderH - Gap;
-            // 1.0.313 (Fire 10-22: "chest" centered, then padding, then the decorative divider, then padding, then the tabs and the grid -
+            // 1.0.313 ("chest" centered, then padding, then the decorative divider, then padding, then the tabs and the grid -
             // "right now the divider sits with the tabs overlapping it"): Core's divider (KitChestRule* under the title) is measured by its
             // DRAWN bottom (line + centre diamond) and the row starts Gap below it; the panel height reserves its height (s_ruleH, last tick)
             {
@@ -118,24 +118,24 @@ namespace VerdantsAscent.Managers
                 else s_ruleH = 0f;
             }
 
-            // the button row at the left under the title (1.0.308, Fire): Take all . Place stacks . (Tags, placed by Core right of Place stacks)
+            // the button row at the left under the title: Take all . Place stacks . (Tags, placed by Core right of Place stacks)
             float x = left;
             if (take != null) { Move(root, take, new Vector2(x, y - (rowH - takeS.y) * 0.5f)); x += takeS.x + ButtonGap; }
             if (stack != null) Move(root, stack, new Vector2(x, y - (rowH - stackS.y) * 0.5f));
             y -= rowH;
-            // 1.0.310 (Fire 10-22: "the tabs and the grid need padding between them"; 1.0.309 measured RectTransforms, not the art): the
+            // The
             // row's LOWEST DRAWN bottom - every visible Graphic under Take all / Place stacks / any "Tag" object anywhere under the panel
             // outside the grid - then RowGridGap.
             float rowBottom = RowDrawnBottom(root, grid, take, stack, y);
             y = rowBottom - RowGridGap;
 
-            // the grid, centred - by its CELLS. 1.0.308 ([lead] 1.0.307 log: "grid root [23..413]; cells [133..477]; RectMask2D [0..390]"):
+            // the grid, centred - by its CELLS. 1.0.308:
             // Move() places the root's own drawn rect, but vanilla draws the cells 110 units inside the root, so centring the ROOT on the
             // cells' width put the cells 110 too far right and the last columns past the mask. The cells' top-left now lands on the spot.
             {
-                Vector2 want = new Vector2(left, y);   // 1.0.308 (Fire): left-aligned with the buttons, directly under them
+                Vector2 want = new Vector2(left, y);   // Left-aligned with the buttons, directly under them
                 Rect now = CellsBounds(root, grid);   // re-measured: the panel resize above shifts root-local coordinates
-                float drawnTop = Drawn(root, grid, now).yMax;   // 1.0.310: the cells' DRAWN top
+                float drawnTop = Drawn(root, grid, now).yMax;   // The cells' DRAWN top
                 Vector2 d = want - new Vector2(now.xMin, drawnTop);
                 // checked every tick (4x/s): whoever moved the grid or the row since, it goes back - counted for [ChestDiag]
                 if (d.sqrMagnitude >= 0.25f) { grid.position += root.TransformVector(new Vector3(d.x, d.y, 0f)); s_reapplied++; }
@@ -155,7 +155,7 @@ namespace VerdantsAscent.Managers
             if (line != s_lastLog) { s_lastLog = line; EquipmentPanel.PanelLog?.LogDebug("panels: " + line); LogRects(gui, root); }
         }
 
-        // 1.0.307 ([lead]: the grid's last column was cut): once per new layout, the DRAWN rects (panel space) of the panel, its Bkg,
+        // Once per new layout, the DRAWN rects (panel space) of the panel, its Bkg,
         // the grid parent, the cells' union and every Mask / RectMask2D under the panel, so a clip shows which edge is short.
         static void LogRects(InventoryGui gui, RectTransform root)
         {
@@ -409,7 +409,7 @@ namespace VerdantsAscent.Managers
             if (text != null)
             {
                 text.enableWordWrapping = false; text.alignment = TextAlignmentOptions.MidlineLeft;
-                // 1.0.313 (Fire's shot: a lone "0" under the grid - [ChestDiag] had weight_text only 12 px wide): the full line shows
+                // The full line shows
                 text.overflowMode = TextOverflowModes.Overflow;
                 if (text.rectTransform.rect.width < 200f) text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, 220f);
             }
@@ -421,7 +421,7 @@ namespace VerdantsAscent.Managers
             if (t == null) return;
             string s = t.text ?? "";
             if (!s.StartsWith("Container weight", System.StringComparison.Ordinal)) t.text = s = "Container weight: " + s;
-            // 1.0.315 (Fire 10-22 shot chest_ui_massive: still a lone grey "37"; [ChestDiag] had the text 'Container weight: 37' in a 42 px rect):
+            // 
             // the label's rect is held at least as wide as its text, left-aligned and overflowing, every call - a restyle after the 0.25 s
             // layout tick (or a right-aligned clip) showed only the end of the line
             if (t.alignment != TextAlignmentOptions.MidlineLeft) t.alignment = TextAlignmentOptions.MidlineLeft;

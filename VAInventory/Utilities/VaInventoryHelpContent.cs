@@ -7,7 +7,7 @@ namespace VerdantsAscent.Utilities
     // dependency — TryRegister checks the Chainloader before touching any
     // FiresCore type, and DoRegister is NoInlining so the JIT never resolves
     // FiresCore when Core is absent.
-    // 1.0.254 (the lead's how-to audit, Tools\discord_howto_20261020\vainventory\CHANGES.md): brought up to date - Jewelry slot,
+    // Brought up to date - Jewelry slot,
     // layouts incl. Panels (drag by header, corner resize, gentle docking, Shift = free), F1 Player > Stats, hotbar strip drag /
     // corner resize, ExtraSlots.CurrencyPrefabs, [UI.Backgrounds], vainv_overflow; no hidden keys named (config rule 1.0.252).
     internal static class VaInventoryHelpContent

@@ -26,7 +26,7 @@ namespace VerdantsAscent.Managers
             // The ConsoleCommand constructor registers itself, so no Terminal patch is needed.
             new Terminal.ConsoleCommand(CommandName,
                 "dump the live inventory UI hierarchy + rects to BepInEx/config/VAInventory_uidump[_suffix].txt; add 'open' to open the inventory first",
-                args => Run(args), isCheat: true);   // 1.0.74: admin/devcommands only
+                args => Run(args), isCheat: true);   // Admin/devcommands only
         }
 
         static void Run(Terminal.ConsoleEventArgs args)

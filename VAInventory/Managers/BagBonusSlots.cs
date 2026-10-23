@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace VerdantsAscent.Managers
 {
-    // 1.0.120 ([fgn] FRC section 15, VABackpacks 1.0.49): with VAInventory a bag's contents are its backpack-storage cells in the
+    // With VAInventory a bag's contents are its backpack-storage cells in the
     // player grid, so two of the bag bonuses are applied here, where those cells are known (VABackpacks applies them itself in
     // legacy mode, and carry weight in both). Per worn bag, from BackpackApi.GetBonus (null without FRC: nothing changes):
     //   contentsWeightFactor  the weight of the items in that bag's cells times the factor (Inventory.GetTotalWeight)
@@ -23,7 +23,7 @@ namespace VerdantsAscent.Managers
         private static float s_nextForce, s_nextStat;
         private static void MarkDirty() => s_dirty = true;
 
-        // 1.0.140 ([fgn]/R6: the per-frame BagsKey reflection call cost as much as the walk it saved): worn-bag changes arrive as
+        // Worn-bag changes arrive as
         // BackpackBridge's equip/unequip events (subscribed once) and mark the cache dirty; HasBonus (a reflection read) once per frame.
         private static bool s_eventsHooked;
         private static int s_bonusFrame = -1;
@@ -33,7 +33,7 @@ namespace VerdantsAscent.Managers
 
         private static void Refresh(Player player)
         {
-            // 1.0.139 ([fgn] R5 perf: the bag walk ran every frame): recomputed only when the player inventory changed (m_onChanged),
+            // Recomputed only when the player inventory changed (m_onChanged),
             // the worn bags changed, or 1 s passed; otherwise the cached cut/speed stand. Debug every 30 s: "recomputed N, cached M".
             if (Time.frameCount == s_frame) return;
             s_frame = Time.frameCount;

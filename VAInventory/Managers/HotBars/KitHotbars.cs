@@ -7,7 +7,7 @@ using UnityEngine.UI;
 namespace VerdantsAscent.Managers.HotBars
 {
     /// <summary>
-    /// 1.0.169 (Fire OK'd the unified hotbar mockups, via [lead]): with Core's hotbar kit present (Core 0.2.528+: KitHotbarRow / KitHotbarSlot)
+    /// With Core's hotbar kit present (Core 0.2.528+: KitHotbarRow / KitHotbarSlot)
     /// AND the Fires UI override ON, the Tool / Food / Ammo bars draw as kit HotbarRows - the same rounded wells, key chip under the slot,
     /// count strip and durability bar as the class bars - instead of vanilla's cloned HotKeyBar elements. The kit row lives INSIDE the bar's
     /// root (the HUD-dock element), so moving / docking / scaling is unchanged; vanilla's elements stay alive (other code reads them) but
@@ -91,7 +91,7 @@ namespace VerdantsAscent.Managers.HotBars
                 s.SetKey(k);
                 s.SetState(item == null ? FiresCore.UI.Shell.Kit.HotbarSlotState.Empty : FiresCore.UI.Shell.Kit.HotbarSlotState.Normal);
             }
-            // 1.0.208 (Fire: ONE slot look, hotbars included): each kit slot's own face takes the Tools pouch cell's look
+            // Each kit slot's own face takes the Tools pouch cell's look
             if (UnifiedScreen.PouchLook(out var look) && row.Root != null)
                 foreach (Transform slot in row.Root)
                     UnifiedScreen.ApplyLook(slot.GetComponent<Image>(), look);
@@ -106,7 +106,7 @@ namespace VerdantsAscent.Managers.HotBars
         static bool s_flowLoaded;
         static string FlowFile => System.IO.Path.Combine(BepInEx.Paths.BepInExRootPath, "cache", "VAInventory", "hotbar_layout.txt");
 
-        // 1.0.232: Core's SizeReset - forget the bar's saved size and lay the slots back at the default 1-row, 64 px look
+        // Core's SizeReset - forget the bar's saved size and lay the slots back at the default 1-row, 64 px look
         internal static void ResetFlow(string barName)
         {
             LoadFlow();
@@ -129,9 +129,9 @@ namespace VerdantsAscent.Managers.HotBars
 
         internal static void Reflow(string barName, Vector2 want)
         {
-            // 1.0.291 (Fire 10-21: after Unified OFF -> ON "the tools hotbar is now vertical"; log 'VA_ToolHotBar re-flowed to 1x4, cell 40
+            // 1.0.291 (after Unified OFF -> ON "the tools hotbar is now vertical"; log 'VA_ToolHotBar re-flowed to 1x4, cell 40
             // (rect 40x40)' in a loop): a rect smaller than one cell is never a player's resize (the old 38x5 element fit fed it here) - ignored
-            // 1.0.292: and never a size that can't hold all of the bar's slots at the minimum cell (40x40 for 4 tools = one vertical column)
+            // And never a size that can't hold all of the bar's slots at the minimum cell (40x40 for 4 tools = one vertical column)
             int slots = s_rows.TryGetValue(barName, out var r0) && r0 != null && r0.Slots != null ? r0.Slots.Length : 1;
             if (want.x < MinCell - 1f || want.y < MinCell * 0.5f || !Holds(want, slots)) { EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] hotbars: {barName} re-flow to {want.x:0}x{want.y:0} ignored (can't hold its {slots} slot(s))"); return; }
             LoadFlow();
@@ -169,7 +169,7 @@ namespace VerdantsAscent.Managers.HotBars
             catch { }
         }
 
-        // 1.0.292: true when a w x h box fits n slots at MinCell with Gap between them (any cols x rows split, 0.5 px slack)
+        // True when a w x h box fits n slots at MinCell with Gap between them (any cols x rows split, 0.5 px slack)
         static bool Holds(Vector2 want, int n)
         {
             if (n <= 1) return want.x >= MinCell - 1f && want.y >= MinCell - 1f;
@@ -183,7 +183,7 @@ namespace VerdantsAscent.Managers.HotBars
             LoadFlow();
             if (!s_flow.TryGetValue(barName, out var want) || row.Slots.Length == 0) return;
             int n = row.Slots.Length;
-            // 1.0.292 (Fire 10-21 "the tools hotbar is now vertical"; his cache\VAInventory\hotbar_layout.txt held 'VA_ToolHotBar|40|40' - Core's
+            // 1.0.292 ("the tools hotbar is now vertical"; his cache\VAInventory\hotbar_layout.txt held 'VA_ToolHotBar|40|40' - Core's
             // 40 px MinSize clamp of the old 38x5 element fit, saved through SizeChanged): a flow that cannot hold all n slots at the minimum cell
             // is not a player's layout - it is dropped (file rewritten) and the bar keeps its default one-row layout. A real vertical resize
             // (tall enough for every slot) still applies.

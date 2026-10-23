@@ -58,9 +58,9 @@ namespace VerdantsAscent.Managers
         public ConfigEntry<Vector2> configContainerOffset;
         public ConfigEntry<string> configContainerWindowPosition;
         public ConfigEntry<bool> configResetContainerWindowPosition;
-        // Fire 10-07 (1.0.69): the Unified panel was too see-through; a solid plate under its backdrop, this opaque.
+        // the Unified panel was too see-through; a solid plate under its backdrop, this opaque.
         public ConfigEntry<float> configPanelOpacity;
-        // Fire 10-08 (1.0.72): the space under the lowest grid row, matched to the top's.
+        // the space under the lowest grid row, matched to the top's.
         public ConfigEntry<int> configPanelBottomGap;
 
         // ────── Extra Slots Settings ──────
@@ -73,12 +73,12 @@ namespace VerdantsAscent.Managers
         // Comma-separated PREFAB names the pouch holds. Vanilla valuables by default; add
         // modded currency prefab ids (e.g. Peningar) to make them auto-deposit into the pouch.
         public ConfigEntry<string> configCurrencyPrefabs;
-        public ConfigEntry<bool> configUnifiedMigrated;   // 1.0.305: the one-time Fires UI override migration has run
+        public ConfigEntry<bool> configUnifiedMigrated;   // The one-time Fires UI override migration has run
 
         private static readonly char[] CurrencySplit = [',', ';'];
         private const string DefaultCurrencyPrefabs = "Coins,Ruby,Amber,AmberPearl";
 
-        // ── 1.0.305 (Fire 10-22: "override on force for the first time to migrate, but so help me god if i try to then adjust my positions
+        // ── 1.0.305 ("override on force for the first time to migrate, but so help me god if i try to then adjust my positions
         // and they get forced back i will flip my lid") ── ONE-TIME migration, written to the cfg: the first time VAInventory sees Core's
         // Fires UI override ON while [UI] UnifiedMigrated is false, it sets the approved v6b values - Layout Panels, EquipmentPanelRows 3,
         // ExtraRows 3, the six panel backgrounds on - then UnifiedMigrated = true, one log line. After that nothing here reads or forces
@@ -94,7 +94,7 @@ namespace VerdantsAscent.Managers
                 if (t != null) t.Value = true;
             configUnifiedMigrated.Value = true;
             _cfgFile?.Save();
-            // 1.0.306: at the main menu RefreshSlotsAndPanel no-ops (no world), so the slot list - built in Awake with the old Misc rows -
+            // At the main menu RefreshSlotsAndPanel no-ops (no world), so the slot list - built in Awake with the old Misc rows -
             // is rebuilt here from the migrated values, the same call Awake makes without a world.
             Slots.InitializeSlots();
             Debug.Log($"[VAInventory] Fires UI migration ({when}): Layout Panels, EquipmentPanelRows 3, ExtraRows 3, six panel backgrounds on, written once; "
@@ -121,7 +121,7 @@ namespace VerdantsAscent.Managers
             private static void Prefix(Player __instance) { if (__instance == Player.m_localPlayer) Instance?.MigrateToUnifiedOnce("first spawn"); }
         }
 
-        // 1.0.303: a cfg written by 1.0.116..1.0.302 on a fresh install holds the key's description instead of a list. Put the default back,
+        // A cfg written by 1.0.116..1.0.302 on a fresh install holds the key's description instead of a list. Put the default back,
         // once, with one log line. Any value a player actually typed is left alone.
         private void RepairCurrencyPrefabs()
         {
@@ -147,7 +147,7 @@ namespace VerdantsAscent.Managers
                 foreach (var part in raw.Split(CurrencySplit, StringSplitOptions.RemoveEmptyEntries))
                 {
                     var name = part.Trim();
-                    // 1.0.303: a prefab id never holds spaces, quotes or brackets; anything that does is not a currency
+                    // A prefab id never holds spaces, quotes or brackets; anything that does is not a currency
                     if (name.IndexOfAny(new[] { ' ', '\'', '"', '(', ')', '.' }) >= 0) continue;
                     if (name.Length > 0 && seen.Add(name))
                         list.Add(name);
@@ -198,7 +198,7 @@ namespace VerdantsAscent.Managers
         public ConfigEntry<Vector2> configToolHotbarPosition;
         public ConfigEntry<float> configToolHotbarScale;
         public ConfigEntry<bool> configToolHotbarShowWhenEmpty;
-        public ConfigEntry<KeyboardShortcut>[] configToolHotbarKeys = new ConfigEntry<KeyboardShortcut>[8];   // 1.0.116: KeyboardShortcut (was string KeybindEx1-8)
+        public ConfigEntry<KeyboardShortcut>[] configToolHotbarKeys = new ConfigEntry<KeyboardShortcut>[8];   // KeyboardShortcut (was string KeybindEx1-8)
 
         // ────── Torch slot (1.0.50) ──────
         public ConfigEntry<KeyCode> configTorchSlotKey;
@@ -230,9 +230,9 @@ namespace VerdantsAscent.Managers
         public bool suppressToolHotbarPositionChangeEvents = false;
 
         public void Initialize(ConfigFile config)
-        { _cfgFile = config;   // 1.0.305: the one-time migration saves through it
+        { _cfgFile = config;   // The one-time migration saves through it
             // General
-            // Off by default (1.0.51; Fire, 2026-10-01: cut verbose logging; every other Fires mod defaults it off).
+            // Off by default.
             configVerboseLogging = config.Bind("General", "VerboseLogging", false,
                 new ConfigDescription("Enable detailed debug logs.", null, new ConfigurationManagerAttributes { IsAdvanced = true }));
 
@@ -271,10 +271,10 @@ namespace VerdantsAscent.Managers
             configContainerWindowPosition = config.Bind("UI", "ContainerWindowPosition", "",
                 "Where you dragged a chest's panel, as x,y in UI units. Empty = open just below the carry grid. Drag the " +
                 "panel by its backdrop to move it; set ResetContainerWindowPosition to put it back. Written for you; no need to edit.");
-            // Fire 10-07: a real "Reset to default" button in BepInEx ConfigurationManager (its CustomDrawer); without the
+            // a real "Reset to default" button in BepInEx ConfigurationManager (its CustomDrawer); without the
             // manager it is a plain bool that flips itself back to false after resetting.
-            // 1.0.151: 'Remap misplaced slot items' removed - the remap is a fix, always on (Fire's rule 10-14); an old cfg line is ignored
-            // 1.0.152: 'Repair shifted equipment rows' removed - the repair is a fix, always on (proven R-C2); an old cfg line is ignored
+            // 'Remap misplaced slot items' removed - the remap is a fix, always on; an old cfg line is ignored
+            // 'Repair shifted equipment rows' removed - the repair is a fix, always on (proven R-C2); an old cfg line is ignored
             configResetContainerWindowPosition = config.Bind("UI", "ResetContainerWindowPosition", false,
                 new ConfigDescription("Puts a dragged chest panel back just below the carry grid. In the config manager it is a " +
                     "button; in the file, set true (it flips itself back to false).", null,
@@ -311,8 +311,8 @@ namespace VerdantsAscent.Managers
             configShowAmmoSlots = config.Bind("ExtraSlots", "ShowAmmoSlots", true,
                 "Show ammo slots in the equipment panel.");
 
-            // 1.0.116: was [CoinPouch], migrated below.
-            // 1.0.303 ([seasons], Fire's Gale modpack 0.1.9): the default "Coins,Ruby,Amber,AmberPearl" sat INSIDE the comment on this line
+            // Was [CoinPouch], migrated below.
+            // The default "Coins,Ruby,Amber,AmberPearl" sat INSIDE the comment on this line
             // since 1.0.116, so every fresh install got the DESCRIPTION as the value - the pouch's first currency was a sentence and plain
             // Coins never went in. The default is real again, and a stored value that is that description is put back (RepairCurrencyPrefabs).
             configCurrencyPrefabs = config.Bind("ExtraSlots", "CurrencyPrefabs", DefaultCurrencyPrefabs,
@@ -366,7 +366,7 @@ namespace VerdantsAscent.Managers
                 new ConfigDescription("Scale of the tool hotbar UI.", new AcceptableValueRange<float>(0.5f, 2f)));
             configToolHotbarShowWhenEmpty = config.Bind("ToolHotbar", "ShowWhenEmpty", false, "Show the tool hotbar when empty (except when inventory is open)");
 
-            // Torch slot (Fire, 2026-09-30: double-tap T)
+            // Torch slot
             configTorchSlotKey = config.Bind("TorchSlot", "Key", KeyCode.T,
                 "Takes out, or puts away, the torch or lantern in the Torch slot.");
             configTorchSlotDoubleTap = config.Bind("TorchSlot", "Double tap", true,
@@ -400,7 +400,7 @@ namespace VerdantsAscent.Managers
             for (int i = 0; i < configFoodHotbarKeys.Length; i++)
                 configFoodHotbarKeys[i] = config.Bind("FoodHotbar", $"Slot {i + 1} key", new KeyboardShortcut(KeyCode.Alpha1 + i, KeyCode.LeftControl),
                     $"Uses food hotbar slot {i + 1}. Alt, Ctrl and Shift count on either side of the keyboard.");
-            // 1.0.116 (config audit 10-13): renamed / moved keys keep the player's value - copied once from the old entry.
+            // Renamed / moved keys keep the player's value - copied once from the old entry.
             MigrateOldKeys(config);
 
             // Mark dirty on change so the bars rebuild themselves on the
@@ -503,7 +503,7 @@ namespace VerdantsAscent.Managers
             SetupConfigWatcher(config);
         }
 
-        // 1.0.252 (TEAM RULE, Fire: player-facing configs): ONE reviewed list. Window spots / sizes / scales / opacity = Hidden (saved, never
+        // ONE reviewed list. Window spots / sizes / scales / opacity = Hidden (saved, never
         // shown; players use the drag handles); everything but keybinds and the basics = Advanced (Core's config UI shows it only with Show
         // Advanced); every description = one short plain line. Existing tags (ConfigSync) are kept; values and defaults are untouched.
         static readonly System.Collections.Generic.HashSet<string> Hidden = new System.Collections.Generic.HashSet<string>
@@ -745,7 +745,7 @@ namespace VerdantsAscent.Managers
             for (int i = 0; i < configAmmoHotbarKeys.Length; i++) Keybind("AmmoHotbar", i + 1, configAmmoHotbarKeys[i]);
             for (int i = 0; i < configFoodHotbarKeys.Length; i++) Keybind("FoodHotbar", i + 1, configFoodHotbarKeys[i]);
 
-            // 1.0.123: Lightened Slots is gone (it was never switched on: its UpdateState had no caller). Its keys are dropped once.
+            // Lightened Slots is gone (it was never switched on: its UpdateState had no caller). Its keys are dropped once.
             foreach (string retired in new[] { "Enabled", "WeightFactor", "StartIndex", "OnlyExtraRows" })
             {
                 var old = new ConfigDefinition("LightenedSlots", retired);

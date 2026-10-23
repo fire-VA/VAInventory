@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace VerdantsAscent
 {
-    // 1.0.144 ([seasons], Fire 10-14: "the inventory needs to change fluidly between all settings - new rows from the traders, a backpack /
+    // 1.0.144 ("the inventory needs to change fluidly between all settings - new rows from the traders, a backpack /
     // hobo stick / Fires staff with storage equipped or not, the configs - and it all needs to be completely clean"). Every slot rebuild
     // (Slots.InitializeSlots, whatever asked for it) and the trader row purchase go through ONE path:
     //   1. capture each player item's ADDRESS in the old layout: "S:<slot id>" for a cell (Helmet, Ammo_n, Misc_c_r,
