@@ -5,6 +5,6 @@
     "description":  "A character panel for your inventory: gear slots around a live preview, coin pouch, tool/food/ammo hotbars, movable docking panels and a player stats page. Part of the Fires mod family.",
     "dependencies":  [
                          "denikson-BepInExPack_Valheim-5.4.2350",
-                         "VerdantsAscent-FiresUnifiedCore-0.2.670"
+                         "VerdantsAscent-FiresUnifiedCore-0.2.752"
                      ]
 }

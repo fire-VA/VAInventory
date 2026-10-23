@@ -190,10 +190,6 @@
     <Compile Include="Managers\VAInventoryPreviewApi.cs" />
     <Compile Include="Managers\StatsPanel.cs" />
     <Compile Include="Managers\UiDump.cs" />
-    <Compile Include="Managers\UiTest.cs" />
-    <Compile Include="Managers\UiTest.BagResize.cs" />
-    <Compile Include="Managers\UiTest.InvUpgrade.cs" />
-    <Compile Include="Managers\UiTestCore.cs" />
     <Compile Include="Managers\UnifiedScreen.cs" />
     <Compile Include="Managers\GripSprite.cs" />
     <Compile Include="Managers\VAInventoryApi.cs" />
@@ -226,4 +222,14 @@
   </ItemGroup>
   <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <!-- Rig-only UI test commands: the UiTest files stay out of the public repo. When they are present the build includes them and defines FIRES_TESTS. -->
+  <PropertyGroup Condition="Exists('Managers\UiTest.cs')">
+    <DefineConstants>$(DefineConstants);FIRES_TESTS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="Exists('Managers\UiTest.cs')">
+    <Compile Include="Managers\UiTest.cs" />
+    <Compile Include="Managers\UiTest.BagResize.cs" />
+    <Compile Include="Managers\UiTest.InvUpgrade.cs" />
+    <Compile Include="Managers\UiTestCore.cs" />
+  </ItemGroup>
 </Project>

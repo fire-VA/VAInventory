@@ -117,7 +117,9 @@ namespace VerdantsAscent
             // Register custom UI backgrounds
             VerdantsAscent.Managers.UIBackgroundManager.RegisterDefaultBackgrounds();
             VerdantsAscent.Managers.UiDump.Register();
+#if FIRES_TESTS
             VerdantsAscent.Managers.UiTest.Register();
+#endif
 
             // Force immediate panel rebuild now that slots are ready
             EquipmentPanel.UpdatePanel();

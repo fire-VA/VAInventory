@@ -44,7 +44,7 @@ room for your bags. Part of the Fires mod family.
 ## Requires
 
 - BepInExPack for Valheim
-- FiresUnifiedCore 0.2.670 or newer
+- FiresUnifiedCore 0.2.752 or newer
 - VABackpacks (optional) - fills the Backpack slot and the bag panels.
 
 ## Good to know

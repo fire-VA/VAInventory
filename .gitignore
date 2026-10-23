@@ -53,3 +53,6 @@ Thumbs.db
 desktop.inivainventory
 vainventoryui
 *.pre_cleanup_*.md
+
+# rig-only UI test commands (built only when present; see VAInventory.csproj)
+VAInventory/Managers/UiTest*.cs
