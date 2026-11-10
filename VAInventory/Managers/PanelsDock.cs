@@ -42,6 +42,17 @@ namespace VerdantsAscent.Managers
         }
         static readonly HashSet<string> s_ids = new HashSet<string>();
 
+        /// <summary>One element out of Core's dock (the chest when the unified UI goes OFF); its live drag strip goes too, and a later Register builds it again.</summary>
+        internal static void Unregister(string id, RectTransform panel)
+        {
+            if (!s_ids.Remove(id)) return;
+            if (Available)
+                try { s_service.GetMethod("Unregister", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, new object[] { id }); } catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"panels: dock unregister {id} failed: {(e.InnerException ?? e).Message}"); }
+            var strip = panel != null ? panel.Find("VAInventoryLiveHandle_NoKitSkin") : null;
+            if (strip != null) UnityEngine.Object.Destroy(strip.gameObject);
+            EquipmentPanel.PanelLog?.LogDebug($"panels: {id} out of the dock{(strip != null ? " (its drag strip removed)" : "")}");
+        }
+
         internal static bool Available
         {
             get
@@ -105,6 +116,9 @@ namespace VerdantsAscent.Managers
                 Set(o, "Id", id); Set(o, "Owner", "VAInventory"); Set(o, "Layer", "inventory"); Set(o, "Rect", rect); Set(o, "Label", label);
                 if (dockTo != null) { Set(o, "DefaultDockTo", dockTo); Set(o, "DefaultEdge", Enum.Parse(s_edge, edge)); }
                 if (visible != null) Set(o, "Visible", visible);
+                // the chest never docks (Core 0.2.776 NoDock; an older Core has no field and it stays as before): a docked spot is computed
+                // from the panel's size, so every chest size landed elsewhere (Fire 10-23)
+                if (id == "vainv.chest" || id == "vainv.chest.vanilla") Set(o, "NoDock", true);   // 1.0.362: + the non-unified chest
                 if (passive) Set(o, "Passive", true);   // Core 0.2.525 3BF4095EC804+; an older Core has no field and it stays a normal element
                 // An owner default spot (Core reads DefaultRect at Register and at Reset); then the seeded row spot must not replace it
                 if (defaultRect != null) Set(o, "DefaultRect", defaultRect);
@@ -126,6 +140,10 @@ namespace VerdantsAscent.Managers
         /// crafting panel's default spot, screen px top-left (y down): zero gap to the right edge, centred top to bottom, from its own
         /// on-screen size. It is no longer docked to the character panel (that dock rule glued it beside the grid).
         /// </summary>
+        // Its default spot stays this far in from the right screen edge, outside Core's screen-edge snap zone (13 px at 1440),
+        // which pulled a panel that sat flush back to the edge while Fire dragged it.
+        private const float CraftingEdgeGap = 16f;
+
         internal static Rect CraftingRightDefault(RectTransform crafting)
         {
             if (crafting == null) return new Rect(0f, 0f, 0f, 0f);
@@ -134,7 +152,7 @@ namespace VerdantsAscent.Managers
             Camera cam = canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
             Vector2 bl = RectTransformUtility.WorldToScreenPoint(cam, c[0]), tr = RectTransformUtility.WorldToScreenPoint(cam, c[2]);
             float w = Mathf.Abs(tr.x - bl.x), h = Mathf.Abs(tr.y - bl.y);
-            var r = new Rect(Screen.width - w, Mathf.Max(0f, (Screen.height - h) * 0.5f), w, h);
+            var r = new Rect(Screen.width - w - CraftingEdgeGap, Mathf.Max(0f, (Screen.height - h) * 0.5f), w, h);
             if (!s_craftingLogged || r.size != s_craftingLast) { s_craftingLogged = true; s_craftingLast = r.size; EquipmentPanel.PanelLog?.LogDebug($"panels: crafting default = right edge, centred: {r.x:0},{r.y:0} ({w:0}x{h:0} on {Screen.width}x{Screen.height})"); }
             return r;
         }

@@ -10,6 +10,24 @@ namespace VerdantsAscent.Managers.HotBars
     {
         private const float MinimumVisibleSpan = 32f;
 
+        // 1.0.372 (Fire 10-30: "why the FUCK is the ammo hotbar defaulting to the fucking center of the screen"; his log: the ammo bar
+        // registered with Core's dock, "placement owned by Core (VAInventory stands down)", then sat at anchored (1290,-540) = mid-screen):
+        // ApplyTransform's first Manage call registered the bar with Core BEFORE the config placement ran, so Core (no saved spot for
+        // the ".classic" id) kept the bar where the HotKeyBar clone happened to be. Now each bar is put at its config spot (bottom left,
+        // stacked above the health HUD) once, before Core first sees it. Not docked, not forced again: a saved player spot still wins.
+        private static readonly System.Collections.Generic.HashSet<string> s_started = new System.Collections.Generic.HashSet<string>();
+        internal static void StartSpot(string name, RectTransform bar, ConfigEntry<Vector2> position, float scale)
+        {
+            if (bar == null || position == null || !s_started.Add(name)) return;
+            Apply(bar, position, scale);
+            // Fire's 0005 log: "live hit-test FAIL vainv.hotbar2.ammo.classic ... top nothing", the press under the bar went to vanilla's
+            // HoverName text (canvas HUD order 400) lying over it. Hover text is display only: it no longer catches presses.
+            var hn = Hud.instance != null && Hud.instance.m_hoverName != null ? Hud.instance.m_hoverName.GetComponent<UnityEngine.UI.Graphic>() : null;
+            if (hn != null && hn.raycastTarget) { hn.raycastTarget = false; EquipmentPanel.PanelLog?.LogDebug("[Hotbars] vanilla HoverName text no longer catches presses (it lay over the hotbars and ate their drag)"); }
+            var c = new Vector3[4]; bar.GetWorldCorners(c);
+            EquipmentPanel.PanelLog?.LogDebug($"[Hotbars] {name}: start spot = config {position.Value} (bottom left above the health HUD), screen rect ({c[0].x:0},{c[0].y:0})-({c[2].x:0},{c[2].y:0}) of {Screen.width}x{Screen.height}; placed before Core's dock registers it (a saved spot of the player's still wins)");
+        }
+
         internal static void Apply(RectTransform bar, ConfigEntry<Vector2> position, float scale)
         {
             bar.localScale = Vector3.one * scale;
@@ -163,17 +181,18 @@ namespace VerdantsAscent.Managers.HotBars
         internal static void StackFromAmmo(RectTransform tool, RectTransform food, RectTransform ammo,
             Vector2 toolSaved, Vector2 foodSaved, Vector2 ammoSaved, float defaultPitch)
         {
-            float pitch = Mathf.Abs(foodSaved.y - toolSaved.y);
+            // 1.0.373 (Fire 10-30): tools at the bottom, ammo above, food on top; every bar keeps its slot whether the others show or not
+            float pitch = Mathf.Abs(ammoSaved.y - toolSaved.y);
             if (pitch < 1f) pitch = defaultPitch;
-            float baseY = ammoSaved.y;
+            float baseY = toolSaved.y;
             if (tool != null) tool.anchoredPosition = new Vector2(toolSaved.x, baseY);
-            if (food != null) food.anchoredPosition = new Vector2(foodSaved.x, baseY + pitch);
-            if (ammo != null) ammo.anchoredPosition = new Vector2(ammoSaved.x, baseY + 2f * pitch);
+            if (ammo != null) ammo.anchoredPosition = new Vector2(ammoSaved.x, baseY + pitch);
+            if (food != null) food.anchoredPosition = new Vector2(foodSaved.x, baseY + 2f * pitch);
             var key = new Vector3(baseY, pitch, (tool != null ? 1 : 0) + (food != null ? 2 : 0) + (ammo != null ? 4 : 0));
             if (key != lastStack)
             {
                 lastStack = key;
-                EquipmentPanel.PanelLog?.LogDebug($"[Hotbars] stack from the Ammo position: Tool y {baseY:0}, Food y {baseY + pitch:0}, Ammo y {baseY + 2f * pitch:0} (pitch {pitch:0})");
+                EquipmentPanel.PanelLog?.LogDebug($"[Hotbars] stack from the Tool position: Tool y {baseY:0}, Ammo y {baseY + pitch:0}, Food y {baseY + 2f * pitch:0} (pitch {pitch:0})");
             }
         }
         internal static void ReportDone()

@@ -217,12 +217,23 @@ namespace VerdantsAscent.Managers
         public ConfigEntry<float> configFoodHotbarScale;
         public ConfigEntry<KeyboardShortcut>[] configFoodHotbarKeys = new ConfigEntry<KeyboardShortcut>[3];
 
-        // The three bars stack up the bottom-left corner: tools, then food, then ammo, one bar-height apart.
+        // 1.0.373 (Fire 10-30: "it should go health hud, tools, ammo, food"): the three bars stack up the bottom-left corner above the
+        // health HUD: tools, then ammo, then food, one bar-height apart (start spots only; a player's drag is kept).
         private static readonly Vector2 DefaultToolHotbarPosition = new(18.25f, 206f);
-        private static readonly Vector2 DefaultFoodHotbarPosition = new(17.5f, 281.5f);
-        private static readonly float HotbarStackSpacing = DefaultFoodHotbarPosition.y - DefaultToolHotbarPosition.y;
-        private static readonly Vector2 DefaultAmmoHotbarPosition =
-            new(DefaultFoodHotbarPosition.x, DefaultFoodHotbarPosition.y + HotbarStackSpacing);
+        private static readonly float HotbarStackSpacing = 75.5f;
+        private static readonly Vector2 DefaultAmmoHotbarPosition = new(17.5f, 206f + HotbarStackSpacing);
+        private static readonly Vector2 DefaultFoodHotbarPosition = new(17.5f, 206f + 2f * HotbarStackSpacing);
+        // the 1.0.372 order (tools, food, ammo): a bar still exactly on its OLD default (never moved by the player) moves to the new one, once
+        private static readonly Vector2 OldFoodDefault = new(17.5f, 281.5f), OldAmmoDefault = new(17.5f, 357f);
+        internal void MigrateHotbarOrderOnce()
+        {
+            bool a = (configAmmoHotbarPosition.Value - OldAmmoDefault).sqrMagnitude < 0.01f, f = (configFoodHotbarPosition.Value - OldFoodDefault).sqrMagnitude < 0.01f;
+            if (!a && !f) return;
+            if (a) configAmmoHotbarPosition.Value = DefaultAmmoHotbarPosition;
+            if (f) configFoodHotbarPosition.Value = DefaultFoodHotbarPosition;
+            _cfgFile?.Save();
+            Debug.Log($"[VAInventory] hotbars: default order is now tools, ammo, food (bottom up, above the health HUD); moved from the old defaults: {(a ? "ammo " : "")}{(f ? "food" : "")} (a spot you dragged is never changed)");
+        }
 
         // When true, the SettingChanged handler for position will ignore changes.
         // Used to avoid recreating the toolbar while the user is finalizing a drag move.
@@ -394,6 +405,7 @@ namespace VerdantsAscent.Managers
                 "Show a separate Food hotbar UI that mirrors the equipment-panel food slots.");
             configFoodHotbarPosition = config.Bind("FoodHotbar", "Position", DefaultFoodHotbarPosition,
                 "Screen position of the food hotbar (BottomLeft anchored).");
+            MigrateHotbarOrderOnce();   // 1.0.373
             configFoodHotbarScale = config.Bind("FoodHotbar", "Scale", 1.0f,
                 new ConfigDescription("Scale of the food hotbar UI.", new AcceptableValueRange<float>(0.5f, 2f)));
             for (int i = 0; i < configFoodHotbarKeys.Length; i++)

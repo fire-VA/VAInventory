@@ -16,9 +16,13 @@ namespace VerdantsAscent.Managers
         /// <summary>True while at least one owner suppresses the player panel.</summary>
         public static bool PlayerPanelSuppressed => _owners.Count > 0;
 
+        /// <summary>The owner whose suppress / release changed the state last (for the dock-element log line).</summary>
+        internal static string LastSuppressionBy { get; private set; }
+
         public static void SuppressPlayerPanel(string owner)
         {
             if (string.IsNullOrEmpty(owner) || !_owners.Add(owner)) return;
+            LastSuppressionBy = owner;
             EquipmentPanel.PanelLog?.LogDebug($"player panel: suppressed by {owner} ({_owners.Count} owner(s))");
             UnifiedScreen.ApplySuppression();
         }
@@ -91,12 +95,18 @@ namespace VerdantsAscent.Managers
                 var inv = player.GetInventory();
                 if (inv == null || !inv.ContainsItem(item)) return false;
                 Slots.Slot free = null, taken = null;
+                var why = new System.Text.StringBuilder();
                 foreach (var id in new[] { Slots.necklaceSlotID, Slots.ringSlotID, Slots.ringRightSlotID })
                     foreach (var s in Slots.AllSlots())
                     {
-                        if (s == null || s.ID != id || !s.IsActive || !s.ItemFits(item)) continue;
-                        if (s.Item == item) return true;   // already worn there
-                        if (s.IsFree) { if (free == null) free = s; }
+                        if (s == null || s.ID != id) continue;
+                        // Re-read the cell: a cached EMPTY is trusted by Slot.Item, and the last call here moved a ring in by m_gridPos alone,
+                        // so the Left ring still read free and the second ring landed on the same cell (both rings in ring1, round 10-29).
+                        var at = s.CacheItem();
+                        why.Append($" {s.ID}[{(s.IsActive ? "on" : "off")},{(s.ItemFits(item) ? "fits" : "no fit")},{(at == null ? "free" : at.m_shared.m_name)}]");
+                        if (!s.IsActive || !s.ItemFits(item)) continue;
+                        if (at == item) return true;   // already worn there
+                        if (at == null) { if (free == null) free = s; }
                         else if (taken == null) taken = s;
                     }
                 var target = free ?? taken;
@@ -105,12 +115,54 @@ namespace VerdantsAscent.Managers
                 var other = target.IsFree ? null : target.Item;
                 if (other != null) other.m_gridPos = from;   // the swap: the worn piece takes the new one's old cell
                 item.m_gridPos = target.GridPosition;
-                var changed = typeof(Inventory).GetMethod("Changed", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
-                changed?.Invoke(inv, null);
-                EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] TryEquipJewelry: {item.m_shared.m_name} -> {target.ID}{(other != null ? " (swapped with " + other.m_shared.m_name + ")" : "")}");
+                target.CacheItem();   // the cell now holds the new piece (the next call must see it taken)
+                // Direct call: Valheim 1.0.21 made it Changed(bool success = false, bool cheatedStateChanged = false), and the old
+                // reflection Invoke(inv, null) threw "Number of parameters" AFTER the move (round 4, 10-29: worn but reported failed)
+                inv.Changed();
+                EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] TryEquipJewelry: {item.m_shared.m_name} -> {target.ID}{(other != null ? " (swapped with " + other.m_shared.m_name + ")" : "")}; cells:{why} -> {(other != null ? "SWAP, no free cell" : "first free cell")}");
                 return true;
             }
             catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug("[VAInventory] TryEquipJewelry failed: " + e.Message); return false; }
+        }
+
+        /// <summary>1.0.371 (FDT equip_cells_test): true when every worn cell of the local player matches what is worn; else the first
+        /// mismatch ("A: ... NOT equipped" / "B: ... outside its cell"). Also the number of fixes EquipCellGuard made this session.</summary>
+        public static bool EquipCellsMatch(out string mismatch, out int fixesThisSession)
+        {
+            fixesThisSession = EquipCellGuard.FixesThisSession;
+            return EquipCellGuard.CellsMatch(out mismatch);
+        }
+
+        /// <summary>1.0.371 (FDT equip_cells_test): a FREE worn cell (helmet, chest, legs ...) of the local player that fits the item; (-1,-1) = none.</summary>
+        public static Vector2i FindFreeWornCell(ItemDrop.ItemData item) => EquipCellGuard.FreeWornCell(item);
+
+        /// <summary>1.0.371 (FLO's right-click unequip, Fire 10-29): the twin of TryEquipJewelry. A ring or necklace the LOCAL player wears in a
+        /// jewelry cell moves to the first free main-grid cell (never a jewelry / pouch / bag cell), then the inventory's Changed. False = not
+        /// worn in a jewelry cell, not the local player, or no free main-grid cell (it stays where it is). Never throws.</summary>
+        public static bool TryUnequipJewelry(Player player, ItemDrop.ItemData item)
+        {
+            try
+            {
+                if (player == null || player != Player.m_localPlayer || item == null) return false;
+                var inv = player.GetInventory();
+                if (inv == null || !inv.ContainsItem(item)) return false;
+                var from = Slots.GetSlotInGrid(item.m_gridPos);
+                if (!UnifiedScreen.IsJewelrySlot(from)) { EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] TryUnequipJewelry: {item.m_shared.m_name} at {item.m_gridPos} is not in a jewelry cell; stays"); return false; }
+                for (int y = 0; y < Slots.InventoryHeightPlayer; y++)
+                    for (int x = 0; x < inv.GetWidth(); x++)
+                    {
+                        if (inv.GetItemAt(x, y) != null) continue;
+                        var was = item.m_gridPos;
+                        item.m_gridPos = new Vector2i(x, y);
+                        Slots.ClearCachedItems();
+                        inv.Changed();
+                        EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] TryUnequipJewelry: {item.m_shared.m_name} {from.ID} {was} -> bag ({x},{y})");
+                        return true;
+                    }
+                EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] TryUnequipJewelry: {item.m_shared.m_name} stays in {from.ID} (no free main-grid cell)");
+                return false;
+            }
+            catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug("[VAInventory] TryUnequipJewelry failed: " + e.Message); return false; }
         }
 
         /// <summary>Opens the F1 hub on Player > Stats in companion view for
@@ -141,6 +193,7 @@ namespace VerdantsAscent.Managers
         public static void ReleasePlayerPanel(string owner)
         {
             if (string.IsNullOrEmpty(owner) || !_owners.Remove(owner)) return;
+            LastSuppressionBy = owner;
             EquipmentPanel.PanelLog?.LogDebug($"player panel: released by {owner} ({_owners.Count} owner(s) left)");
             UnifiedScreen.ApplySuppression();
         }

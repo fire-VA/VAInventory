@@ -331,14 +331,14 @@ namespace VerdantsAscent.Managers
         [HarmonyPrefix]
         private static void Inventory_Save_PersistPurseStack(Inventory __instance)
         {
-            PersistCurrentPurseStack(__instance);
+            try { PersistCurrentPurseStack(__instance); } catch (System.Exception e) { SaveGuard.Once("CoinPurse.Save", e); }   // 1.0.359: never throw from Save (world conversion)
         }
 
         [HarmonyPatch(typeof(Inventory), nameof(Inventory.Load), [typeof(ZPackage)])]
         [HarmonyPostfix]
         private static void Inventory_Load_RestorePurseStack(Inventory __instance)
         {
-            RestorePersistedPurseStack(__instance);
+            try { RestorePersistedPurseStack(__instance); } catch (System.Exception e) { SaveGuard.Once("CoinPurse.Load", e); }   // 1.0.359
         }
 
         internal static void RestorePurseStackOnSpawn(Player __instance)

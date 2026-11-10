@@ -759,7 +759,8 @@ namespace VerdantsAscent.Managers
         {
             item.m_customData.Remove(OWNER_KEY);
             Transform t = player.transform;
-            ItemDrop drop = ItemDrop.DropItem(item, item.m_stack, t.position + t.forward * 0.6f + Vector3.up * 0.5f, t.rotation);
+            HaloDrop.Pose(t, 0.6f, 0.5f, t.rotation, out Vector3 dropAt, out Quaternion dropRot, true);   // 1.0.353: along the ring's up on a halo ring
+            ItemDrop drop = ItemDrop.DropItem(item, item.m_stack, dropAt, dropRot);
             if (drop != null)
             {
                 Debug.LogWarning($"[VAInventory] bag overflow: {item.m_shared?.m_name} x{item.m_stack} from {ownerPrefab} fits neither the bag nor the main grid, dropped at the player's feet");
@@ -793,8 +794,12 @@ namespace VerdantsAscent.Managers
             {
                 __state = null;
                 if (__instance == null || __instance != Player.m_localPlayer) return;
-                try { __state = PullBagItemsForSave(__instance); }
-                catch (System.Exception ex) { Debug.LogError($"[VAInventory] save: bag items not separated: {ex}"); }
+                // 1.0.360 (load/save audit M9): the list exists BEFORE the pull, so when a later bag throws, the items already pulled
+                // from the earlier bags still go back to the live grid in the finalizer (they vanished for the session before)
+                var pulled = new List<ItemDrop.ItemData>();
+                __state = pulled;
+                try { PullBagItemsForSave(__instance, pulled); }
+                catch (System.Exception ex) { Debug.LogError($"[VAInventory] save: bag items not separated ({pulled.Count} already pulled go back): {ex}"); }
             }
 
             private static void Finalizer(Player __instance, List<ItemDrop.ItemData> __state)
@@ -807,9 +812,8 @@ namespace VerdantsAscent.Managers
             }
         }
 
-        private static List<ItemDrop.ItemData> PullBagItemsForSave(Player player)
+        private static List<ItemDrop.ItemData> PullBagItemsForSave(Player player, List<ItemDrop.ItemData> pulled)
         {
-            var pulled = new List<ItemDrop.ItemData>();
             var inv = player.GetInventory();
             var bags = BackpackBridge.GetEquippedBackpacks(player);
             if (inv == null || bags == null) return pulled;

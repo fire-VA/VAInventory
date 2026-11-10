@@ -75,9 +75,12 @@ namespace VerdantsAscent.Managers.HotBars
             // which never marked the bar dirty. A pouch filled with the inventory open left the bar un-built, and closing the
             // inventory never built it. Now the bar is rebuilt whenever IsEnabled() and the bar's existence disagree.
             bool enabled = IsEnabled();
-            if (!isDirty && enabled == (hotBarRect != null)) return false;
+            // 1.0.354 (Fire 10-24: the bars jumped to the centre on every map / unified-inventory open + close): a hidden bar is KEPT (inactive,
+            // still Core's registered dock element with its saved spot), never destroyed and re-created; it only shows / hides
+            bool shown = hotBarRect != null && hotBarRect.gameObject.activeSelf;
+            if (!isDirty && enabled == shown) return false;
             isDirty = false;
-            if (enabled != (hotBarRect != null))
+            if (enabled != shown)
                 Debug.Log($"[VAInventory] [Hotbars] Ammo: {(enabled ? "shown" : "hidden")} ({WhyLine()})");
             bool stateChanged = false;
 
@@ -86,13 +89,20 @@ namespace VerdantsAscent.Managers.HotBars
                 CreateBar();
                 stateChanged = true;
             }
-            else if (!IsEnabled() && hotBarRect != null)
+            else if (IsEnabled() && !shown)
             {
-                ClearBar();
+                hotBarRect.gameObject.SetActive(true);   // 1.0.354: the same bar again
+                Debug.Log($"[VAInventory] [Hotbars] Ammo: shown again - the same bar, still registered with Core's dock, at {hotBarRect.anchoredPosition} (not re-created)");
+                stateChanged = true;
+            }
+            else if (!IsEnabled() && shown)
+            {
+                Debug.Log($"[VAInventory] [Hotbars] Ammo: hidden at {hotBarRect.anchoredPosition} - kept (inactive), stays registered with Core's dock");
+                hotBarRect.gameObject.SetActive(false);   // 1.0.354: kept, not ClearBar()
                 stateChanged = true;
             }
 
-            if (hotBarRect != null) ApplyTransform();
+            if (hotBarRect != null && hotBarRect.gameObject.activeSelf) ApplyTransform();
             return stateChanged;
         }
 
@@ -179,6 +189,9 @@ namespace VerdantsAscent.Managers.HotBars
             try
             {
                 if (hotBarRect == null || ConfigManager.Instance == null) return;
+                // 1.0.372 (Fire 10-30: the ammo bar started mid-screen): place the bar at its config spot (bottom left, above the health HUD)
+                // BEFORE Core's dock first sees it - Core keeps an element with no saved spot where it is when it registers
+                HotBarPlacement.StartSpot(barName, hotBarRect, ConfigManager.Instance.configAmmoHotbarPosition, ConfigManager.Instance.configAmmoHotbarScale.Value);
                 if (HotbarHudDock.Manage(barName, "Ammo hotbar", hotBarRect)) return;   // Core's HUD dock owns it while the override is ON
                 HotBarPlacement.Apply(hotBarRect, ConfigManager.Instance.configAmmoHotbarPosition,
                     ConfigManager.Instance.configAmmoHotbarScale.Value);

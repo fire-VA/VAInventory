@@ -60,9 +60,9 @@ namespace VerdantsAscent.Managers
     [HarmonyPatch(typeof(InventoryGui), "Update")]
     internal static class InventoryGui_Update_Hook
     {
-        // Perf probe (InventoryGui.Update cost 88 ms/s with the inventory CLOSED; its patches were called over
-        // 50,000 times/s = far more than one InventoryGui per frame). Every 30 s: how many InventoryGui exist and how many Update calls
-        // ran in that window, with each instance's path. Debug only; FindObjectsOfType once per 30 s.
+        // 1.0.367 ([lead] 10-28 perf, VA DN logs): the old 30 s probe here ran FindObjectsOfType<InventoryGui>(true) (a whole-scene
+        // walk, inactive objects included): 55 ms in one frame on Fire's DN session (fire_dn_1725), = the ~1.8 ms/s this postfix
+        // averaged. Its question is answered (always 1 InventoryGui, the instance), so the walk is gone; the 30 s line keeps the call count.
         private static int s_calls;
         private static float s_nextCount;
 
@@ -73,14 +73,7 @@ namespace VerdantsAscent.Managers
             {
                 float window = s_nextCount > 0f ? 30f : 0f;
                 s_nextCount = Time.unscaledTime + 30f;
-                try
-                {
-                    var all = UnityEngine.Object.FindObjectsOfType<InventoryGui>(true);
-                    var paths = new System.Collections.Generic.List<string>();
-                    for (int i = 0; i < all.Length && i < 5; i++) { var t = all[i].transform; string p = t.name; for (var x = t.parent; x != null; x = x.parent) p = x.name + "/" + p; paths.Add(p + (all[i] == InventoryGui.instance ? " (instance)" : "")); }
-                    EquipmentPanel.PanelLog?.LogDebug($"perf: {all.Length} InventoryGui object(s), {s_calls} Update call(s) in the last {window:0} s ({(window > 0f ? s_calls / window : 0f):0}/s); first: {string.Join(" | ", paths.ToArray())}");
-                }
-                catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug("perf: InventoryGui count failed: " + e.Message); }
+                EquipmentPanel.PanelLog?.LogDebug($"perf: {s_calls} InventoryGui.Update call(s) in the last {window:0} s ({(window > 0f ? s_calls / window : 0f):0}/s); no scene walk (1.0.367: FindObjectsOfType probe removed, it cost 55 ms per 30 s)");
                 s_calls = 0;
             }
             if (Player.m_localPlayer) Slots.EvictBagFromBypass();   // Open or not, ~1/s

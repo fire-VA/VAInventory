@@ -204,6 +204,23 @@ namespace VerdantsAscent.Managers.HotBars
             return hb;
         }
 
+        static readonly HashSet<RectTransform> s_refused = new HashSet<RectTransform>();   // 1.0.361
+        static readonly HashSet<RectTransform> s_growRefused = new HashSet<RectTransform>();   // 1.0.368
+        static readonly Dictionary<RectTransform, (int slots, Vector2 size)> s_lastFit = new Dictionary<RectTransform, (int slots, Vector2 size)>();   // 1.0.368
+
+        // 1.0.361: true when this graphic's size comes FROM the bar's rect: it, or a parent up to the bar, is stretch-anchored (anchorMin !=
+        // anchorMax), or it sits under the HitBounds child or Core's dock overlay (FiresDock*). Measuring those made every fit a little bigger
+        // than the last (the key-hint / HitBounds padding fed back), the runaway seen on the rig.
+        static bool SizeFollowsRoot(RectTransform rt, RectTransform root)
+        {
+            for (var t = rt; t != null && t != root; t = t.parent as RectTransform)
+            {
+                if (t.name == HitName || t.name.StartsWith("FiresDock", StringComparison.Ordinal)) return true;
+                if (t.anchorMin != t.anchorMax) return true;
+            }
+            return false;
+        }
+
         static void FitToElements(RectTransform root)
         {
             int n = 0; bool any = false; float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
@@ -247,6 +264,7 @@ namespace VerdantsAscent.Managers.HotBars
             {
                 if (g == null || !g.isActiveAndEnabled || g.transform == root || g.canvasRenderer.GetInheritedAlpha() < 0.02f || g.color.a < 0.02f) continue;
                 var rt = g.rectTransform;
+                if (SizeFollowsRoot(rt, root)) continue;   // 1.0.361: a graphic sized BY the bar's rect would feed the fit back into itself
                 if (rt.rect.width < 1f || rt.rect.height < 1f) continue;
                 n++;
                 rt.GetWorldCorners(c);
@@ -291,6 +309,39 @@ namespace VerdantsAscent.Managers.HotBars
             // its outside zone) sits in that margin - off the last slot - and the handle strip above clears the key hints
             if (parts.Count > 0 && kitRow == null) { const float M = 14f;   /* Unified OFF only: the unified rect stays exactly as it was */ x0 -= M; y0 -= M; x1 += M; y1 += M; }
             var size = new Vector2(Mathf.Max(1f, x1 - x0), Mathf.Max(1f, y1 - y0));
+            // 1.0.361 (rig 16:57, a runaway fit: +12 px EVERY frame, 22520x5086 -> 22604x5170 ..., the bar walked off screen): a fit wider or
+            // taller than 1.5x the screen is a measurement of itself - refused (logged once per bar)
+            {
+                var prev = root.sizeDelta; float lim = Mathf.Max(Screen.width, Screen.height) * 1.5f;
+                bool absurd = size.x > lim || size.y > lim;   // absolute only: a bar growing from 1 slot to 8 is a real fit
+                if (absurd) { if (s_refused.Add(root)) EquipmentPanel.PanelLog?.LogWarning($"[VAInventory] hotbars: {root.name} fit {size.x:0}x{size.y:0} refused (current {prev.x:0}x{prev.y:0}, screen {Screen.width}x{Screen.height}): it measured its own grown rect; kept as it is"); return; }
+            }
+            // 1.0.368 (Fire 10-28, hud_grow_client.log: VA_ToolHotBar 1154x958 -> 1166x970 -> 1178x982 ..., +12 px = 2 x HitPad per pass,
+            // the anchor walking off screen): a graphic the 1.0.361 filter does not catch still grows with the rect. No-grow guard: while
+            // the bar's active slot count is unchanged, a fit larger than the last one by more than 1 px is refused, once logged with the
+            // graphics on the grown edges (the ones feeding back), and the bar keeps its last good size.
+            {
+                int slots = 0; foreach (Transform ch in root) if (ch.gameObject.activeSelf && ch.name != HitName) slots++;
+                if (s_lastFit.TryGetValue(root, out var lf) && lf.slots == slots && (size.x > lf.size.x + 1f || size.y > lf.size.y + 1f))
+                {
+                    if (s_growRefused.Add(root))
+                    {
+                        var edge = new List<string>();
+                        foreach (var g in root.GetComponentsInChildren<UnityEngine.UI.Graphic>(false))
+                        {
+                            if (g == null || g.transform == root) continue; g.rectTransform.GetWorldCorners(c);
+                            float gx0 = float.MaxValue, gx1 = float.MinValue, gy0 = float.MaxValue, gy1 = float.MinValue;
+                            for (int i = 0; i < 4; i++) { Vector3 l = root.InverseTransformPoint(c[i]); gx0 = Mathf.Min(gx0, l.x); gx1 = Mathf.Max(gx1, l.x); gy0 = Mathf.Min(gy0, l.y); gy1 = Mathf.Max(gy1, l.y); }
+                            if (Mathf.Abs(gx0 - x0) < 1f || Mathf.Abs(gx1 - x1) < 1f || Mathf.Abs(gy0 - y0) < 1f || Mathf.Abs(gy1 - y1) < 1f) { string p = g.name; for (var t = g.transform.parent; t != null && t != root; t = t.parent) p = t.name + "/" + p; edge.Add(p); if (edge.Count >= 6) break; }
+                        }
+                        EquipmentPanel.PanelLog?.LogWarning($"[VAInventory] hotbars: {root.name} fit {size.x:0}x{size.y:0} refused: {slots} slot(s) as at the last fit ({lf.size.x:0}x{lf.size.y:0}), so it can only be the bar measuring itself; kept at the last fit. Graphics on the grown edges: {string.Join(", ", edge)}");
+                    }
+                    return;
+                }
+                // clamp to the screen (a hotbar is never bigger than the screen it is drawn on)
+                size = new Vector2(Mathf.Min(size.x, Screen.width), Mathf.Min(size.y, Screen.height));
+                s_lastFit[root] = (slots, size);
+            }
             var pivot = new Vector2(-x0 / size.x, -y0 / size.y);
             Vector3 before = root.position;
             var kids = new List<KeyValuePair<Transform, Vector3>>();
@@ -384,7 +435,9 @@ namespace VerdantsAscent.Managers.HotBars
                 // raycasts: every press on the bar reaches the root and Core's free-body move. The root keeps its raycast Image.
                 int off = 0;
                 foreach (var g in rect.GetComponentsInChildren<UnityEngine.UI.Graphic>(true))
-                    if (g != null && g.transform != rect && g.raycastTarget) { g.raycastTarget = false; off++; }
+                    // 1.0.374 (Fire's 10-30 log: "live hit-test FAIL vainv.hotbar2.ammo.classic header [VAInventoryLiveHandle_NoKitSkin] at
+                    // 401,345: top nothing"): the live drag strip is a child of the bar, so this pass switched ITS raycast off too. It keeps it.
+                    if (g != null && g.transform != rect && g.raycastTarget && g.name != "VAInventoryLiveHandle_NoKitSkin") { g.raycastTarget = false; off++; }
                 if (off > 0) EquipmentPanel.PanelLog?.LogDebug($"hotbars: {rect.name} {off} slot graphic(s) no longer catch presses (the whole bar drags)");
             }
             catch (Exception e) { EquipmentPanel.PanelLog?.LogWarning($"hotbars: refit {rect.name} failed: {e.Message}"); }

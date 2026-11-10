@@ -26,6 +26,7 @@ namespace VerdantsAscent.Managers
         const float TabGap = 16f;
 
         static bool s_zeroLogged, s_wasVis, s_hiddenLogged, s_openPending;   // 1.0.255/256/257
+        static readonly List<CanvasGroup> s_groups = new List<CanvasGroup>();   // 1.0.364
         static int s_openN;
         static int s_openFrame = -100;
         static float s_base;   // The header drop the current move was built from (PanelsDrop)
@@ -287,7 +288,7 @@ namespace VerdantsAscent.Managers
             if (!crafting.gameObject.activeInHierarchy) return;
             // A frame where crafting is not DRAWN (a parent CanvasGroup at alpha 0 - e.g. 1.0.243's first-open seeding hide) is not
             // checked: nothing on screen can overlap (logged once per hide)
-            float alpha = 1f; foreach (var cg in crafting.GetComponentsInParent<CanvasGroup>()) alpha *= cg.alpha;
+            float alpha = 1f; crafting.GetComponentsInParent(false, s_groups); foreach (var cg in s_groups) alpha *= cg.alpha;   // 1.0.364 (V13): reused list
             if (alpha < 0.02f) { if (!s_hiddenLogged) { s_hiddenLogged = true; EquipmentPanel.PanelLog?.LogDebug($"panels: crafting header check skipped at frame {Time.frameCount}: crafting is not drawn (parent alpha 0)"); } return; }
             s_hiddenLogged = false;
             int since = Time.frameCount - s_openFrame;   // The first 4 frames of every open are checked EVERY frame (proof the content is in place before it draws)

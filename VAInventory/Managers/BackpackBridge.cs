@@ -47,6 +47,7 @@ namespace VerdantsAscent.Managers
         private static MethodInfo _readSpecialSlot;
         private static MethodInfo _writeSpecialSlot;
         private static MethodInfo _specialSlotAccepts;
+        private static MethodInfo _isBagUpgrade;
         private static MethodInfo _getSlotIcon;
         private static PropertyInfo _slotStorageActive;
 
@@ -153,6 +154,8 @@ namespace VerdantsAscent.Managers
                 _readSpecialSlot     = AccessTools.Method(_apiType, "ReadSpecialSlot", [typeof(ItemDrop.ItemData), typeof(string)]);
                 _writeSpecialSlot    = AccessTools.Method(_apiType, "WriteSpecialSlot", [typeof(ItemDrop.ItemData), typeof(string), typeof(ItemDrop.ItemData)]);
                 _specialSlotAccepts  = AccessTools.Method(_apiType, "SpecialSlotAccepts", [typeof(ItemDrop.ItemData), typeof(string), typeof(ItemDrop.ItemData)]);
+                _isBagUpgrade        = AccessTools.Method(_apiType, "IsBagUpgrade", [typeof(ItemDrop.ItemData)]);   // VABackpacks 1.0.96+
+                LookUpgradeHooks();   // the bag-cells provider is needed before any rail click (bag upgrades tick on their own)
                 _getSlotIcon         = AccessTools.Method(_apiType, "GetSlotIcon", [typeof(string)]);
                 _specialSlotsVersion = AccessTools.Property(_apiType, "SpecialSlotsVersion");
                 _slotStorageActive   = AccessTools.Property(_apiType, "IsSlotBasedStorageActive");
@@ -395,6 +398,140 @@ namespace VerdantsAscent.Managers
                 Debug.LogError($"[VAInventory] BackpackBridge.WriteSpecialSlot failed: {ex.Message}");
                 return false;
             }
+        }
+
+        // ── Bag upgrade hooks (VABackpacks 1.0.98+): the rail asks the upgrade's option first ──
+        private static MethodInfo _upgradeRightClick, _upgradeDropOnto, _upgradeBadge, _setBagCellsProvider;
+        private static bool _upgradeHooksLooked;
+
+        private static void LookUpgradeHooks()
+        {
+            if (_upgradeHooksLooked || _apiType == null) return;
+            _upgradeHooksLooked = true;
+            _upgradeRightClick = AccessTools.Method(_apiType, "BagUpgradeRightClick");
+            _upgradeDropOnto = AccessTools.Method(_apiType, "BagUpgradeDropOnto");
+            _upgradeBadge = AccessTools.Method(_apiType, "BagUpgradeBadge");
+            _setBagCellsProvider = AccessTools.Method(_apiType, "SetBagCellsProvider");
+            if (_setBagCellsProvider != null)
+            {
+                try
+                {
+                    System.Func<Player, ItemDrop.ItemData, System.Collections.Generic.List<ItemDrop.ItemData>> provider = BagCells;
+                    _setBagCellsProvider.Invoke(null, [provider]);
+                    Debug.Log("[VAInventory] bag upgrades: bag-cells provider handed to VABackpacks");
+                }
+                catch (Exception ex) { Debug.LogWarning($"[VAInventory] bag upgrades: bag-cells provider not set: {ex.Message}"); }
+            }
+            var setFree = AccessTools.Method(_apiType, "SetFreeBagCellsProvider");
+            if (setFree != null)
+            {
+                try
+                {
+                    System.Func<Player, ItemDrop.ItemData, System.Collections.Generic.List<Vector2i>> free = FreeBagCells;
+                    setFree.Invoke(null, [free]);
+                    Debug.Log("[VAInventory] bag upgrades: free-bag-cells provider handed to VABackpacks");
+                }
+                catch (Exception ex) { Debug.LogWarning($"[VAInventory] bag upgrades: free-bag-cells provider not set: {ex.Message}"); }
+            }
+        }
+
+        /// <summary>The empty, active cells of one worn bag (player-inventory grid positions).</summary>
+        private static System.Collections.Generic.List<Vector2i> FreeBagCells(Player player, ItemDrop.ItemData bag)
+        {
+            var list = new System.Collections.Generic.List<Vector2i>();
+            if (player == null || bag?.m_dropPrefab == null) return list;
+            string prefab = bag.m_dropPrefab.name;
+            foreach (var slot in Slots.AllSlots())
+                if (slot != null && slot.IsBackpackStorageSlot && slot.IsActive && slot.Item == null && Slots.GetBackpackPrefabFromSlot(slot) == prefab) list.Add(slot.GridPosition);
+            return list;
+        }
+
+        /// <summary>The items in one worn bag's cells (the player-inventory cells VAInventory shows as that bag's storage).</summary>
+        private static System.Collections.Generic.List<ItemDrop.ItemData> BagCells(Player player, ItemDrop.ItemData bag)
+        {
+            var list = new System.Collections.Generic.List<ItemDrop.ItemData>();
+            if (player == null || bag?.m_dropPrefab == null) return list;
+            string prefab = bag.m_dropPrefab.name;
+            foreach (var slot in Slots.AllSlots())
+                if (slot != null && slot.IsBackpackStorageSlot && slot.Item != null && Slots.GetBackpackPrefabFromSlot(slot) == prefab) list.Add(slot.Item);
+            return list;
+        }
+
+        public static bool BagUpgradeRightClick(ItemDrop.ItemData bag, string kind, ItemDrop.ItemData upgrade)
+        {
+            LookUpgradeHooks();
+            if (_upgradeRightClick == null) return false;
+            try { return (bool)_upgradeRightClick.Invoke(null, [bag, kind, upgrade]); } catch { return false; }
+        }
+
+        public static bool BagUpgradeDropOnto(ItemDrop.ItemData bag, string kind, ItemDrop.ItemData upgrade, ItemDrop.ItemData dropped, Inventory from)
+        {
+            LookUpgradeHooks();
+            if (_upgradeDropOnto == null) return false;
+            try { return (bool)_upgradeDropOnto.Invoke(null, [bag, kind, upgrade, dropped, from]); } catch { return false; }
+        }
+
+        private static MethodInfo _upgradeRemoving, _upgradeRemoveWarning;
+
+        /// <summary>Just before the rail destroys a slotted upgrade: its option gives back what it holds (VABackpacks 1.0.100+).</summary>
+        public static void BagUpgradeRemoving(ItemDrop.ItemData bag, string kind, ItemDrop.ItemData upgrade)
+        {
+            if (_apiType == null) return;
+            _upgradeRemoving ??= AccessTools.Method(_apiType, "BagUpgradeRemoving");
+            if (_upgradeRemoving == null) return;
+            try { _upgradeRemoving.Invoke(null, [bag, kind, upgrade]); } catch (Exception ex) { Debug.LogWarning($"[VAInventory] bag upgrade removing hook threw {(ex.InnerException ?? ex).Message}"); }
+        }
+
+        /// <summary>Extra lines for the remove / swap confirm, or null.</summary>
+        public static string BagUpgradeRemoveWarning(ItemDrop.ItemData upgrade)
+        {
+            if (_apiType == null) return null;
+            _upgradeRemoveWarning ??= AccessTools.Method(_apiType, "BagUpgradeRemoveWarning");
+            if (_upgradeRemoveWarning == null) return null;
+            try { return _upgradeRemoveWarning.Invoke(null, [upgrade]) as string; } catch { return null; }
+        }
+
+        private static MethodInfo _headerButtons, _headerClick;
+
+        /// <summary>VABackpacks' bag header buttons for this bag, right to left, as { id, label, tooltip } (empty without 1.0.110+).</summary>
+        public static System.Collections.Generic.List<string[]> GetBagHeaderButtons(ItemDrop.ItemData bag)
+        {
+            if (_apiType == null || bag == null) return new System.Collections.Generic.List<string[]>();
+            _headerButtons ??= AccessTools.Method(_apiType, "GetBagHeaderButtons");
+            if (_headerButtons == null) return new System.Collections.Generic.List<string[]>();
+            try { return _headerButtons.Invoke(null, [bag]) as System.Collections.Generic.List<string[]> ?? new System.Collections.Generic.List<string[]>(); }
+            catch { return new System.Collections.Generic.List<string[]>(); }
+        }
+
+        public static void ClickBagHeaderButton(string id, ItemDrop.ItemData bag)
+        {
+            if (_apiType == null) return;
+            _headerClick ??= AccessTools.Method(_apiType, "ClickBagHeaderButton");
+            try { _headerClick?.Invoke(null, [id, bag]); } catch (Exception ex) { Debug.LogWarning($"[VAInventory] bag header button {id}: {(ex.InnerException ?? ex).Message}"); }
+        }
+
+        /// <summary>The badge over a slotted upgrade ("" = none) and whether it warns.</summary>
+        public static string BagUpgradeBadge(ItemDrop.ItemData upgrade, out bool warn)
+        {
+            warn = false;
+            LookUpgradeHooks();
+            if (_upgradeBadge == null || upgrade == null) return "";
+            try
+            {
+                var args = new object[] { upgrade, false };
+                string text = _upgradeBadge.Invoke(null, args) as string ?? "";
+                warn = args[1] is bool w && w;
+                return text;
+            }
+            catch { return ""; }
+        }
+
+        /// <summary>True for a VABackpacks bag upgrade: once slotted it is destroyed, never handed back, on a swap or removal.</summary>
+        public static bool IsBagUpgrade(ItemDrop.ItemData item)
+        {
+            if (_isBagUpgrade == null || item == null) return false;
+            try { return (bool)_isBagUpgrade.Invoke(null, [item]); }
+            catch { return false; }
         }
 
         public static bool SpecialSlotAccepts(ItemDrop.ItemData bag, string kind, ItemDrop.ItemData item)

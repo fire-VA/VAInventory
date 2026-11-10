@@ -230,11 +230,17 @@ namespace VerdantsAscent.Managers
         static void Vital(TMP_Text t, string label, string hex, float v, float max)
         {
             if (t == null) return;
+            // 1.0.358 (UI efficiency audit V9): the line is rebuilt only when the shown integer (or max > 0) changes, not every frame
+            int key = max > 0f ? Mathf.RoundToInt(v) : int.MinValue;
+            if (s_vitalKeys.TryGetValue(t, out int last) && last == key) return;
+            s_vitalKeys[t] = key;
             string s = max > 0f ? $"<color=#9C8F78>{label}</color>  <color={hex}>{v:0}</color>" : "";
             if (t.text != s) t.text = s;
         }
 
         static TMP_Text[] s_playerVitals;
+        static readonly System.Collections.Generic.Dictionary<TMP_Text, int> s_vitalKeys = new System.Collections.Generic.Dictionary<TMP_Text, int>();   // 1.0.358 V9
+        static readonly System.Collections.Generic.Dictionary<TMP_Text, string> s_footerRaw = new System.Collections.Generic.Dictionary<TMP_Text, string>();   // 1.0.358 V9
 
         static void Mirror(InventoryGui gui)
         {
@@ -311,7 +317,7 @@ namespace VerdantsAscent.Managers
 
         // vanilla's UnifiedPopup above every Panels canvas: its own override-sorting Canvas (+ a raycaster so Yes / No take clicks)
         const int PopupOrder = 32000;
-        static int RaisePopup()
+        internal static int RaisePopup()
         {
             var popup = UnityEngine.Object.FindObjectOfType<UnifiedPopup>();
             if (popup == null) return -1;
@@ -497,6 +503,9 @@ namespace VerdantsAscent.Managers
 
         static void SetFooter(TMP_Text t, string label, string value)
         {
+            // 1.0.358 V9: 4 Replace + a concat only when vanilla's value text changed
+            if (s_footerRaw.TryGetValue(t, out var lastRaw) && lastRaw == value) return;
+            s_footerRaw[t] = value;
             // Vanilla wraps an over-max weight in
             // <color=red>..</color>; spacing EVERY "/" also split the closing tag. Only the separator slash is spaced now, never "</".
             string v = (value ?? "").Replace("</", "\u0001").Replace("/", " / ").Replace("  /  ", " / ").Replace("\u0001", "</");

@@ -14,7 +14,7 @@ namespace VerdantsAscent.Managers
     [HarmonyPatch(typeof(InventoryGui), "UpdateRecipe")]
     internal static class CraftStationSlot
     {
-        static string s_lastLog;
+        static string s_lastLog, s_lastRaw, s_lastWant; static CraftingStation s_lastStation;   // 1.0.358 V7 cache
 
         static void Postfix(InventoryGui __instance)
         {
@@ -25,18 +25,23 @@ namespace VerdantsAscent.Managers
             Transform cell = CellOf(__instance, icon.transform);
             bool needed = icon.gameObject.activeSelf;
             if (cell != null && cell.gameObject.activeSelf != needed) cell.gameObject.SetActive(needed);
-            if (!needed) { Log("hidden (the recipe needs no station)", cell); return; }
+            if (!needed) { s_lastStation = null; Log("hidden (the recipe needs no station)", cell); return; }
 
             var recipe = __instance.m_selectedRecipe.Recipe;
             CraftingStation st = recipe != null ? recipe.m_craftingStation : null;
             if (st == null) return;
             if (st.m_icon != null && icon.sprite != st.m_icon) { icon.sprite = st.m_icon; icon.preserveAspect = true; }
+            // 1.0.358 (UI efficiency audit V7): vanilla rewrites the level each frame; the station name + level line (2 Localize, a parse, the
+            // log string) is built once per (station, level text), and an unchanged frame returns here
+            string raw = text != null ? text.text : null;
+            if (st == s_lastStation && raw != null && (raw == s_lastRaw || raw == s_lastWant)) { if (text.text != s_lastWant) text.text = s_lastWant; return; }
             if (text != null)
             {
-                string level = text.text;
+                string level = raw;
                 int n; if (!int.TryParse(level, out n)) { int sp = level.LastIndexOf(' '); if (sp >= 0) int.TryParse(level.Substring(sp + 1), out n); }
                 string want = Localization.instance.Localize(st.m_name) + (n > 0 ? " " + n : "");
                 if (text.text != want) { text.text = want; text.enableWordWrapping = true; text.enableAutoSizing = true; text.fontSizeMin = 8f; }
+                s_lastStation = st; s_lastRaw = raw; s_lastWant = want;
             }
             Log($"'{Localization.instance.Localize(st.m_name)}' icon + name + level", cell);
         }

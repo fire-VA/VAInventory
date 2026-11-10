@@ -155,9 +155,11 @@ namespace VerdantsAscent.Managers
             Row("PvP Kills", Stat(profile, PlayerStatType.PlayerKills));
         }
 
+        static bool s_statLogged;
         static string Stat(PlayerProfile profile, PlayerStatType type)
         {
-            try { return profile.GetStat(type).ToString("N0"); }
+            // Valheim 1.0.21 removed GetStat(stat); vanilla now reads the "Any" bucket (non-cheated totals) everywhere it showed stats
+            try { if (!s_statLogged) { s_statLogged = true; EquipmentPanel.PanelLog?.LogDebug("[VAInventory] stats panel reads GetStat(stat, DifficultyRequirement.Any) (Valheim 1.0.21 API)"); } return profile.GetStat(type, DifficultyRequirement.Any).ToString("N0"); }
             catch { return "-"; }
         }
 

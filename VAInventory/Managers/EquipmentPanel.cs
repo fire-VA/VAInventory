@@ -174,6 +174,7 @@
             private static readonly List<Slots.Slot> sidePanelSlots = [];
             // Reused per-frame buffers of UpdateInventorySlots (it runs every frame the inventory is open)
             private static readonly List<Slots.Slot> s_gridToolSlots = [];
+            private static readonly Vector2 s_offscreen = new Vector2(-10000, -10000);   // 1.0.358 V11
             private static readonly List<object> s_elementsCopy = [];
             private static readonly List<object> s_sidePanelCopy = [];
             private static readonly List<Slots.Slot> s_sideSlotsCopy = [];
@@ -353,18 +354,21 @@
                     var go = ElemGo(elementsCopy[i]);
                     if (go)
                     {
-                        go.SetActive(true);
-                        var rect = go.GetComponent<RectTransform>();
+                        // 1.0.358 (UI efficiency audit V11): every frame per hidden cell this did SetActive + GetComponent + a LINQ slot
+                        // lookup; now the slot lookup runs only when a tool slot is drawn in the grid (never under Unified), and the
+                        // active flag / off-screen position are written only when they differ
+                        if (!go.activeSelf) go.SetActive(true);
+                        var rect = (RectTransform)go.transform;
                         var pos = new Vector2i(i % Slots.InventoryWidth, i / Slots.InventoryWidth);
-                        var slot = Slots.GetSlotInGrid(pos);
+                        var slot = gridToolSlots.Count > 0 ? Slots.GetSlotInGrid(pos) : null;
                         if (slot != null && gridToolSlots.Contains(slot))
                         {
                             rect.anchoredPosition = new Vector2(pos.x * tileSize, -pos.y * tileSize);
                             SetToolHotbarInventorySlotElement(elementsCopy[i], slot);
                         }
-                        else
+                        else if (rect.anchoredPosition != s_offscreen)
                         {
-                            rect.anchoredPosition = new Vector2(-10000, -10000);
+                            rect.anchoredPosition = s_offscreen;
                         }
                     }
                 }
@@ -946,6 +950,14 @@
                                     return;
                                 }
 
+                                // 1.0.371 (Fire 10-29): a ring / necklace put on a free jewelry cell plays FLO's equip animation first and lands when it ends
+                                if (UnifiedScreen.IsJewelrySlot(slot) && JewelryEquipQueue.Equip(Player.m_localPlayer, dragItem, slot))
+                                {
+                                    ClearDragState();
+                                    MarkDirty();
+                                    UpdatePanel();
+                                    return;
+                                }
                                 var fromPos = dragItem.m_gridPos;
                                 PanelLog.LogDebug($"[VAInventory] cell drop: {dragItem.m_shared.m_name} {fromPos} -> {slot.ID} {pos}");
                                 dragItem.m_gridPos = pos;
@@ -1439,6 +1451,8 @@
                 ItemDrop.ItemData dragItem = InventoryGui.instance != null ? (ItemDrop.ItemData)fi_dragItem.GetValue(InventoryGui.instance) : null;
                 bool unfit = dragItem != null && slot.IsActive && !slot.ItemFits(dragItem);
                 SetSlotColor(button, unfit);
+                var face = go.GetComponent<Image>();
+                if (face != null) { var s = slot; AcceptGlow.Mark(go, face, "slot " + s.ID, it => s.IsActive ? s.ItemFits(it) : (bool?)null); }
             }
 
             // Under Panels, Core's CraftingSkin Role.Slot styles the panel's elements
@@ -1700,16 +1714,26 @@
                 return tunedFraction * fr_basePlayerPanelHeight(InventoryGui.instance) / currentPanelHeight;
             }
 
+            private static RectTransform s_fitBg; private static float s_fitAnchorY = float.NaN; private static Vector2 s_fitPlayerSize; private static int s_fitCount;
+
             // Stretches the carry grid's own backdrop down over the extra rows.
             private static void FitGridBackground(int extraRows)
             {
                 if (!inventoryBackground) return;
                 float anchorY = -ExtraRowsBackgroundExtension(extraRows);
+                // 1.0.358 (UI efficiency audit V1, Fire 10-26): this ran from an InventoryGui.Update postfix EVERY frame with two
+                // ForceRebuildLayoutImmediate; now only when the anchor or the player panel's size actually changed
+                var playerRt = InventoryGui.instance.m_player as RectTransform;
+                Vector2 playerSize = playerRt != null ? playerRt.rect.size : Vector2.zero;
+                if (s_fitBg == inventoryBackground && Mathf.Abs(anchorY - s_fitAnchorY) < 0.0001f && playerSize == s_fitPlayerSize
+                    && Mathf.Abs(inventoryBackground.anchorMin.y - anchorY) < 0.0001f) return;
+                s_fitBg = inventoryBackground; s_fitAnchorY = anchorY; s_fitPlayerSize = playerSize;
                 inventoryBackground.anchorMin = new Vector2(inventoryBackground.anchorMin.x, anchorY);
                 inventoryBackground.anchorMax = new Vector2(inventoryBackground.anchorMax.x, 1f);
 
                 LayoutRebuilder.ForceRebuildLayoutImmediate(inventoryBackground);
                 LayoutRebuilder.ForceRebuildLayoutImmediate(InventoryGui.instance.m_player.GetComponent<RectTransform>());
+                if (++s_fitCount <= 3) VerdantsAscent.EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] grid background fitted (anchor {anchorY:0.###}, panel {playerSize}): rebuilds only on change");
             }
 
             internal static void UpdateEquipmentBackground()
@@ -2319,18 +2343,25 @@
                         player.UnequipItem(item, false);
                     }
 
-                // Try to move to main inventory
-                if (Slots.TryMakeFreeSpaceInPlayerInventory(true, out Vector2i freePos))
+                // 1.0.371 (Fire 10-29): a worn ring / necklace comes off with FLO's unequip animation; the same move runs when it ends
+                void MoveBack()
                 {
-                    inventory.RemoveItem(item);
-                    item.m_gridPos = freePos;
-                    inventory.AddItem(item);
-                    inventory.m_onChanged?.Invoke();
+                    if (Slots.TryMakeFreeSpaceInPlayerInventory(true, out Vector2i freePos))
+                    {
+                        inventory.RemoveItem(item);
+                        item.m_gridPos = freePos;
+                        inventory.AddItem(item);
+                        inventory.m_onChanged?.Invoke();
+                    }
+                    else
+                    {
+                        player.DropItem(inventory, item, item.m_stack);
+                    }
+                    EquipmentPanel.MarkDirty();
+                    EquipmentPanel.UpdatePanel();
                 }
-                else
-                {
-                    player.DropItem(inventory, item, item.m_stack);
-                }
+                if (JewelryEquipQueue.Unequip(player, item, slot, MoveBack)) return;
+                MoveBack();
 
                 EquipmentPanel.MarkDirty();
                     EquipmentPanel.UpdatePanel(); // Only update visuals, do not migrate
@@ -2406,6 +2437,7 @@
             /// </summary>
             public static void ClearDragState()
             {
+     BagSpecialRail.TraceCarryClear("EquipmentPanel.ClearDragState");
      var fi_dragGo = AccessTools.Field(typeof(InventoryGui), "m_dragGo");
      var fi_dragAmount = AccessTools.Field(typeof(InventoryGui), "m_dragAmount");
      fi_dragItem.SetValue(InventoryGui.instance, null);

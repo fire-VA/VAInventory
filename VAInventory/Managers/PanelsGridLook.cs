@@ -242,11 +242,15 @@ namespace VerdantsAscent.Managers
         {
             var panel = UnifiedScreen.CharacterPanel;
             if (panel == null) return;
-            foreach (var t in panel.GetComponentsInChildren<TMPro.TMP_Text>(false))
+            // 1.0.358 (UI efficiency audit V12): reused lists instead of a new array per walk
+            panel.GetComponentsInChildren(false, s_texts);
+            foreach (var t in s_texts)
                 if (t.name == "quality" && t.fontSize != QualitySize) { t.enableAutoSizing = false; t.fontSize = QualitySize; }
         }
 
         const float QualitySize = 13f;
+        static readonly System.Collections.Generic.List<TMPro.TMP_Text> s_texts = new System.Collections.Generic.List<TMPro.TMP_Text>();
+        static readonly System.Collections.Generic.List<RectTransform> s_rects = new System.Collections.Generic.List<RectTransform>();
 
         // The coin purse ALWAYS shows the coin icon - at ~40% with no count while empty, normal with the
         // count when filled (vanilla's own icon then) - and the currency-cycle "⇄" badge (EquipmentPanel's CurrencyCycle) sits small in the cell's
@@ -258,7 +262,8 @@ namespace VerdantsAscent.Managers
         {
             var panel = UnifiedScreen.CharacterPanel;
             if (panel == null) return;
-            foreach (var badge in panel.GetComponentsInChildren<RectTransform>(true))
+            panel.GetComponentsInChildren(true, s_rects);   // 1.0.358 V12: reused list
+            foreach (var badge in s_rects)
             {
                 if (badge.name != "CurrencyCycle") continue;
                 if (badge.anchorMin != Vector2.one || badge.sizeDelta.x != 14f)

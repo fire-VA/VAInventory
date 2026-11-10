@@ -120,7 +120,7 @@ namespace VerdantsAscent.Managers
 
         public override void OnShow(string subView)
         {
-            _shown = true; _refreshN = 0;   // 1.0.261
+            _shown = true; _refreshN = 0; _statsKey = null;   // 1.0.261; 1.0.356: the first refresh of a show always builds
             _companion = string.Equals(subView, "companion", StringComparison.OrdinalIgnoreCase) ? (s_pendingCompanion != null ? s_pendingCompanion : CompanionStats.Target()) : null;   // a companion handed in by OpenCompanionStats first
             s_pendingCompanion = null;
             var p = Player.m_localPlayer;
@@ -140,7 +140,7 @@ namespace VerdantsAscent.Managers
             HideTip();
         }
 
-        public override void OnResize(Vector2 size) { if (_shown) Refresh(); }
+        public override void OnResize(Vector2 size) { if (_shown) { _statsKey = null; Refresh(); } }
 
         sealed class PageTicker : MonoBehaviour
         {
@@ -169,12 +169,39 @@ namespace VerdantsAscent.Managers
         static string Mult(float m) => Tint("x" + m.ToString("0.##", Inv), m - 1f);
 
         int _lastSig;
+        string _statsKey; float _statsRebuildAt, _statsLogAt; int _statsSkips, _statsTimerRebuilds, _statsChangeRebuilds;
+        static readonly System.Text.StringBuilder s_key = new System.Text.StringBuilder(256);
+        // 1.0.356: what the Stats rows show, without the per-second timers; equal key = the rows already show it
+        string StatsKey(Player p)
+        {
+            var sb = s_key; sb.Length = 0;
+            sb.Append(p.GetPlayerName()).Append('|').Append(Mathf.RoundToInt(p.GetMaxHealth() * 10f)).Append('|').Append(Mathf.RoundToInt(p.GetMaxStamina() * 10f))
+              .Append('|').Append(Mathf.RoundToInt(p.GetMaxEitr() * 10f)).Append('|').Append(Mathf.RoundToInt(p.GetBodyArmor() * 10f));
+            var w = p.GetCurrentWeapon(); sb.Append('|').Append(w != null ? w.m_shared.m_name + "#" + w.m_quality : "-");
+            try { sb.Append('|').Append(Mathf.RoundToInt(p.GetInventory().GetTotalWeight())).Append('/').Append(Mathf.RoundToInt(p.GetMaxCarryWeight())); } catch { }
+            var foods = p.GetFoods(); if (foods != null) foreach (var f in foods) sb.Append('|').Append(f.m_item != null ? f.m_item.m_shared.m_name : "?");
+            var ses = p.GetSEMan() != null ? p.GetSEMan().GetStatusEffects() : null; if (ses != null) foreach (var se in ses) if (se != null) sb.Append('|').Append(se.name);
+            foreach (var it in Equipped(p)) sb.Append('|').Append(it.m_shared.m_name).Append('#').Append(it.m_quality);
+            sb.Append('|').Append(Mathf.RoundToInt(((RectTransform)_rightBody.parent).rect.width));
+            return sb.ToString();
+        }
+
         void Refresh()
         {
             if (_companion != null) { RefreshCompanion(); return; }
             var p = Player.m_localPlayer;
             if (p == null || _rightBody == null) return;
             BuildEquipped(p);
+            // 1.0.356 (Fire 10-26: "the FPS drops in the F1 menu are horrendous"; F1 opens on this page): the rows were destroyed and
+            // re-created every second (a whole-canvas rebuild + every effect's tooltip + ~9 class breakdowns). Now they are rebuilt only
+            // when what they show changes (the key below: values, names, counts - not the ticking timers), and at most every 5 s
+            // for the food / effect seconds left.
+            float nowT = Time.unscaledTime;
+            string key = StatsKey(p);
+            if (key == _statsKey && nowT < _statsRebuildAt) { _statsSkips++; return; }
+            if (_statsKey != null && key == _statsKey) _statsTimerRebuilds++; else _statsChangeRebuilds++;
+            _statsKey = key; _statsRebuildAt = nowT + 5f;
+            if (nowT >= _statsLogAt) { _statsLogAt = nowT + 60f; EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] Player > Stats perf: last minute {_statsChangeRebuilds} rebuild(s) on a change, {_statsTimerRebuilds} timer rebuild(s), {_statsSkips} skipped tick(s) (was 1 full rebuild per second)"); _statsChangeRebuilds = _statsTimerRebuilds = _statsSkips = 0; }
             // Core's kit finds Section/Row groups BY NAME and Destroy is deferred, so the
             // rebuilt rows landed in the old (dying) groups. Detach first, then destroy (memory kit-redraw-detach-before-destroy).
             for (int i = _rightBody.childCount - 1; i >= 0; i--) { var c = _rightBody.GetChild(i); c.SetParent(null, false); UnityEngine.Object.Destroy(c.gameObject); }
@@ -783,6 +810,11 @@ namespace VerdantsAscent.Managers
         Light _light; int _isolatedLayer = -1; GameObject _backdrop;
         readonly List<(GameObject go, int layer)> _swapped = new List<(GameObject, int)>();
         bool _fogWas, _inRender;
+        // 1.0.356 (F1 fps): the camera never renders by itself (enabled stays false); UpdateFraming renders it on demand, at most
+        // 10 times a second while the page is shown, and only when the pose or the gear changed or 1 s passed. The renderer list is
+        // cached (re-read every 2 s or when the target changes) instead of a new array every frame.
+        bool _showing; float _nextRender, _rendersAt, _rListAt = -1f; int _renders, _lastPoseKey;
+        readonly List<Renderer> _rList = new List<Renderer>();
 
         public void Initialize(Transform host, RawImage sink)
         {
@@ -832,7 +864,9 @@ namespace VerdantsAscent.Managers
             if (cam != _camera || _target == null || _inRender) return;
             _inRender = true; _swapped.Clear();
             if (_backdrop != null) _backdrop.SetActive(true);
-            foreach (var r in _target.GetComponentsInChildren<Renderer>(true))
+            float nowR = Time.unscaledTime;
+            if (_rListAt < 0f || nowR >= _rListAt) { _rListAt = nowR + 2f; _target.GetComponentsInChildren(true, _rList); }
+            foreach (var r in _rList)
             {
                 if (r == null || r.gameObject.layer == _isolatedLayer) continue;
                 _swapped.Add((r.gameObject, r.gameObject.layer)); r.gameObject.layer = _isolatedLayer;
@@ -851,9 +885,9 @@ namespace VerdantsAscent.Managers
             _inRender = false;
         }
 
-        public void SetTarget(Transform t) { _target = t; _yaw = 0f; }
-        public void Show() { if (_camera != null) _camera.enabled = true; if (_sink != null) _sink.enabled = true; Fit(); UpdateFraming(); }
-        public void Hide() { if (_camera != null) _camera.enabled = false; if (_sink != null) _sink.enabled = false; Restore(); }
+        public void SetTarget(Transform t) { _target = t; _yaw = 0f; _rListAt = -1f; }
+        public void Show() { _showing = true; _nextRender = 0f; _lastPoseKey = 0; if (_camera != null) _camera.enabled = false; if (_sink != null) _sink.enabled = true; Fit(); UpdateFraming(); }
+        public void Hide() { _showing = false; if (_camera != null) _camera.enabled = false; if (_sink != null) _sink.enabled = false; Restore(); }
 
         void Fit()
         {
@@ -873,11 +907,19 @@ namespace VerdantsAscent.Managers
 
         public void UpdateFraming()
         {
-            if (_camera == null || _target == null || !_camera.enabled) return;
+            if (_camera == null || _target == null || !_showing) return;
+            float now = Time.unscaledTime;
+            if (now < _nextRender) return;
             Vector3 focus = _target.position + Vector3.up * _height;
             Vector3 dir = Quaternion.Euler(0f, _yaw, 0f) * _target.forward;
             _camera.transform.position = focus + dir * _distance + Vector3.up * 0.15f;
             _camera.transform.LookAt(focus);
+            int pose = Mathf.RoundToInt(_yaw * 10f) ^ (_rList.Count << 20) ^ Mathf.RoundToInt(_distance * 100f);
+            var anim = _target.GetComponentInChildren<Animator>();
+            bool moving = anim != null && anim.enabled;   // an animated body changes every frame: the 10 Hz cap holds it
+            if (!moving && pose == _lastPoseKey && now < _rendersAt + 1f) return;
+            _lastPoseKey = pose; _nextRender = now + 0.1f; _rendersAt = now;
+            _camera.Render(); _renders++;
         }
     }
 }

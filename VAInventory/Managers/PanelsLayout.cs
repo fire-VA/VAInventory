@@ -52,14 +52,14 @@ namespace VerdantsAscent.Managers
         void LateUpdate()
         {
             var gui = InventoryGui.instance;
-            bool on = UnifiedScreen.PanelsMode && gui != null && InventoryGui.IsVisible() && root != null;
+            secAt = System.Diagnostics.Stopwatch.GetTimestamp(); bool on = UnifiedScreen.PanelsMode && gui != null && InventoryGui.IsVisible() && root != null;
             try { PanelsChrome.Tick(gui, UnifiedScreen.CharacterPanel); } catch (Exception e) { LogOnce("panels: chrome tick failed: " + e.Message); }   // armour/weight, header, repair, info row, trash (Panels only; restores when left)
-            VanillaStatTabs(gui, on);   // 1.0.170
+            Sec("chrome"); VanillaStatTabs(gui, on);   // 1.0.170
             PanelsGridLook.Placeholders(on);   // Grey slot names in empty equipment cells (Panels only)
             if (on && !PanelsDock.Registered) SeedHide(true);   // The first-open seeding hide BEFORE the crafting header check (it ran first and measured a frame DockTick hid later)
-            try { PanelsCraftShift.Tick(gui, on); } catch (Exception e) { LogOnce("panels: crafting shift failed: " + e.Message); }   // 1.0.173
-            if (!on) { if (CompanionColumnShown) HideCompanion(); skinnedThisOpen = false; watchOpen = false; borderWasOn = false; return; }
-            BorderPixelFloor(gui);   // 1.0.264
+            Sec("tabs + placeholders"); try { PanelsCraftShift.Tick(gui, on); } catch (Exception e) { LogOnce("panels: crafting shift failed: " + e.Message); }   // 1.0.173
+            if (!on) { if (CompanionColumnShown) HideCompanion(); styleUntil = 0f; skinnedThisOpen = false; watchOpen = false; borderWasOn = false; return; }
+            Sec("craft shift"); BorderPixelFloor(gui);   // 1.0.264
             if (!watchOpen) { watchOpen = true; UnifiedScreen.WatchOpen(); }   // The Misc cell 0 writer proof, per open
             UnifiedScreen.WatchTick();
             Slots.RegisterCoreCatalog();   // Once, the first open the slots exist (Core 0.2.563 FiresSlotCatalog)
@@ -98,21 +98,54 @@ namespace VerdantsAscent.Managers
                 if (frames > 0) EquipmentPanel.PanelLog?.LogDebug($"panels: {frames} Cell_ frame face(s) styled like the main grid's slots");
                 UnifiedScreen.StyleElementsLikeGrid(true);   // The certain copy + both rendered colours logged
                 ApplyGridLooks(gui);   // 1.0.208
+                styleUntil = Time.unscaledTime + StyleSettleSeconds;
                 nextElementCopy = Time.unscaledTime + 0.5f;
             }
-            else if (Time.unscaledTime >= nextElementCopy)
+            else if (StyleWanted(gui, cp) && Time.unscaledTime >= nextElementCopy)
             {
                 nextElementCopy = Time.unscaledTime + 0.5f;
                 if (UnifiedScreen.StyleElementsLikeGrid(false) > 0) UnifiedScreen.StyleElementsLikeGrid(true);   // Elements re-created later (open #3)
                 ApplyGridLooks(gui);   // Main grid + chest + hotbars, the pouch look (re-created elements too)
             }
-            companionPanel.Tick();   // The companion panel's rails + stats, twice a second while shown
+            Sec("skin + style"); companionPanel.Tick();   // The companion panel's rails + stats, twice a second while shown
             if (CompanionCloseFallback(gui)) return;
-            PanelsGridLook.Tick(gui);   // The v4 mock's grid wells
+            Sec("companion panel"); PanelsGridLook.Tick(gui);   // The v4 mock's grid wells
             // With Core's FiresDock every panel is a dock element (PanelsDock); this only seeds the default row, then Core owns placement
-            if (PanelsDock.Available) { try { DockTick(gui); } catch (Exception e) { LogOnce("panels: dock tick failed: " + e.Message); } return; }
+            Sec("grid look"); if (PanelsDock.Available) { try { DockTick(gui); } catch (Exception e) { LogOnce("panels: dock tick failed: " + e.Message); } Sec("dock"); return; }
             try { Layout(gui); }
             catch (Exception e) { LogOnce("panels: layout failed: " + e.Message); }
+        }
+
+        // 1.0.379 (lead, [fgn]'s stall ranking: 18-65 ms spikes, no child timings): Debug, the slowest section every 10 s and the total per section.
+        static long secAt; static double secWorst; static string secWorstName; static float secSayAt;
+        static readonly Dictionary<string, double> secMs = new Dictionary<string, double>();
+        static void Sec(string name)
+        {
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            double ms = (now - secAt) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+            secAt = now;
+            secMs.TryGetValue(name, out double sum); secMs[name] = sum + ms;
+            if (ms > secWorst) { secWorst = ms; secWorstName = name; }
+            if (Time.unscaledTime < secSayAt) return;
+            secSayAt = Time.unscaledTime + 10f;
+            var parts = new List<string>();
+            foreach (var kv in secMs) if (kv.Value >= 1.0) parts.Add($"{kv.Key} {kv.Value:0}");
+            if (parts.Count > 0) EquipmentPanel.PanelLog?.LogDebug($"panels: LateUpdate last 10 s: worst {secWorst:0.0} ms in {secWorstName}; ms per section: {string.Join(", ", parts)}");
+            secMs.Clear(); secWorst = 0;
+        }
+
+        // 1.0.380 (lead, Fire's event rule; timer: skin + style 612 ms per 10 s, 31 ms x 20 passes = this pass every 0.5 s with nothing changed): the restyle runs only after something
+        // changed: a skin pass (open, SkinDirty) or a slot rebuilt. Vanilla's grid rebuild and the companion panel raise no event, so those are read as a hierarchy count once a frame.
+        // It keeps running for 2 s after each change, since Core's slot look can arrive a few frames late (the pass does nothing until it has).
+        const float StyleSettleSeconds = 2f;
+        float styleUntil; int styleSig;
+        bool StyleWanted(InventoryGui gui, RectTransform cp)
+        {
+            int sig = (cp != null ? cp.hierarchyCount : 0) * 31 + (companion != null ? companion.hierarchyCount : 0) * 17
+                      + (gui.m_playerGrid != null && gui.m_playerGrid.m_gridRoot != null ? gui.m_playerGrid.m_gridRoot.hierarchyCount : 0) * 7
+                      + (gui.m_containerGrid != null && gui.m_containerGrid.m_gridRoot != null ? gui.m_containerGrid.m_gridRoot.hierarchyCount : 0);
+            if (sig != styleSig) { styleSig = sig; styleUntil = Time.unscaledTime + StyleSettleSeconds; }
+            return Time.unscaledTime < styleUntil;
         }
 
         void Layout(InventoryGui gui)
@@ -292,6 +325,9 @@ namespace VerdantsAscent.Managers
             if (fixedN > 0 || log != borderLog) { if (fixedN > 0 || borderLog == null) EquipmentPanel.PanelLog?.LogDebug(log); borderLog = log; }
         }
         RectTransform chestDocked;   // The Container rect lifted + registered (a new InventoryGui = a new one)
+        static RectTransform s_chestSkipLogged;   // one "left as vanilla" line per chest panel
+        static RectTransform s_chestVanillaRt; static Transform s_chestVanillaParent; static int s_chestVanillaSibling;
+        static Vector2[] s_chestVanilla; static Vector3 s_chestVanillaScale;   // the chest panel's vanilla rect, kept before the lift
         bool skinnedThisOpen;   // 1.0.184
         int skinSignature;   // 1.0.186
         internal static bool SkinDirty;   // Set by EquipmentPanel when it instantiates panel elements
@@ -313,9 +349,17 @@ namespace VerdantsAscent.Managers
             if (!PanelsDock.Registered)
             {
                 SeedHide(true);
+                // 1.0.363 (Fire 10-26: non-unified, "on first open it was in the middle of the screen"): the grid's VANILLA top-left, kept
+                // before the Panels row layout first moves it; the non-unified defaults start there (see NonUnifiedVanillaSeat)
+                if (gui.m_player != null && s_vanillaGridCornerOf != gui.m_player)
+                {
+                    var vc = new Vector3[4]; gui.m_player.GetWorldCorners(vc);
+                    s_vanillaGridCornerOf = gui.m_player; s_vanillaGridCorner = vc[1];
+                }
                 PanelsDock.DetachCharacter(character, root);
                 Layout(gui);
                 if (++dockSeedFrames < 3) return;
+                NonUnifiedVanillaSeat(gui, character);
                 PanelsDock.MigrateCraftingRightOnce();   // Before Core loads the saved layout
                 PanelsDock.MigrateDropSavedOnce("companion_panel_1198", "vainv.companion");   // an older column / panel saved spot goes once
                 PanelsDock.MigrateDropSavedOnce("character_own_group_1218", "vainv.character");
@@ -339,7 +383,10 @@ namespace VerdantsAscent.Managers
                 // Now the identical call as vainv.grid (reused from this file, the vainv.grid Register above); the old docked saved spot goes
                 // once so Core does not restore the dock anchor. Seeded default = the row spot beside the grid (not flush to the screen bottom).
                 PanelsDock.MigrateDropSavedOnce("character_free_1273", "vainv.character");
-                PanelsDock.Register("vainv.character", "Character", character, null, null, null);
+                // 1.0.384 ([lead] 11-07, [generator]'s log read): suppressed for the NPC book / Dressing, the panel was only a CanvasGroup at
+                // alpha 0, so Core still treated vainv.character as shown: its live hit-test failed on the header and its resize grip
+                // (FiresDockGrip3) stayed clickable over the book. Core's own Visible callback hides it (no grip, no hit-test) and shows it again.
+                PanelsDock.Register("vainv.character", "Character", character, null, null, () => !VAInventoryApi.PlayerPanelSuppressed);
                 // 
                 // crafting was docked to the Bottom of vainv.info, which Panels hides (its buttons live on crafting), so Core anchored crafting
                 // THROUGH the hidden info panel - keeping the Bottom edge - onto the next shown panel. With the info buttons moved, the info
@@ -391,19 +438,56 @@ namespace VerdantsAscent.Managers
             // "vainv.chest": header-strip drag + Core's corner resize, saved separately, shown only while a chest is open. Kit skin + pouch-cell
             // slot faces as before (PanelsDock.Skin / ApplySlotLook). Reused: DetachCharacter's lift, PanelsDock.Register + LiveHandle.
             var chestRt = gui.m_container;
-            if (chestDocked != chestRt && chestRt != null && chestRt.gameObject.activeInHierarchy && gui.m_player != null)
+            // Unified UI OFF = vanilla's chest, untouched: not lifted, re-scaled, re-pivoted or handed to Core's dock. Registered, the
+            // dock restored the unified layout's saved spot AND scale (1.26) onto the vanilla chest, so its art grew and Take all /
+            // Place stacks / Tags sat off its edges (Fire 10-23, shot 235, a session started with the override OFF).
+            // 1.0.362 (Fire 10-26, shot 444: "the chest is showing overlapping the inventory grid and we have no way to drag it ... click
+            // dragging tries to move the entire group"): left as a CHILD of the Player panel, a press on the chest found vainv.grid under it
+            // and dragged the grid with the chest inside. In the non-unified UI the chest is now lifted off the Player panel too, keeping
+            // vanilla's look (world size kept, no kit skin, no unified scale), seated once just below the grid's drawn bottom, and handed to
+            // Core as its OWN element "vainv.chest.vanilla" (a separate id, so the unified chest's saved spot / scale never lands on it):
+            // a free drag of the chest alone, its own saved spot.
+            if (!FiresCore.UI.Shell.FiresShell.OverrideOn && chestFreed != chestRt && chestDocked != chestRt && chestRt != null && chestRt.gameObject.activeInHierarchy && gui.m_player != null)
+            {
+                chestFreed = chestRt;
+                if (s_chestVanillaParent == null || s_chestVanillaRt != chestRt)
+                {
+                    s_chestVanillaRt = chestRt; s_chestVanillaParent = chestRt.parent; s_chestVanillaSibling = chestRt.GetSiblingIndex();
+                    s_chestVanilla = new[] { chestRt.anchorMin, chestRt.anchorMax, chestRt.pivot, chestRt.anchoredPosition, chestRt.sizeDelta };
+                    s_chestVanillaScale = chestRt.localScale;
+                }
+                SeatChestBelowGrid(gui, root, chestRt);
+                PanelsDock.Register(VanillaChestId, "Chest", chestRt, null, null, () => gui.m_container != null && gui.m_container.gameObject.activeInHierarchy);
+                EquipmentPanel.PanelLog?.LogDebug($"panels: chest lifted off the grid (unified UI OFF), seated below it, registered as {VanillaChestId} (free drag, saved separately); scale {chestRt.lossyScale.x:0.###} kept");
+            }
+            // switched OFF mid-session after the lift: out of the dock, and parent / place / scale / pivot / anchors back to vanilla's
+            // (kept at the lift), so a mode switch never leaves a dock-scaled chest (lead 10-23: Fire switches modes while testing)
+            if (!FiresCore.UI.Shell.FiresShell.OverrideOn && chestDocked != null && chestDocked == chestRt && s_chestVanillaParent != null)
+            {
+                PanelsDock.Unregister("vainv.chest", chestRt);
+                RestoreVanillaChest(chestRt);
+                chestDocked = null; s_chestSkipLogged = chestRt;
+                EquipmentPanel.PanelLog?.LogDebug($"panels: chest back to vanilla's (unified UI OFF): under '{chestRt.parent?.name}', scale {chestRt.localScale.x:0.###}, pivot {chestRt.pivot}, at {chestRt.anchoredPosition}, size {chestRt.sizeDelta}");
+            }
+            // 1.0.362: switched ON after the non-unified lift: out of the dock under the vanilla id and back to vanilla's parent / place,
+            // so the unified lift below starts from vanilla's chest as before
+            if (FiresCore.UI.Shell.FiresShell.OverrideOn && chestFreed != null && chestFreed == chestRt && s_chestVanillaParent != null)
+            {
+                PanelsDock.Unregister(VanillaChestId, chestRt);
+                RestoreVanillaChest(chestRt);
+                chestFreed = null;
+                EquipmentPanel.PanelLog?.LogDebug($"panels: chest back to vanilla's before the unified lift: under '{chestRt.parent?.name}'");
+            }
+            if (FiresCore.UI.Shell.FiresShell.OverrideOn && chestDocked != chestRt && chestRt != null && chestRt.gameObject.activeInHierarchy && gui.m_player != null)
             {
                 chestDocked = chestRt;
-                var g = new Vector3[4]; gui.m_player.GetWorldCorners(g);
-                // The grid DRAWS below m_player's rect (its Bkg / grid root
-                // reach past it), so the seat measures the lowest drawn bottom of the three, then one Gap below that
-                float drawnBottom = g[0].y;
-                foreach (var part in new[] { gui.m_player.Find("Bkg") as RectTransform, gui.m_playerGrid != null ? gui.m_playerGrid.m_gridRoot : null })
-                    if (part != null && part.gameObject.activeInHierarchy) { var pc = new Vector3[4]; part.GetWorldCorners(pc); drawnBottom = Mathf.Min(drawnBottom, pc[0].y); }
-                var k = new Vector3[4]; chestRt.GetWorldCorners(k);
-                Vector3 want = new Vector3(g[0].x, drawnBottom, g[0].z) - root.TransformVector(new Vector3(0f, Gap * UserScale(), 0f));   // grid's drawn bottom-left, one Gap below
-                chestRt.position += want - k[1];
-                chestRt.SetParent(root, true);   // world position and size kept
+                if (s_chestVanillaParent == null || s_chestVanillaRt != chestRt)   // vanilla's own, kept once per chest panel (before any lift)
+                {
+                    s_chestVanillaRt = chestRt; s_chestVanillaParent = chestRt.parent; s_chestVanillaSibling = chestRt.GetSiblingIndex();
+                    s_chestVanilla = new[] { chestRt.anchorMin, chestRt.anchorMax, chestRt.pivot, chestRt.anchoredPosition, chestRt.sizeDelta };
+                    s_chestVanillaScale = chestRt.localScale;
+                }
+                SeatChestBelowGrid(gui, root, chestRt);   // 1.0.362: shared with the non-unified lift
                 // The chest starts at the player grid's own scale (the same cells): keeping its WORLD size on the lift would make the Player
                 // panel's scale (and any earlier Core scale on the chest) its base scale, with Core's saved scale on top. A saved chest spot
                 // made on such an inflated base goes once, so Core starts it from its default.
@@ -603,6 +687,61 @@ namespace VerdantsAscent.Managers
             public void OnPointerClick(PointerEventData e) { if (e.clickCount == 2) SaveUserScale(1f); }
         }
 
+        // 1.0.362: the chest seat (one Gap below the grid's drawn bottom, pivot top-left, corner kept) and the way back to vanilla's
+        // parent / place / scale, shared by the unified and the non-unified lift
+        const string VanillaChestId = "vainv.chest.vanilla";
+        RectTransform chestFreed;   // the Container rect lifted + registered in the non-unified UI
+
+        static RectTransform s_vanillaGridCornerOf; static Vector3 s_vanillaGridCorner;
+
+        // 1.0.363: in the non-unified UI the owner defaults are the vanilla spots, not the unified centred row: right before Register,
+        // the grid and the player panel move together by (vanilla grid top-left - seeded row grid top-left), so the grid starts where
+        // vanilla shows it and the player panel keeps its place beside it; the chest then seats under the grid. A saved non-unified spot
+        // still wins (Core places it at Register), and Fire's first drop becomes the spot from then on.
+        static void NonUnifiedVanillaSeat(InventoryGui gui, RectTransform character)
+        {
+            if (FiresCore.UI.Shell.FiresShell.OverrideOn || gui.m_player == null || s_vanillaGridCornerOf != gui.m_player) return;
+            var c = new Vector3[4]; gui.m_player.GetWorldCorners(c);
+            Vector3 d = s_vanillaGridCorner - c[1];
+            if (d.sqrMagnitude < 0.0001f) return;
+            gui.m_player.position += d;
+            if (character != null) character.position += d;
+            EquipmentPanel.PanelLog?.LogDebug($"panels: non-unified defaults = vanilla spots: grid + player panel moved by {d.x:0.#},{d.y:0.#} (world) from the unified row before register");
+        }
+
+        void SeatChestBelowGrid(InventoryGui gui, RectTransform root, RectTransform chestRt)
+        {
+            var g = new Vector3[4]; gui.m_player.GetWorldCorners(g);
+            // The grid DRAWS below m_player's rect (its Bkg / grid root
+            // reach past it), so the seat measures the lowest drawn bottom of the three, then one Gap below that
+            float drawnBottom = g[0].y;
+            foreach (var part in new[] { gui.m_player.Find("Bkg") as RectTransform, gui.m_playerGrid != null ? gui.m_playerGrid.m_gridRoot : null })
+                if (part != null && part.gameObject.activeInHierarchy) { var pc = new Vector3[4]; part.GetWorldCorners(pc); drawnBottom = Mathf.Min(drawnBottom, pc[0].y); }
+            var k = new Vector3[4]; chestRt.GetWorldCorners(k);
+            Vector3 want = new Vector3(g[0].x, drawnBottom, g[0].z) - root.TransformVector(new Vector3(0f, Gap * UserScale(), 0f));   // grid's drawn bottom-left, one Gap below
+            chestRt.position += want - k[1];
+            chestRt.SetParent(root, true);   // world position and size kept
+            // Pivot = the top-left corner (position kept): Core's dock saves and restores the pivot point, and ChestSections resizes
+            // per chest size, so with vanilla's pivot a bigger chest's corner landed elsewhere (Fire 10-23, "down to the right").
+            {
+                var pc = new Vector3[4]; chestRt.GetWorldCorners(pc);
+                var oldPivot = chestRt.pivot;
+                chestRt.pivot = new Vector2(0f, 1f);
+                var nc = new Vector3[4]; chestRt.GetWorldCorners(nc);
+                chestRt.position += pc[1] - nc[1];
+                EquipmentPanel.PanelLog?.LogDebug($"panels: chest pivot {oldPivot} -> (0, 1) (its top-left), anchors {chestRt.anchorMin}-{chestRt.anchorMax}, corner kept");
+            }
+        }
+
+        static void RestoreVanillaChest(RectTransform chestRt)
+        {
+            chestRt.SetParent(s_chestVanillaParent, false);
+            chestRt.SetSiblingIndex(Mathf.Min(s_chestVanillaSibling, s_chestVanillaParent.childCount - 1));
+            chestRt.anchorMin = s_chestVanilla[0]; chestRt.anchorMax = s_chestVanilla[1]; chestRt.pivot = s_chestVanilla[2];
+            chestRt.anchoredPosition = s_chestVanilla[3]; chestRt.sizeDelta = s_chestVanilla[4];
+            chestRt.localScale = s_chestVanillaScale;
+        }
+
         // ── companion column ──
         static bool s_apiResolved; static PropertyInfo s_current;
 
@@ -622,10 +761,13 @@ namespace VerdantsAscent.Managers
             try { src = s_current?.GetValue(null); } catch { }
             src ??= s_opened;
             if (src == null) return null;
-            var isOpen = Get<Func<bool>>(src, "IsOpen");
+            // 1.0.358 (UI efficiency audit V6): the IsOpen delegate is looked up once per source object, not every frame
+            if (!ReferenceEquals(src, s_isOpenFor)) { s_isOpenFor = src; s_isOpen = Get<Func<bool>>(src, "IsOpen"); }
+            var isOpen = s_isOpen;
             try { return isOpen == null || isOpen() ? src : null; } catch { return null; }
         }
 
+        static object s_isOpenFor; static Func<bool> s_isOpen;   // 1.0.358 V6
         static object s_opened;
         static void OnCompanionOpened(object src) { s_opened = src; EquipmentPanel.PanelLog?.LogDebug("panels: companion panel source received (CompanionPanelApi.Opened)"); }
         static void OnCompanionClosed(object src) { s_opened = null; }

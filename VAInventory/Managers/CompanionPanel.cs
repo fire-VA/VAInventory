@@ -254,6 +254,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
                 var rc = new RailCell { Cell = (RectTransform)t, Icon = icon, Key = key };
                 rails.Add(rc);
                 var click = t.gameObject.AddComponent<RailClick>(); click.Owner = this; click.Cell = rc;
+                AcceptGlow.Mark(t.gameObject, t.GetComponent<Image>(), "companion worn " + key, it => Rule<Func<ItemDrop.ItemData, bool>>("CanWear") is Func<ItemDrop.ItemData, bool> f ? f(it) : (bool?)null);
             }
         }
 
@@ -288,7 +289,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             if (Root == null) return;
             bool changed = !ReferenceEquals(src, source);
             source = src;
-            Root.gameObject.SetActive(true);
+            if (!Root.gameObject.activeSelf) Root.gameObject.SetActive(true);   // 1.0.358 V6: called every frame while shown
             if (!changed) return;
             body = Get<Humanoid>(src, "Target");
             title.text = Get<string>(src, "DisplayName") ?? "Companion";
@@ -319,6 +320,13 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             var f = Get<Func<Inventory>>(src, "Storage");
             try { if (f != null) return f(); } catch { }
             return Get<Inventory>(src, "Inventory");
+        }
+
+        /// <summary>True while this panel is shown and inv is the open companion's storage or full inventory (DragKeeper keeps its drags).</summary>
+        internal bool OwnsInventory(Inventory inv)
+        {
+            if (inv == null || Root == null || !Root.gameObject.activeInHierarchy || source == null) return false;
+            return inv == Storage(source) || inv == Get<Inventory>(source, "Inventory");
         }
 
         internal void Hide()
@@ -468,6 +476,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
                 secCells.Add(sc);
                 var click = cell.gameObject.AddComponent<SectionClick>(); click.Owner = this; click.Cell = sc;
                 var face = cell.GetComponent<Image>(); if (face != null) face.raycastTarget = true;
+                MarkGlow(sc, face);
             }
         }
 
@@ -643,6 +652,7 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             amount.alignment = TextAlignmentOptions.BottomRight;
             var sc = new SecCell { Section = "BackpackStorage", Index = index, Cell = cell, Icon = icon, Amount = amount };
             var face = cell.GetComponent<Image>(); if (face != null) { face.enabled = true; face.raycastTarget = true; }
+            MarkGlow(sc, face);
             var click = go.AddComponent<SectionClick>(); click.Owner = this; click.Cell = sc;
             return sc;
         }
@@ -1034,6 +1044,17 @@ EquipmentPanel.PanelLog?.LogDebug($"panels: companion Stats page rect {w:0}x{h:0
             bool ok = unequip != null && unequip(rc.Item);
             EquipmentPanel.PanelLog?.LogDebug($"panels: companion unequip {rc.Item.m_shared.m_name} from {rc.Key}: {(ok ? "ok" : "refused")}");
             nextRefresh = 0f;
+        }
+
+        // The drop's own rules from FiresCompanions' CompanionPanelSource (no side effects, [ghost] 10-23): CanWear for the worn rail
+        // (Equip picks the slot by the item), CanPut(section, index, item) for the sections. Missing (an older FiresCompanions) = no glow.
+        T Rule<T>(string name) where T : class => Get<T>(source, name);
+
+        void MarkGlow(SecCell sc, Image face)
+        {
+            if (sc?.Cell == null || face == null) return;
+            AcceptGlow.Mark(sc.Cell.gameObject, face, $"companion {sc.Section}[{sc.Index}]", it =>
+                Rule<Func<string, int, ItemDrop.ItemData, bool>>("CanPut") is Func<string, int, ItemDrop.ItemData, bool> f ? f(sc.Section, sc.Index, it) : (bool?)null);
         }
 
         static T Get<T>(object o, string name) where T : class

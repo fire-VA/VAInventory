@@ -26,7 +26,7 @@ namespace VerdantsAscent
 
         public const string PluginGUID = "com.Fire.VAInventory";
         public const string PluginName = "VAInventory";
-        public const string PluginVersion = "1.0.321";
+        public const string PluginVersion = "1.0.384";   // 1.0.384 ([lead] 11-07): while the player panel is suppressed (NPC book / Dressing) its Core dock element vainv.character is hidden through Core's Visible callback (no live hit-test FAIL on its header, no resize grip over the book), shown again on release; Debug "dock element vainv.character hidden/shown with suppression" line. Previous 1.0.383:   // 1.0.382: a listed admin written as Steam_<id> counts. Previous 1.0.381:   // 1.0.381: server config only from admins, locked or not. Previous 1.0.380:   // 1.0.380 ([wishbone], Fire's event rule): the 0.5 s slot restyle runs only after a change. Previous: 1.0.379;   // 1.0.379 ([wishbone]): Debug section timing in PanelsLayout.LateUpdate. Previous: 1.0.378;   // 1.0.378 ([wishbone], Fire's rail order): Unified bag rail cells sized like the grid beside them. Previous: 1.0.377;   // 1.0.377 ([wishbone], Fire 11-02 config list): + [UI] Rounded minimap; Fires UI override and Sky drift speed leave this mod (Core's own); keys handed to Core in the ConfigEntry form. 1.0.376 ([seasons] 10-30): + Core's Fires UI override, Sky drift speed, Minimap size, Minimap clock shows (CoreSettings). 1.0.375 ([seasons] 10-30): owns + Provides Core's [UI] Show day and time box (CoreSettings). 1.0.374 ([seasons], Fire 10-30 log): the hotbars' live drag strip keeps its raycast (the whole-bar pass switched it off). 1.0.373 ([seasons], Fire 10-30 "health hud, tools, ammo, food"): hotbar default order tools, ammo, food bottom up (bars on the old defaults move once; drags kept). 1.0.372 ([seasons], Fire 10-30): every hotbar starts at its config spot (bottom left above the health HUD) BEFORE Core's dock first registers it (the ammo bar started mid-screen); not docked, a saved spot still wins. 1.0.371 ([seasons], Fire 10-29): worn cells always match what is worn (EquipCellGuard: equip in place / move into the cell, producing path logged); TryUnequipJewelry for FLO; rings / necklaces dragged into / out of a jewelry cell or right-clicked off one play FLO's equip queue (FloJewelryApi, soft) and move when it ends. 1.0.370 ([seasons], fgn round 4 10-29): TryEquipJewelry + Bypass bag eviction call inv.Changed() directly (1.0.21 Changed(bool,bool) made Invoke(inv, null) throw). 1.0.369 ([seasons], fgn round 10-29): TryEquipJewelry re-reads each jewelry cell (a cached empty Left ring took both rings) + Debug why per cell. 1.0.368 ([seasons], Fire 10-28): hotbar fit no-grow guard (VA_ToolHotBar grew +12 px a pass off screen). 1.0.367 ([seasons], lead 10-28 perf): InventoryGui.Update postfix no longer walks the scene (FindObjectsOfType every 30 s = 55 ms spikes on DN). 1.0.366 ([classes-ui] for [seasons], Valheim 1.0.21): StatsPanel uses GetStat(stat, DifficultyRequirement.Any); was MissingMethodException. 1.0.365 1.0.365 ([seasons], lead 10-28 perf): MEASURING InventoryGui.Update (Managers/InvGuiTimer.cs, Debug every 30 s): open / closed, VAInventory tab row quick / full, drag-on-top. 1.0.364: 1.0.364 ([classes-ui] files, UI audit V12/V13): grid plates re-measure cells only when the layout moves; DragItemOnTop canvas looked up once; PanelsCraftShift list reused.   // 1.0.363 ([classes-ui] files, Fire 10-26 hand test): non-unified owner defaults = vanilla spots (grid where vanilla shows it, player panel beside it, chest under it), not the unified centred row. 1.0.362 ([classes-ui] files, Fire 10-26 shot 444): non-unified chest lifted off the Player panel as its own free element vainv.chest.vanilla, seated below the grid   // 1.0.361: hotbar fit never measures its own grown rect (runaway off-screen fit, rig 16:57).   // 1.0.359: Inventory Save/Load patches never throw during a world conversion (Fire: "Error loading world file").   // 1.0.358 (Fire 10-26 UI efficiency audit, [classes-ui] files): per-frame inventory UI work only on change or at a few Hz (V1-V13)
         public const string SyncMinimumVersion = "1.0.116";
 
         public static AssetBundle assetBundle;
@@ -61,6 +61,7 @@ namespace VerdantsAscent
             configSync.LockedConfigChanged += ConfigManager.Instance.OnConfigLockChanged;
 
             ConfigManager.Instance.Initialize(Config);
+            Utilities.CoreSettingsOwned.Bind(Config);   // 1.0.375: the day/time box key, owned here (Fire 10-30)
             BindConfigsToSync();
 
             // Load user backgrounds from config folder
@@ -110,9 +111,29 @@ namespace VerdantsAscent
             FinishInit();
         }
 
+        /// <summary>
+        /// Every patch class is applied on its own, so one that can't attach (a renamed game method, a wrong parameter name) is logged
+        /// and skipped instead of throwing out of PatchAll and aborting the rest of VAInventory's start-up.
+        /// </summary>
+        private void PatchEachClass()
+        {
+            int ok = 0;
+            var failed = new List<string>();
+            foreach (Type type in AccessTools.GetTypesFromAssembly(GetType().Assembly))   // exactly the types Harmony.PatchAll walks
+            {
+                try { if (harmony.CreateClassProcessor(type).Patch()?.Count > 0) ok++; }
+                catch (Exception e)
+                {
+                    failed.Add(type.FullName);
+                    Debug.LogError($"[VAInventory] patch class {type.FullName} failed to attach and is skipped (the rest of VAInventory still loads): {(e.InnerException ?? e).Message}");
+                }
+            }
+            Debug.Log($"[VAInventory] patches attached: {ok} class(es){(failed.Count > 0 ? $"; FAILED {failed.Count}: {string.Join(", ", failed.ToArray())}" : "; none failed")}");
+        }
+
         private void FinishInit()
         {
-            harmony.PatchAll();
+            PatchEachClass();
 
             // Register custom UI backgrounds
             VerdantsAscent.Managers.UIBackgroundManager.RegisterDefaultBackgrounds();
@@ -335,9 +356,10 @@ namespace VerdantsAscent
             public static void Postfix()
             {
                 if (!IsObjectDBValid()) return;
-                AddItemsToObjectDB();
-                VAPieceManager.AddPiecesToHammer();
-                VARecipeManager.UpdatePieceRequirements();
+                // 1.0.360 (load/save audit M10): a throw here skipped the later CopyOtherDB postfixes; each step is caught on its own
+                try { AddItemsToObjectDB(); } catch (System.Exception e) { Debug.LogWarning($"[VAInventory] CopyOtherDB: AddItemsToObjectDB failed: {e}"); }
+                try { VAPieceManager.AddPiecesToHammer(); } catch (System.Exception e) { Debug.LogWarning($"[VAInventory] CopyOtherDB: AddPiecesToHammer failed: {e}"); }
+                try { VARecipeManager.UpdatePieceRequirements(); } catch (System.Exception e) { Debug.LogWarning($"[VAInventory] CopyOtherDB: UpdatePieceRequirements failed: {e}"); }
             }
         }
 
@@ -346,8 +368,8 @@ namespace VerdantsAscent
         {
             public static void Prefix(ZNetScene __instance)
             {
-                if (__instance != null)
-                    AddPrefabsToZNetScene(__instance);
+                // 1.0.360 (load/save audit, same risk as VAB M11): a throw in a ZNetScene.Awake PREFIX skips vanilla's Awake = no world
+                try { if (__instance != null) AddPrefabsToZNetScene(__instance); } catch (System.Exception e) { Debug.LogWarning($"[VAInventory] ZNetScene.Awake: AddPrefabsToZNetScene failed: {e}"); }
             }
         }
     }

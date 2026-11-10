@@ -65,7 +65,7 @@ namespace VerdantsAscent
 
         /// <summary>(Re)builds the rail on a bag panel; removes it when the bag has no special slots.</summary>
         public static void Build(RectTransform panel, ItemDrop.ItemData bag, string[] kinds, GameObject elementPrefab,
-            Vector2 topLeft, float tileSize)
+            Vector2 topLeft, float tileSize, Vector2? cellSize = null)
         {
             if (!panel) return;
             var old = panel.Find(RailName);
@@ -86,18 +86,25 @@ namespace VerdantsAscent
             rail.bag = bag;
             rail.kinds = kinds;
             for (int i = 0; i < kinds.Length; i++)
-                rail.cells.Add(rail.MakeCell(elementPrefab, kinds[i], new Vector2(0f, -i * tileSize)));
+                rail.cells.Add(rail.MakeCell(elementPrefab, kinds[i], new Vector2(0f, -i * tileSize), cellSize));
             rail.Redraw();
         }
 
         // ── Cells ────────────────────────────────────────────────────
 
-        private InventoryElement MakeCell(GameObject elementPrefab, string kind, Vector2 pos)
+        private InventoryElement MakeCell(GameObject elementPrefab, string kind, Vector2 pos, Vector2? cellSize)
         {
             var go = Instantiate(elementPrefab, transform);
             go.name = "BagSpecialSlot_" + kind;
             EquipmentPanel.HideOverlays(go);
-            go.GetComponent<RectTransform>().anchoredPosition = pos;
+            var rt = go.GetComponent<RectTransform>();
+            // 1.0.378 (Fire's rail order, [seasons]' read): Unified sizes its grid cells to RowGrid's cell size, so the rail's cells match them; Legacy keeps the prefab's size.
+            if (cellSize.HasValue)
+            {
+                rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0f, 1f);
+                rt.sizeDelta = cellSize.Value;
+            }
+            rt.anchoredPosition = pos;
 
             // Frame tinted by kind: the element's own background, tinted, plus an outline in the full colour.
             Color c = KindColor(kind);
@@ -111,6 +118,15 @@ namespace VerdantsAscent
             }
 
             go.AddComponent<CellHandler>().Init(this, kind);
+            // the drop's own rule (OnLeftClick): an upgrade swap / a plain item = SpecialSlotAccepts; a plain item onto a slotted
+            // upgrade (fuel) is the upgrade's own call, not knowable ahead = no glow
+            if (bkg) AcceptGlow.Mark(go, bkg, "bag " + kind + " slot", it =>
+            {
+                if (bag == null) return null;
+                var cur = BackpackBridge.ReadSpecialSlot(bag, kind);
+                if (cur != null && BackpackBridge.IsBagUpgrade(cur) && !BackpackBridge.IsBagUpgrade(it)) return null;
+                return BackpackBridge.SpecialSlotAccepts(bag, kind, it);
+            });
 
             var button = go.GetComponent<Button>();
             if (button != null)
@@ -145,11 +161,31 @@ namespace VerdantsAscent
             if (Input.GetMouseButtonDown(1) && s_carry != null && s_carry.NrOfItems() > 0) s_carryPressFrame = Time.frameCount;
             if (s_carry != null && s_carry.NrOfItems() > 0) ReturnCarry();   // A cancelled carry / swap leftover goes home
             if (BackpackBridge.SpecialSlotsVersion != seenVersion) Redraw();
+            else if (Time.unscaledTime >= nextBadgeRedraw)
+            {
+                // 1.0.358 (UI efficiency audit V13): the timer advances even with nothing slotted (it only moved in Redraw, so an empty rail
+                // made the reflection reads of AnyUpgradeSlotted every frame)
+                nextBadgeRedraw = Time.unscaledTime + BadgeRedrawSeconds;
+                if (AnyUpgradeSlotted()) Redraw();   // a slotted upgrade's badge (fuel, meals) changes over time
+            }
         }
+
+        private const float BadgeRedrawSeconds = 0.5f;
+        private float nextBadgeRedraw;
+        private bool AnyUpgradeSlotted()
+        {
+            foreach (var k in kinds) if (BackpackBridge.IsBagUpgrade(BackpackBridge.ReadSpecialSlot(bag, k))) return true;
+            return false;
+        }
+
+        private static readonly Color WarnIconTint = new Color(0.55f, 0.35f, 0.35f, 1f);   // a greyed, reddish icon: the upgrade needs something (fuel)
+        private static readonly Color WarnBadgeColor = new Color(1f, 0.35f, 0.3f, 1f);
+        private int lastFilledLogged = -1;
 
         private void Redraw()
         {
             seenVersion = BackpackBridge.SpecialSlotsVersion;
+            nextBadgeRedraw = Time.unscaledTime + BadgeRedrawSeconds;
             int filled = 0;
             for (int i = 0; i < kinds.Length && i < cells.Count; i++)
             {
@@ -164,6 +200,7 @@ namespace VerdantsAscent
                     {
                         elem.m_icon.sprite = item.GetIcon();
                         elem.m_icon.color = Color.white;
+                        if (BackpackBridge.IsBagUpgrade(item)) { BackpackBridge.BagUpgradeBadge(item, out bool warnIcon); if (warnIcon) elem.m_icon.color = WarnIconTint; }
                     }
                     else
                     {
@@ -176,13 +213,16 @@ namespace VerdantsAscent
                 if (elem.m_amount)
                 {
                     // Vanilla InventoryGrid.UpdateGui: "stack/max" only for stackables.
-                    bool show = item != null && item.m_shared.m_maxStackSize > 1;
+                    bool warn = false;
+                    string badge = BackpackBridge.IsBagUpgrade(item) ? BackpackBridge.BagUpgradeBadge(item, out warn) : null;
+                    bool show = badge != null ? badge.Length > 0 : item != null && item.m_shared.m_maxStackSize > 1;
                     elem.m_amount.enabled = show;
                     elem.m_amount.gameObject.SetActive(show);
-                    if (show) elem.m_amount.text = $"{item.m_stack}/{item.m_shared.m_maxStackSize}";
+                    if (show && badge != null) { elem.m_amount.text = badge; elem.m_amount.color = warn ? WarnBadgeColor : Color.white; }
+                    else if (show) { elem.m_amount.text = $"{item.m_stack}/{item.m_shared.m_maxStackSize}"; elem.m_amount.color = Color.white; }
                 }
             }
-            EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag special slots: {bag.m_shared?.m_name} kinds={string.Join(",", kinds)} filled={filled}");
+            if (filled != lastFilledLogged) { lastFilledLogged = filled; EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag special slots: {bag.m_shared?.m_name} kinds={string.Join(",", kinds)} filled={filled}"); }
         }
 
         // ── Interaction ──────────────────────────────────────────────
@@ -196,9 +236,30 @@ namespace VerdantsAscent
 
             if (dragItem != null)
             {
-                if (!BackpackBridge.SpecialSlotAccepts(bag, kind, dragItem)) return;
                 var dragInventory = fi_dragInventory?.GetValue(gui) as Inventory;
                 if (dragInventory == null) return;
+                // A slotted bag upgrade only ever leaves by being replaced with another upgrade, and it is destroyed then.
+                // It's asked about a dropped non-upgrade (fuel) BEFORE the slot's accepts check: coal isn't a slot item, so that check
+                // refused the drop and the Smelter/Kiln pouch only filled through its window (Fire 10-23).
+                if (current != null && BackpackBridge.IsBagUpgrade(current))
+                {
+                    if (BackpackBridge.IsBagUpgrade(dragItem))
+                    {
+                        if (!BackpackBridge.SpecialSlotAccepts(bag, kind, dragItem)) { EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade drop: {dragItem.m_shared.m_name} onto {current.m_shared.m_name} ({kind} slot) refused: the slot doesn't take that upgrade"); return; }
+                        ConfirmUpgradeSwap(gui, kind, current, dragItem, dragInventory);
+                    }
+                    else if (!BackpackBridge.BagUpgradeDropOnto(bag, kind, current, dragItem, dragInventory))
+                        EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade drop: {dragItem.m_shared.m_name} onto {current.m_shared.m_name} ({kind} slot) refused by every upgrade handler (wrong item or full)");
+                    else
+                    {
+                        // the upgrade took some or all of it (fuel): the rest stays on the cursor
+                        if (!dragInventory.ContainsItem(dragItem) || dragItem.m_stack <= 0) EquipmentPanel.ClearDragState();
+                        EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade took a drop: {dragItem.m_shared.m_name} onto {current.m_shared.m_name} ({kind} slot), {(dragInventory.ContainsItem(dragItem) ? dragItem.m_stack + " left on the cursor" : "all taken")}");
+                        Redraw();
+                    }
+                    return;
+                }
+                if (!BackpackBridge.SpecialSlotAccepts(bag, kind, dragItem)) return;
                 // Occupied + dragging = SWAP. The dragged
                 // item goes in, the slot's item comes onto the cursor (from the hidden carry), like vanilla's grid swap.
                 if (current != null)
@@ -244,6 +305,7 @@ namespace VerdantsAscent
             }
 
             if (current == null) return;
+            if (BackpackBridge.IsBagUpgrade(current)) { ConfirmUpgradeRemove(kind, current); return; }
             // A plain left click PICKS THE ITEM UP onto the cursor like vanilla (vanilla's own drag, from the player inventory it is
             // handed to); shift / ctrl click keeps the quick move to the grid. The item leaves the
             // special slot into a hidden 1x1 CARRY inventory and vanilla's own drag starts from there - nothing appears in the player grid,
@@ -262,8 +324,37 @@ namespace VerdantsAscent
         private static string s_carryFrom;
         private static int s_carryPressFrame = -1;
 
+        // ── Trace: who ends a carry's drag ───────────────────────────
+        // A slot item picked up onto the cursor has come straight back ("the drag was cleared") in the automated test while a
+        // player's click keeps it. The first clear of a live carry logs the call chain, so the log names the code that did it.
+        private const int TraceFrames = 8;
+        private static bool s_carryTraced;
+        private static int s_carryStartFrame = -1;
+
+        internal static void TraceCarryClear(string via)
+        {
+            if (s_carryTraced || s_carry == null || s_carry.NrOfItems() == 0) return;
+            var gui = InventoryGui.instance;
+            if (gui == null || fi_dragInventory?.GetValue(gui) != s_carry) return;
+            s_carryTraced = true;
+            var frames = new System.Diagnostics.StackTrace(1, false).GetFrames() ?? new System.Diagnostics.StackFrame[0];
+            string chain = string.Join(" <- ", frames.Take(TraceFrames).Select(f => { var m = f.GetMethod(); return m == null ? "?" : $"{m.DeclaringType?.Name}.{m.Name}"; }).ToArray());
+            var item = EquipmentPanel.fi_dragItem.GetValue(gui) as ItemDrop.ItemData;
+            EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag special slot carry cleared by {via} (frame {Time.frameCount}, picked up frame {s_carryStartFrame}, item {item?.m_shared.m_name ?? "none"}): {chain}");
+        }
+
+        [HarmonyPatch(typeof(InventoryGui), "SetupDragItem")]
+        private static class TraceSetupDragClear
+        {
+            private static void Prefix(ItemDrop.ItemData item)
+            {
+                if (item == null) TraceCarryClear("InventoryGui.SetupDragItem(null)");
+            }
+        }
+
         private void StartCarry(InventoryGui gui, ItemDrop.ItemData item, string fromKind)
         {
+            s_carryTraced = false; s_carryStartFrame = Time.frameCount;
             s_carry ??= new Inventory("VAInventorySpecialCarry", null, 1, 1);
             ReturnCarry();   // anything still in the carry goes home first
             item.m_gridPos = new Vector2i(0, 0);
@@ -319,12 +410,74 @@ namespace VerdantsAscent
             Redraw();
         }
 
+        // ── Bag upgrades: destroyed on removal or swap, after a confirm ──────────────
+
+        private static string Label(ItemDrop.ItemData item)
+            => Localization.instance != null ? Localization.instance.Localize(item.m_shared.m_name) : item.m_shared.m_name;
+
+        private void ConfirmUpgradeRemove(string kind, ItemDrop.ItemData upgrade)
+        {
+            string label = Label(upgrade);
+            string extra = BackpackBridge.BagUpgradeRemoveWarning(upgrade);
+            UnifiedPopup.Push(new YesNoPopup("Remove upgrade", $"Remove {label}?\nIt will be destroyed." + (extra != null ? "\n" + extra : ""), () =>
+            {
+                UnifiedPopup.Pop();
+                if (bag == null || BackpackBridge.ReadSpecialSlot(bag, kind) != upgrade) { EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade remove: {label} is no longer in the {kind} slot; nothing destroyed"); return; }
+                BackpackBridge.BagUpgradeRemoving(bag, kind, upgrade);   // its option gives back what it holds (pouch fuel) first
+                bool ok = BackpackBridge.WriteSpecialSlot(bag, kind, null);
+                if (ok) BagStackCap.OnCapDropped(Player.m_localPlayer, bag);   // a stack-cap upgrade (Compactor) gone: oversize stacks split, never lost
+                EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade destroyed: {label} removed from the {kind} slot ({(ok ? "slot empty" : "write refused, kept")})");
+                Redraw();
+            }, () =>
+            {
+                UnifiedPopup.Pop();
+                EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade remove cancelled: {label} stays in the {kind} slot");
+            }, false));
+            PanelsChrome.RaisePopup();
+            EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade remove: confirm shown for {label} ({kind} slot)");
+        }
+
+        private void ConfirmUpgradeSwap(InventoryGui gui, string kind, ItemDrop.ItemData old, ItemDrop.ItemData incoming, Inventory from)
+        {
+            string oldLabel = Label(old), newLabel = Label(incoming);
+            // The drag is held off the cursor while the dialog is up (as vanilla's own destroy confirm does); No puts it back.
+            s_setupDrag ??= AccessTools.Method(typeof(InventoryGui), "SetupDragItem");
+            try { s_setupDrag?.Invoke(gui, new object[] { null, null, 1 }); } catch { }
+            string swapExtra = BackpackBridge.BagUpgradeRemoveWarning(old);
+            UnifiedPopup.Push(new YesNoPopup("Swap upgrade", $"Put {newLabel} in?\n{oldLabel} will be destroyed." + (swapExtra != null ? "\n" + swapExtra : ""), () =>
+            {
+                UnifiedPopup.Pop();
+                if (bag == null || BackpackBridge.ReadSpecialSlot(bag, kind) != old || !from.ContainsItem(incoming))
+                { EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade swap: the slot or the item changed while asking; nothing swapped"); return; }
+                BackpackBridge.BagUpgradeRemoving(bag, kind, old);   // the old upgrade's option gives back what it holds (pouch fuel) first
+                from.RemoveItem(incoming);
+                bool ok = BackpackBridge.WriteSpecialSlot(bag, kind, null) && BackpackBridge.WriteSpecialSlot(bag, kind, incoming);
+                if (!ok) { BackpackBridge.WriteSpecialSlot(bag, kind, old); from.AddItem(incoming); }
+                else BagStackCap.OnCapDropped(Player.m_localPlayer, bag);   // the old upgrade may have been a stack cap (Compactor)
+                EquipmentPanel.PanelLog.LogDebug(ok ? $"[VAInventory] bag upgrade destroyed: {oldLabel} replaced by {newLabel} in the {kind} slot"
+                                                    : $"[VAInventory] bag upgrade swap refused: {oldLabel} kept, {newLabel} returned");
+                Redraw();
+            }, () =>
+            {
+                UnifiedPopup.Pop();
+                try { if (from.ContainsItem(incoming)) s_setupDrag?.Invoke(gui, new object[] { incoming, from, incoming.m_stack }); } catch { }
+                EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade swap cancelled: {oldLabel} stays, {newLabel} back on the cursor");
+            }, false));
+            PanelsChrome.RaisePopup();
+            EquipmentPanel.PanelLog.LogDebug($"[VAInventory] bag upgrade swap: confirm shown ({newLabel} for {oldLabel}, {kind} slot)");
+        }
+
         internal ItemDrop.ItemData TakeOut(string kind)
         {
             var player = Player.m_localPlayer;
             if (player == null || bag == null) return null;
             var item = BackpackBridge.ReadSpecialSlot(bag, kind);
             if (item == null) return null;
+            if (BackpackBridge.IsBagUpgrade(item))
+            {
+                if (!BackpackBridge.BagUpgradeRightClick(bag, kind, item)) ConfirmUpgradeRemove(kind, item);   // an option may open its own window (fuel pouch)
+                return null;
+            }
             var inv = player.GetInventory();
             if (inv == null || !inv.CanAddItem(item))
             {

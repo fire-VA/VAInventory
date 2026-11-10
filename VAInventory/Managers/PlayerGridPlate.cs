@@ -166,8 +166,22 @@ namespace VerdantsAscent.Managers
         // The main grid's cells (the first 'count' children of the grid root), in the player panel's local space.
         static bool TryCellBounds(RectTransform gridRoot, RectTransform player, int count, out Rect bounds)
         {
+            // 1.0.364 (UI audit V12): GetWorldCorners on every cell only when the layout moved. The key is the grid root's place,
+            // size and scale in the panel, the cell count, which cells are on, and the first and last cell's spot
             bounds = default;
-            var corners = new Vector3[4];
+            int active = 0;
+            for (int i = 0; i < count; i++) if (gridRoot.GetChild(i).gameObject.activeSelf) active = active * 31 + i + 1;
+            var first = gridRoot.GetChild(0) as RectTransform;
+            var last = gridRoot.GetChild(count - 1) as RectTransform;
+            Vector3 rootAt = player.InverseTransformPoint(gridRoot.position);
+            var key = new Vector4(rootAt.x, rootAt.y, gridRoot.rect.width + gridRoot.rect.height * 7919f, gridRoot.lossyScale.x / Mathf.Max(1e-6f, player.lossyScale.x));
+            var cellKey = new Vector4(first != null ? first.anchoredPosition.x : 0f, first != null ? first.anchoredPosition.y : 0f, last != null ? last.anchoredPosition.x : 0f, last != null ? last.anchoredPosition.y : 0f);
+            if (cachedValid && key == cachedKey && cellKey == cachedCellKey && count == cachedCount && active == cachedActive && player == cachedPanel)
+            {
+                bounds = cachedBounds;
+                return true;
+            }
+            cachedValid = false;
             bool any = false;
             float xMin = 0f, yMin = 0f, xMax = 0f, yMax = 0f;
             for (int i = 0; i < count; i++)
@@ -185,8 +199,12 @@ namespace VerdantsAscent.Managers
             }
             if (!any) return false;
             bounds = Rect.MinMaxRect(xMin, yMin, xMax, yMax);
+            cachedValid = true; cachedKey = key; cachedCellKey = cellKey; cachedCount = count; cachedActive = active; cachedPanel = player; cachedBounds = bounds;
             return true;
         }
+
+        static readonly Vector3[] corners = new Vector3[4];
+        static bool cachedValid; static Vector4 cachedKey, cachedCellKey; static int cachedCount, cachedActive; static RectTransform cachedPanel; static Rect cachedBounds;
 
         static Image NewImage(Transform parent, string name)
         {

@@ -545,8 +545,7 @@ namespace VerdantsAscent
                 inventory.RemoveItem(item);
 
             // Use ItemDrop.DropItem to properly spawn the item in the world
-            var dropPos = player.transform.position + player.transform.forward + Vector3.up *1.0f;
-            var dropRot = Quaternion.identity;
+            Managers.HaloDrop.Pose(player.transform, 1f, 1f, Quaternion.identity, out Vector3 dropPos, out Quaternion dropRot);   // 1.0.353: along the ring's up on a halo ring
             var dropped = ItemDrop.DropItem(item, stack, dropPos, dropRot);
             if (dropped != null)
             {

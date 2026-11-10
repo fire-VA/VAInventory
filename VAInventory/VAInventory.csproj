@@ -72,7 +72,7 @@
     <!-- FiresUnifiedCore — SOFT dependency, help-panel registration only.
          Call site is NoInlining-guarded behind a Chainloader check. -->
     <Reference Include="FiresUnifiedCore">
-      <HintPath>..\..\FiresUnifiedCore\FiresUnifiedCore\bin\Release\FiresUnifiedCore.dll</HintPath>
+      <HintPath>C:\Users\travi\OneDrive\Desktop\valheimRip2\_vainvS_seasons1371\ref\FiresUnifiedCore.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="gui_framework">
@@ -139,7 +139,11 @@
     <Compile Include="Managers\CraftStationSlot.cs" />
     <Compile Include="Managers\CraftSections.cs" />
     <Compile Include="Managers\DragItemOnTop.cs" />
+    <Compile Include="Managers\DragKeeper.cs" />
+    <Compile Include="Managers\AcceptGlow.cs" />
     <Compile Include="Managers\ChestSections.cs" />
+    <Compile Include="Managers\BagWeightTooltip.cs" />
+    <Compile Include="Managers\RefillBridge.cs" />
     <Compile Include="Managers\TabsOnInventoryHide.cs" />
     <Compile Include="Managers\TrashLook.cs" />    <Compile Include="Managers\BackpackBridge.cs" />
     <Compile Include="Managers\BagBonusSlots.cs" />
@@ -147,6 +151,9 @@
     <Compile Include="Managers\BackpackStorageSync.cs" />
     <Compile Include="Managers\BagSpecialRail.cs" />
     <Compile Include="Managers\CoinPurseStackPatch.cs" />
+    <Compile Include="Managers\BagStackCap.cs" />
+    <Compile Include="Managers\SaveGuard.cs" />
+    <Compile Include="Managers\HaloDrop.cs" />
     <Compile Include="Managers\CurrencyPouchPopup.cs" />
     <Compile Include="Managers\PanelScroll.cs" />
     <Compile Include="Managers\PlayerGridPlate.cs" />
@@ -158,6 +165,8 @@
     <Compile Include="Managers\EquipmentBackgroundDragCleanup.cs" />
     <Compile Include="Managers\BackpackTab.cs" />
     <Compile Include="Managers\EquipmentPanel.cs" />
+    <Compile Include="Managers\JewelryEquipQueue.cs" />
+    <Compile Include="Managers\EquipCellGuard.cs" />
     <Compile Include="Managers\HotBars\AmmoHotBar.cs" />
     <Compile Include="Managers\HotBars\FoodHotBar.cs" />
     <Compile Include="Managers\HotBars\HotBarController.cs" />
@@ -175,6 +184,7 @@
     <Compile Include="Managers\InventoryGuiContainerPositionPatch.cs" />
     <Compile Include="Managers\InventoryInteraction.cs" />
     <Compile Include="Managers\InventoryTabs.cs" />
+    <Compile Include="Managers\InvGuiTimer.cs" />
     <Compile Include="Managers\ItemSlotValidation.cs" />
     <Compile Include="Managers\PlayerInventoryRows.cs" />
     <Compile Include="Managers\Relayout.cs" />
@@ -213,9 +223,11 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Utilities\ShaderReplacement.cs" />
     <Compile Include="Utilities\VaInventoryHelpContent.cs" />
+    <Compile Include="Utilities\CoreSettingsOwned.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Managers\Config" />
+    <None Include="Managers\Refs\EXTRASLOTS_ALIGNMENT_PLAN.md" />
     <None Include="packages.config" />
     <EmbeddedResource Include="vainventory" />
     <EmbeddedResource Include="vainventoryui" />

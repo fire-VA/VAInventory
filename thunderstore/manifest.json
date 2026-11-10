@@ -1,10 +1,10 @@
 {
     "name":  "VAInventory",
-    "version_number": "1.0.321",
+    "version_number": "1.0.384",
     "website_url":  "https://github.com/fire-VA/VAInventory",
     "description":  "A character panel for your inventory: gear slots around a live preview, coin pouch, tool/food/ammo hotbars, movable docking panels and a player stats page. Part of the Fires mod family.",
     "dependencies":  [
                          "denikson-BepInExPack_Valheim-5.4.2350",
-                         "VerdantsAscent-FiresUnifiedCore-0.2.752"
+                         "VerdantsAscent-FiresUnifiedCore-0.2.1223"
                      ]
 }

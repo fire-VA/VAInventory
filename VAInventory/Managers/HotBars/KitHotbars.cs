@@ -110,7 +110,7 @@ namespace VerdantsAscent.Managers.HotBars
         internal static void ResetFlow(string barName)
         {
             LoadFlow();
-            s_flow.Remove(barName);
+            s_flow.Remove(barName); s_flowApplied.Remove(barName);   // a later re-flow to the same size lays out again
             SaveFlow();
             if (s_rows.TryGetValue(barName, out var row) && row != null && row.Root != null)
             {
@@ -177,6 +177,8 @@ namespace VerdantsAscent.Managers.HotBars
             return cols * rows >= n;
         }
 
+        static readonly Dictionary<string, (FiresCore.UI.Shell.Kit.KitHotbarRow row, Vector4 sig)> s_flowApplied = new Dictionary<string, (FiresCore.UI.Shell.Kit.KitHotbarRow, Vector4)>();
+
         static void ApplyFlow(string barName, RectTransform root, FiresCore.UI.Shell.Kit.KitHotbarRow row)
         {
             LoadFlow();
@@ -200,6 +202,12 @@ namespace VerdantsAscent.Managers.HotBars
             var bar = root != null ? root : row.Root.parent != null && row.Root.parent.name == RowNode ? row.Root.parent.parent as RectTransform : row.Root.parent as RectTransform;
             Vector3 origin = Vector3.zero;
             if (bar != null) { var c = new Vector3[4]; bar.GetWorldCorners(c); origin = row.Root.InverseTransformPoint(c[1]); }
+            // Paint calls this on EVERY hotbar repaint (icons / counts), so the same flow was re-applied and logged hundreds of times a
+            // minute (Fire's log 10-23, 654 lines in 3 min; hotbar_layout.txt untouched since 10-21, so not the resize path). It
+            // re-lays only when the saved size, the slot count, the row or its origin changed.
+            var sig = new Vector4(want.x, want.y, n, origin.x * 7919f + origin.y);
+            if (s_flowApplied.TryGetValue(barName, out var last) && last.row == row && (last.sig - sig).sqrMagnitude < 0.01f) return;
+            s_flowApplied[barName] = (row, sig);
             for (int i = 0; i < n; i++)
             {
                 var rt = row.Slots[i].Root;

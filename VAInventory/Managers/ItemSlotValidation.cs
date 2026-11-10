@@ -104,7 +104,7 @@ namespace VerdantsAscent
             if (!loggedForCurrentInventory)
             {
                 loggedForCurrentInventory = true;
-                Debug.Log($"[VAInventory] ValidateItems: inventory changed — starting validation. inventoryItems={items.Count}");
+                EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] ValidateItems: inventory changed — starting validation. inventoryItems={items.Count}");
             }
 
             occupiedPositions.Clear();

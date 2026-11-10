@@ -546,6 +546,9 @@ namespace VerdantsAscent.Managers
                     }
             if (want) Slots.ClosePouches();
             EquipmentPanel.PanelLog?.LogDebug($"player panel: {(want ? "hidden (suppressed)" : "shown")}: {characterPanel.name} (preview, equipment, extra slots, bag sections, {characterPanel.childCount} children) + {extra} legacy panel(s)");
+            // 1.0.384: the dock element follows through its Visible callback (PanelsLayout); logged on each change
+            if (PanelsDock.Registered)
+                EquipmentPanel.PanelLog?.LogDebug($"dock element vainv.character {(want ? "hidden" : "shown")} with suppression ({VAInventoryApi.LastSuppressionBy ?? "?"})");
         }
 
         static Vector2 PanelOffset =>ConfigManager.Instance?.configCharacterPanelOffset?.Value ?? Vector2.zero;
@@ -1182,6 +1185,9 @@ namespace VerdantsAscent.Managers
                 var info = NewText(section, "info", $"Quality {quality} · {cols} × {rows}", 12f, new Color(0.85f, 0.80f, 0.70f, 1f),
                     TextAlignmentOptions.MidlineRight, font);
                 PlaceTop((RectTransform)info.transform, BagSectionGap, BagHeaderHeight);
+                // the bag's header buttons (Send home, Deposit, ...) right-aligned on the same row; the info text moves left of them
+                float pillsW = BuildHeaderButtons(section, railBag, font);
+                if (pillsW > 0f) ((RectTransform)info.transform).offsetMax = new Vector2(-(pillsW + HeaderPillGap), -BagSectionGap);
 
                 float top = BagSectionGap + BagHeaderHeight;
                 foreach (var slot in slots)
@@ -1205,10 +1211,51 @@ namespace VerdantsAscent.Managers
                     host.anchorMin = host.anchorMax = host.pivot = new Vector2(1f, 1f);
                     host.sizeDelta = new Vector2(cellSize.x, kinds.Length * pitch);
                     host.anchoredPosition = new Vector2(0f, -top);
-                    BagSpecialRail.Build(host, railBag, kinds, elementPrefab, Vector2.zero, pitch);
+                    BagSpecialRail.Build(host, railBag, kinds, elementPrefab, Vector2.zero, pitch, cellSize);
                 }
                 BackpackLog.LogDebug($"[VAInventory] bag section: {name} q{quality} {cols}x{rows} rail={(kinds.Length > 0 ? string.Join(",", kinds) : "none")}");
             }
+        }
+
+        const float HeaderPillGap = 8f, HeaderPillPadX = 10f, HeaderPillFont = 12f;
+
+        /// <summary>
+        /// The header pills VABackpacks' bag upgrades register (BackpackApi.RegisterBagHeaderButton): right to left in the header row,
+        /// HeaderPillGap apart, each with its tooltip. Returns the width they take (0 = none).
+        /// </summary>
+        static float BuildHeaderButtons(RectTransform section, ItemDrop.ItemData bag, TMP_FontAsset font)
+        {
+            if (bag == null) return 0f;
+            var buttons = BackpackBridge.GetBagHeaderButtons(bag);
+            float x = 0f;
+            foreach (var b in buttons)
+            {
+                string id = b[0], label = b[1], tip = b[2];
+                var pill = NewRect(section, "HeaderPill_" + id);
+                pill.anchorMin = pill.anchorMax = pill.pivot = new Vector2(1f, 1f);
+                var img = pill.gameObject.AddComponent<Image>();
+                var text = NewText(pill, "label", label, HeaderPillFont, HeaderPill.Gold, TextAlignmentOptions.Center, font);
+                // the pill widens to fit the label (12 px, 10 px each side); the font never shrinks
+                float w = Mathf.Ceil(text.GetPreferredValues(label).x) + 2f * HeaderPillPadX;
+                HeaderPill.Style(pill, img, text, true);
+                pill.sizeDelta = new Vector2(w, BagHeaderHeight);
+                pill.anchoredPosition = new Vector2(-x, -BagSectionGap);
+                var trt = (RectTransform)text.transform;
+                trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one; trt.offsetMin = trt.offsetMax = Vector2.zero;
+                var button = pill.gameObject.AddComponent<Button>();
+                button.targetGraphic = img;
+                button.transition = Selectable.Transition.None;   // HeaderPillHover owns the hover look
+                var bagRef = bag;
+                button.onClick.AddListener(() => BackpackBridge.ClickBagHeaderButton(id, bagRef));
+                if (!string.IsNullOrEmpty(tip))
+                {
+                    var tt = pill.gameObject.AddComponent<UITooltip>();
+                    tt.m_topic = label; tt.m_text = tip;
+                }
+                x += w + HeaderPillGap;
+            }
+            if (buttons.Count > 0) BackpackLog.LogDebug($"[VAInventory] bag header buttons: {string.Join(", ", buttons.ConvertAll(b => b[1]).ToArray())}");
+            return x > 0f ? x - HeaderPillGap : 0f;
         }
 
         static void PlaceTop(RectTransform rect, float top, float height)
@@ -1934,5 +1981,86 @@ Transform parent, string name)
         }
 
         static bool HoldingItem() => InventoryGui.instance != null && DragItem(InventoryGui.instance) != null;
+    }
+
+    /// <summary>
+    /// The bag header pills in the kit look: rounded pill (PillRadius), Well fill, 1 px Gold outline at 70%, Gold label;
+    /// hover = full Gold outline + a lighter fill; disabled = 45% alpha. Core's kit sprite and tokens when Core is loaded
+    /// (kit types touched only in a NoInlining method behind a type check), the same token values flat otherwise.
+    /// </summary>
+    internal static class HeaderPill
+    {
+        internal static readonly Color Well = new(0x1B / 255f, 0x14 / 255f, 0x0D / 255f, 1f);   // FiresTokens.Well
+        internal static readonly Color Gold = new(0xF0 / 255f, 0xB4 / 255f, 0x4C / 255f, 1f);   // FiresTokens.Gold
+        const float BorderAlpha = 0.70f, DisabledAlpha = 0.45f, HoverLift = 0.06f;
+
+        static bool s_checked, s_kit;
+        static bool KitAvailable
+        {
+            get
+            {
+                if (!s_checked) { s_checked = true; s_kit = System.Type.GetType("FiresCore.UI.Shell.Kit.KitSprites, FiresUnifiedCore", false) != null; }
+                return s_kit;
+            }
+        }
+
+        internal static void Style(RectTransform pill, Image fill, TextMeshProUGUI label, bool enabled)
+        {
+            Color well = Well, gold = Gold;
+            Sprite face = null, ring = null;
+            if (KitAvailable) { try { KitLook(out well, out gold, out face, out ring); } catch { face = ring = null; well = Well; gold = Gold; } }
+
+            var lineGo = new GameObject("Outline", typeof(RectTransform), typeof(Image));
+            var lrt = (RectTransform)lineGo.transform;
+            lrt.SetParent(pill, false);
+            lrt.SetSiblingIndex(0);   // under the label
+            lrt.anchorMin = Vector2.zero; lrt.anchorMax = Vector2.one; lrt.offsetMin = lrt.offsetMax = Vector2.zero;
+            var line = lineGo.GetComponent<Image>();
+            line.raycastTarget = false;
+            Outline flat = null;
+            if (ring != null) { line.sprite = ring; line.type = Image.Type.Sliced; }
+            else { line.enabled = false; flat = pill.gameObject.AddComponent<Outline>(); flat.effectDistance = new Vector2(1f, -1f); }   // no kit sprite: square 1 px outline
+
+            if (face != null) { fill.sprite = face; fill.type = Image.Type.Sliced; }
+            label.color = gold;
+
+            pill.gameObject.AddComponent<HeaderPillHover>().Init(fill, line, flat, well, gold, BorderAlpha, HoverLift);
+
+            var group = pill.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = enabled ? 1f : DisabledAlpha;
+            group.interactable = enabled;
+        }
+
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        static void KitLook(out Color well, out Color gold, out Sprite face, out Sprite ring)
+        {
+            well = FiresCore.UI.Shell.Kit.FiresTokens.Well;
+            gold = FiresCore.UI.Shell.Kit.FiresTokens.Gold;
+            face = FiresCore.UI.Shell.Kit.KitSprites.RoundPill(FiresCore.UI.Shell.Kit.FiresTokens.PillRadius, false);
+            ring = FiresCore.UI.Shell.Kit.KitSprites.RoundPill(FiresCore.UI.Shell.Kit.FiresTokens.PillRadius, true);
+        }
+    }
+
+    internal sealed class HeaderPillHover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    {
+        Image _fill, _line; Outline _flat; Color _well, _gold; float _borderAlpha, _lift;
+
+        internal void Init(Image fill, Image line, Outline flat, Color well, Color gold, float borderAlpha, float lift)
+        {
+            _fill = fill; _line = line; _flat = flat; _well = well; _gold = gold; _borderAlpha = borderAlpha; _lift = lift;
+            Apply(false);
+        }
+
+        void Apply(bool hot)
+        {
+            var border = new Color(_gold.r, _gold.g, _gold.b, hot ? 1f : _borderAlpha);
+            if (_fill != null) _fill.color = hot ? new Color(Mathf.Min(1f, _well.r + _lift), Mathf.Min(1f, _well.g + _lift), Mathf.Min(1f, _well.b + _lift), 1f) : _well;
+            if (_line != null) _line.color = border;
+            if (_flat != null) _flat.effectColor = border;
+        }
+
+        public void OnPointerEnter(PointerEventData e) => Apply(true);
+        public void OnPointerExit(PointerEventData e) => Apply(false);
+        void OnDisable() => Apply(false);
     }
 }

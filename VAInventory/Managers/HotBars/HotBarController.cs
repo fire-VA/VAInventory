@@ -111,6 +111,9 @@ namespace VerdantsAscent.Managers.HotBars
                 var player = Player.m_localPlayer;
                 if (player == null) return;
                 if (!player.TakeInput()) return;
+                // 1.0.358 (UI efficiency audit V5, Fire 10-26): every check below is a key-DOWN, so nothing can fire on a frame with no
+                // key pressed; this ran every frame, inventory closed too (LINQ slot arrays, keybind strings built and re-parsed per slot)
+                if (!UnityEngine.Input.anyKeyDown && !VaInventoryKeys.Injecting) return;
 
                 if (TryUseSlotItems(player, Slots.toolHotbarSlots, HotkeyInput.GetToolHotbarKeybindText)) return;
                 if (TryUseSlotItems(player, Slots.GetFoodSlots(), i => ConfigManager.Instance.GetFoodHotbarKeybindText(i))) return;
@@ -256,7 +259,7 @@ namespace VerdantsAscent.Managers.HotBars
                     HotBarPlacement.StackFromAmmo(ToolHotBar.GetHotkeyBar()?.transform as RectTransform,
                         FoodHotBar.GetHotkeyBar()?.transform as RectTransform, AmmoHotBar.GetHotkeyBar()?.transform as RectTransform,
                         cfg.configToolHotbarPosition.Value, cfg.configFoodHotbarPosition.Value, cfg.configAmmoHotbarPosition.Value,
-                        Mathf.Abs(((Vector2)cfg.configFoodHotbarPosition.DefaultValue).y - ((Vector2)cfg.configToolHotbarPosition.DefaultValue).y));
+                        Mathf.Abs(((Vector2)cfg.configAmmoHotbarPosition.DefaultValue).y - ((Vector2)cfg.configToolHotbarPosition.DefaultValue).y));
                 HotbarHudDock.ApplyUserHidden(ToolHotBar.GetHotkeyBar()?.transform as RectTransform);   // Hide all, items or not
                 HotbarHudDock.ApplyUserHidden(FoodHotBar.GetHotkeyBar()?.transform as RectTransform);
                 HotbarHudDock.ApplyUserHidden(AmmoHotBar.GetHotkeyBar()?.transform as RectTransform);

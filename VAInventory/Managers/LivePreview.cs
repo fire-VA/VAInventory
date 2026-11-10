@@ -285,15 +285,23 @@ namespace VerdantsAscent.Managers
             if (KeyLight != null) KeyLight.enabled = true;
             // With no free layer the mask was built once at bind, so renderers created while the preview is
             // open (FCC's hair / beard copies, re-equipped gear) on another layer were missing - the mask now takes in every renderer's layer
+            // 1.0.357 (F1 fps, [classes-ui] for [seasons]): the renderer list is CACHED (re-read on a new target or every
+            // RendererRefreshSeconds), so a render no longer walks the body's whole hierarchy
+            if (BoundTo != null && (cachedFor != BoundTo || Time.unscaledTime - cachedAt > RendererRefreshSeconds))
+            {
+                BoundTo.GetComponentsInChildren(true, cached);
+                cachedFor = BoundTo; cachedAt = Time.unscaledTime;
+                if (cached.Count != cachedCount) { cachedCount = cached.Count; dirty = true; }   // gear came or went: the next renders come at the change rate
+            }
             if (IsolatedLayer == NoLayer && BoundTo != null && Cam != null)
             {
-                int mask = BuildMask(BoundTo);
+                int mask = 1 << BoundTo.gameObject.layer;
+                foreach (var r in cached) if (r != null) mask |= 1 << r.gameObject.layer;
                 if (mask != Cam.cullingMask) { Cam.cullingMask = mask; if (KeyLight != null) KeyLight.cullingMask = mask; }
             }
             if (IsolatedLayer == NoLayer || BoundTo == null) return;
             isolated.Clear(); isolatedFrom.Clear();
-            BoundTo.GetComponentsInChildren(true, isolated);
-            foreach (var renderer in isolated) { isolatedFrom.Add(renderer.gameObject.layer); renderer.gameObject.layer = IsolatedLayer; }
+            foreach (var renderer in cached) { if (renderer == null) continue; isolated.Add(renderer); isolatedFrom.Add(renderer.gameObject.layer); renderer.gameObject.layer = IsolatedLayer; }
             if (probedFor != BoundTo) { probedFor = BoundTo; ProbeHair(); }
         }
 
@@ -330,10 +338,53 @@ namespace VerdantsAscent.Managers
             return mask;
         }
 
+        // ── 1.0.357 (F1 fps, Fire's #2 priority; [classes-ui] for [seasons], the same pattern as the Stats page in 1.0.356): the camera
+        // NEVER renders by itself. LivePreviewControls (on the preview image, so it doesn't run while the image is hidden) calls Tick
+        // every frame; Tick renders by hand at most ChangeHz while something changes (spin, pan, zoom, a re-frame / refit / re-bind, the
+        // body moving or turning, gear coming or going), and IdleHz otherwise (the idle animation), never while hidden.
+        const float ChangeHz = 10f, IdleHz = 2f, RendererRefreshSeconds = 2f, ProofSeconds = 60f;
+        readonly List<Renderer> cached = new List<Renderer>();
+        Character cachedFor;
+        float cachedAt, lastRender = -1f, proofAt;
+        int cachedCount = -1, renders, skips;
+        bool wanted, dirty = true;
+        Vector3 lastPos; Quaternion lastRot;
+        float lastYaw, lastPitch, lastDistance, lastHeight, lastSide;
+
+        internal void MarkDirty() => dirty = true;
+
+        internal void Tick()
+        {
+            if (!wanted || Cam == null || BoundTo == null || Target == null || !Target.isActiveAndEnabled) return;
+            float now = Time.unscaledTime;
+            var t = BoundTo.transform;
+            if (t.position != lastPos || t.rotation != lastRot || Yaw != lastYaw || Pitch != lastPitch || Distance != lastDistance || Height != lastHeight || Side != lastSide)
+            {
+                dirty = true;
+                lastPos = t.position; lastRot = t.rotation; lastYaw = Yaw; lastPitch = Pitch; lastDistance = Distance; lastHeight = Height; lastSide = Side;
+            }
+            if (now - lastRender < 1f / (dirty ? ChangeHz : IdleHz)) { skips++; ProofLine(now); return; }
+            lastRender = now;
+            dirty = false;
+            Cam.Render();   // onPreCull / onPostRender isolate and restore as before
+            renders++;
+            ProofLine(now);
+        }
+
+        void ProofLine(float now)
+        {
+            if (now - proofAt < ProofSeconds) return;
+            if (proofAt > 0f)
+                EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] preview {Name}: renders on demand - {renders} render(s), {skips} frame(s) skipped in the last {ProofSeconds:0} s ({ChangeHz:0} Hz on change, {IdleHz:0} Hz idle, none while hidden), {cached.Count} cached renderer(s)");
+            proofAt = now; renders = 0; skips = 0;
+        }
+
         static bool s_lightLogged;
         void SetRendering(bool on)
         {
-            if (Cam != null) Cam.enabled = on;
+            wanted = on;   // 1.0.357: the camera stays disabled; Tick renders it by hand
+            if (Cam != null) Cam.enabled = false;
+            if (on) { dirty = true; lastRender = -1f; }
             if (KeyLight != null) KeyLight.enabled = false;
             if (on && KeyLight != null && !s_lightLogged)
             {
@@ -350,7 +401,8 @@ namespace VerdantsAscent.Managers
         const int ResetClicks = 2;
 
         public void OnPointerDown(PointerEventData eventData) { }
-        void OnRectTransformDimensionsChange() => Preview?.Refit();
+        void OnRectTransformDimensionsChange() { Preview?.Refit(); Preview?.MarkDirty(); }
+        void LateUpdate() => Preview?.Tick();   // 1.0.357: the on-demand renders (no Tick while this image is hidden)
 
         public void OnDrag(PointerEventData eventData)
         {

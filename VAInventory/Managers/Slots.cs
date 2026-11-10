@@ -800,7 +800,6 @@ namespace VerdantsAscent
         // A bag already in the Bypass slot (from before this rule) moves to a free main-grid cell, or is dropped at the
         // player's feet if the grid is full. Checked about once a second, inventory open or not, so it also runs right after load.
         static float nextBypassCheck;
-        static readonly System.Reflection.MethodInfo InventoryChanged = HarmonyLib.AccessTools.Method(typeof(Inventory), "Changed");
 
         internal static void EvictBagFromBypass()
         {
@@ -819,7 +818,7 @@ namespace VerdantsAscent
                     if (inv.GetItemAt(x, y) != null) continue;
                     item.m_gridPos = new Vector2i(x, y);
                     ClearCachedItems();
-                    InventoryChanged?.Invoke(inv, null);
+                    inv.Changed();   // direct: the 1.0.21 Changed(bool, bool) made the old Invoke(inv, null) throw
                     EquipmentPanel.PanelLog?.LogDebug($"slots: {item.m_dropPrefab?.name} moved out of the Bypass slot to the main grid ({x},{y}) (no bags in Bypass)");
                     return;
                 }

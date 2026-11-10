@@ -25,22 +25,108 @@ namespace VerdantsAscent.Managers
         const float TopPad = 4f, RowGridGap = 10f;
         static float s_ruleH = 14f;   // The divider's drawn height, measured each layout tick
         static float s_next;
-        static string s_lastLog, s_weightSized;
+        static string s_lastLog, s_weightSized, s_weightRaw, s_weightFull;
         static bool s_hierLogged;
         static readonly Vector3[] s_c = new Vector3[4];
+        static Inventory s_loggedOpen;   // one "[Chest] open" line per chest opened
+
+        // Vanilla's chest layout, taken once before Layout first changes it, and put back when the unified UI is switched OFF in the
+        // session: before 1.0.345 the OFF path only stopped laying out, so the unified sizes / spots stayed on vanilla's parts and the
+        // non-unified chest showed the grid over the title and buttons, outside the panel art (Fire 10-23, shots 222-224).
+        // The grid root's own children (the cells, rebuilt by vanilla per chest) are never part of it.
+        struct RtState { public Vector2 aMin, aMax, pivot, pos, size; public Vector3 scale; }
+        struct TextState { public TextAlignmentOptions align; public bool wrap, auto; public float max, min; public TextOverflowModes overflow; }
+        static readonly Dictionary<RectTransform, RtState> s_vanillaRt = new Dictionary<RectTransform, RtState>();
+        static readonly Dictionary<Image, bool> s_vanillaImg = new Dictionary<Image, bool>();
+        static readonly Dictionary<TMP_Text, TextState> s_vanillaText = new Dictionary<TMP_Text, TextState>();
+        static RectTransform s_vanillaRoot;
+        static bool s_laidOut;   // the unified layout has changed vanilla's parts since the last restore
+
+        static bool UnderCells(Transform t, Transform gridRoot)
+        {
+            for (var p = t.parent; p != null; p = p.parent) if (p == gridRoot) return true;
+            return false;
+        }
+
+        static void SnapshotVanilla(InventoryGui gui, RectTransform root)
+        {
+            if (s_vanillaRoot == root) return;
+            s_vanillaRoot = root; s_vanillaRt.Clear(); s_vanillaImg.Clear(); s_vanillaText.Clear();
+            var gridRoot = gui.m_containerGrid != null ? gui.m_containerGrid.m_gridRoot : null;
+            foreach (var rt in root.GetComponentsInChildren<RectTransform>(true))
+            {
+                if (gridRoot != null && UnderCells(rt, gridRoot)) continue;
+                s_vanillaRt[rt] = new RtState { aMin = rt.anchorMin, aMax = rt.anchorMax, pivot = rt.pivot, pos = rt.anchoredPosition, size = rt.sizeDelta, scale = rt.localScale };
+            }
+            foreach (var img in root.GetComponentsInChildren<Image>(true))
+                if (gridRoot == null || !UnderCells(img.transform, gridRoot)) s_vanillaImg[img] = img.enabled;
+            foreach (var t in root.GetComponentsInChildren<TMP_Text>(true))
+                if (gridRoot == null || !UnderCells(t.transform, gridRoot))
+                    s_vanillaText[t] = new TextState { align = t.alignment, wrap = t.enableWordWrapping, auto = t.enableAutoSizing, max = t.fontSizeMax, min = t.fontSizeMin, overflow = t.overflowMode };
+            EquipmentPanel.PanelLog?.LogDebug($"[Chest] vanilla layout kept for the unified UI OFF: {s_vanillaRt.Count} rect(s), {s_vanillaImg.Count} image(s), {s_vanillaText.Count} text(s); panel {root.rect.size}");
+        }
+
+        static void RestoreVanilla(InventoryGui gui)
+        {
+            var root = gui.m_container;
+            if (!s_laidOut || root == null || root != s_vanillaRoot) return;
+            s_laidOut = false;
+            // the panel keeps its top-left (the dock owns where it is) and gets vanilla's size, pivot and anchors back on everything else
+            root.GetWorldCorners(s_c); Vector3 topLeft = s_c[1];
+            foreach (var kv in s_vanillaRt)
+            {
+                var rt = kv.Key; var s = kv.Value;
+                if (rt == null) continue;
+                if (rt == root) { rt.sizeDelta = s.size; continue; }
+                rt.anchorMin = s.aMin; rt.anchorMax = s.aMax; rt.pivot = s.pivot; rt.anchoredPosition = s.pos; rt.sizeDelta = s.size; rt.localScale = s.scale;
+            }
+            root.GetWorldCorners(s_c); root.position += topLeft - s_c[1];
+            foreach (var kv in s_vanillaImg) if (kv.Key != null && kv.Key.enabled != kv.Value) kv.Key.enabled = kv.Value;
+            foreach (var kv in s_vanillaText)
+            {
+                var t = kv.Key; var s = kv.Value;
+                if (t == null) continue;
+                t.alignment = s.align; t.enableWordWrapping = s.wrap; t.enableAutoSizing = s.auto; t.fontSizeMax = s.max; t.fontSizeMin = s.min; t.overflowMode = s.overflow;
+            }
+            if (gui.m_containerWeight != null && gui.m_containerWeight.text != null && gui.m_containerWeight.text.StartsWith("Container weight: ", System.StringComparison.Ordinal))
+                gui.m_containerWeight.text = gui.m_containerWeight.text.Substring("Container weight: ".Length);
+            s_loggedOpen = null;
+            var g = gui.m_containerGrid != null ? gui.m_containerGrid.m_gridRoot : null;
+            EquipmentPanel.PanelLog?.LogDebug($"[Chest] unified UI OFF: vanilla layout restored ({s_vanillaRt.Count} rect(s)); panel {root.rect.size} at top-left {(Vector2)topLeft}, grid root {(g != null ? g.anchoredPosition + " size " + g.rect.size : "none")}");
+        }
+
+        // One line per chest opened with the unified UI OFF: the panel and its parts in screen px, so a moved / scaled vanilla chest
+        // shows in the log (Fire 10-23: no [Chest] line at all in a session started OFF).
+        static void LogVanillaOpen(InventoryGui gui)
+        {
+            var root = gui.m_container;
+            var inv = gui.m_containerGrid != null ? gui.m_containerGrid.GetInventory() : null;
+            if (root == null || !root.gameObject.activeInHierarchy || inv == null) { if (root == null || !root.gameObject.activeInHierarchy) s_loggedOpen = null; return; }
+            if (inv == s_loggedOpen) return;
+            s_loggedOpen = inv;
+            string R(Transform t) { if (!(t is RectTransform rt)) return "none"; rt.GetWorldCorners(s_c); return $"[{s_c[0].x:0},{s_c[0].y:0}..{s_c[2].x:0},{s_c[2].y:0}]"; }
+            EquipmentPanel.PanelLog?.LogDebug($"[Chest] open (unified UI OFF) {gui.m_currentContainer?.name} ({inv.GetWidth()}x{inv.GetHeight()}): panel {R(root)} scale {root.lossyScale.x:0.###} parent '{root.parent?.name}'; "
+                + $"take all {R(gui.m_takeAllButton?.transform)}, place stacks {R(gui.m_stackAllButton?.transform)}, tags {R(root.Find("Btn_Tags"))}, grid {R(gui.m_containerGrid?.m_gridRoot)}");
+        }
 
         static void Postfix(InventoryGui __instance)
         {
-            if (!UnifiedScreen.PanelsMode || !FiresCore.UI.Shell.FiresShell.OverrideOn) return;   // Unified UI OFF (Core override) = vanilla chest, untouched
+            if (!UnifiedScreen.PanelsMode || !FiresCore.UI.Shell.FiresShell.OverrideOn)   // Unified UI OFF (Core override) = vanilla chest
+            {
+                try { RestoreVanilla(__instance); } catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug("[Chest] vanilla restore failed: " + e.Message); }
+                try { LogVanillaOpen(__instance); } catch { }
+                return;
+            }
             var root = __instance.m_container;
             if (root == null || !root.gameObject.activeInHierarchy) return;
+            if (!s_laidOut) { try { if (s_vanillaRoot != root) SnapshotVanilla(__instance, root); } catch (System.Exception e) { EquipmentPanel.PanelLog?.LogDebug("[Chest] vanilla snapshot failed: " + e.Message); } }
             WeightText(__instance);   // every call: vanilla rewrites the number each frame
             DiagTick(__instance, root);
             s_gui = __instance;
             if (!s_hooked) { s_hooked = true; Canvas.willRenderCanvases += SnapBeforeRender; }
             if (Time.unscaledTime < s_next) return;
             s_next = Time.unscaledTime + 0.25f;
-            try { Layout(__instance, root); }
+            try { s_laidOut = true; Layout(__instance, root); }
             catch (System.Exception e) { if (s_lastLog != "fail") { s_lastLog = "fail"; EquipmentPanel.PanelLog?.LogDebug("panels: chest layout failed: " + e.Message); } }
         }
 
@@ -72,6 +158,13 @@ namespace VerdantsAscent.Managers
             if (Mathf.Abs(root.rect.width - w) > 0.5f) { root.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, w); resized = true; }
             if (Mathf.Abs(root.rect.height - h) > 0.5f) { root.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, h); resized = true; }
             if (resized) { root.GetWorldCorners(s_c); root.position += topLeft - s_c[1]; }
+            var openInv = gridInv?.GetInventory();
+            if (openInv != s_loggedOpen)
+            {
+                s_loggedOpen = openInv;
+                if (openInv != null)
+                    EquipmentPanel.PanelLog?.LogDebug($"[Chest] open {gui.m_currentContainer?.name} ({openInv.GetWidth()}x{openInv.GetHeight()}) size {w:0}x{h:0} at top-left {(Vector2)topLeft}; pivot {root.pivot}, anchors {root.anchorMin}-{root.anchorMax}{(resized ? ", resized from the corner" : "")}");
+            }
             var bkg = root.Find("Bkg") as RectTransform;
             if (bkg != null && (bkg.anchorMin != Vector2.zero || bkg.anchorMax != Vector2.one || bkg.offsetMin != Vector2.zero || bkg.offsetMax != Vector2.zero))
             { bkg.anchorMin = Vector2.zero; bkg.anchorMax = Vector2.one; bkg.offsetMin = bkg.offsetMax = Vector2.zero; }
@@ -205,6 +298,15 @@ namespace VerdantsAscent.Managers
         static bool s_hooked, s_movedLogged;
         static Vector3 s_snapPos; static bool s_snapValid;
         static int s_snaps;
+        static RectTransform s_cacheRoot, s_cacheGrid; static Canvas s_cacheCanvas; static float s_cacheNext; static bool s_cacheLogged;
+        static readonly List<Graphic> s_rowGraphics = new List<Graphic>(), s_gridGraphics = new List<Graphic>(), s_tmpGraphics = new List<Graphic>();
+
+        static void Unhook()
+        {
+            if (!s_hooked) return;
+            s_hooked = false; Canvas.willRenderCanvases -= SnapBeforeRender;
+            s_cacheRoot = s_cacheGrid = null; s_cacheCanvas = null; s_rowGraphics.Clear(); s_gridGraphics.Clear();
+        }
 
         static void SnapBeforeRender()
         {
@@ -215,7 +317,8 @@ namespace VerdantsAscent.Managers
                 var root = gui.m_container;
                 var gridInv = gui.m_containerGrid;
                 var grid = gridInv != null ? gridInv.m_gridRoot : null;
-                if (root == null || grid == null || !root.gameObject.activeInHierarchy || !grid.gameObject.activeInHierarchy) { s_snapValid = false; s_movedLogged = false; return; }
+                // 1.0.358 (UI efficiency audit V3): a closed chest unhooks (Postfix hooks again on the next open)
+                if (root == null || grid == null || !root.gameObject.activeInHierarchy || !grid.gameObject.activeInHierarchy) { s_snapValid = false; s_movedLogged = false; Unhook(); return; }
                 if (s_snapValid && (grid.position - s_snapPos).sqrMagnitude > 1e-6f && !s_movedLogged)
                 {
                     s_movedLogged = true;
@@ -223,17 +326,27 @@ namespace VerdantsAscent.Managers
                 }
                 var take = gui.m_takeAllButton != null ? (RectTransform)gui.m_takeAllButton.transform : null;
                 var stack = gui.m_stackAllButton != null ? (RectTransform)gui.m_stackAllButton.transform : null;
+                // 1.0.358 (V3): the row / grid Graphic lists and the canvas were fetched every frame; now re-collected at most 4x/s
+                // or when the chest root / grid changes (the 0.25 s layout pass is when they move between objects)
+                if (root != s_cacheRoot || grid != s_cacheGrid || Time.unscaledTime >= s_cacheNext)
+                {
+                    s_cacheRoot = root; s_cacheGrid = grid; s_cacheNext = Time.unscaledTime + 0.25f;
+                    s_rowGraphics.Clear(); s_gridGraphics.Clear();
+                    foreach (var p in RowParts(root, grid, take, stack)) { p.GetComponentsInChildren(false, s_tmpGraphics); s_rowGraphics.AddRange(s_tmpGraphics); }
+                    grid.GetComponentsInChildren(false, s_gridGraphics);
+                    s_cacheCanvas = root.GetComponentInParent<Canvas>();
+                    if (!s_cacheLogged) { s_cacheLogged = true; EquipmentPanel.PanelLog?.LogDebug($"[Chest] pre-render snap cached: {s_rowGraphics.Count} row + {s_gridGraphics.Count} grid graphics, refreshed 4x/s, unhooked on close"); }
+                }
                 float rowB = float.MaxValue, gridT = float.MinValue;
-                foreach (var p in RowParts(root, grid, take, stack))
-                    foreach (var gph in p.GetComponentsInChildren<Graphic>(false)) if (Visible(gph)) rowB = Mathf.Min(rowB, ScreenDrawn(gph).yMin);
-                foreach (var gph in grid.GetComponentsInChildren<Graphic>(false)) if (Visible(gph)) gridT = Mathf.Max(gridT, ScreenDrawn(gph).yMax);
+                foreach (var gph in s_rowGraphics) if (Visible(gph)) rowB = Mathf.Min(rowB, ScreenDrawn(gph).yMin);
+                foreach (var gph in s_gridGraphics) if (Visible(gph)) gridT = Mathf.Max(gridT, ScreenDrawn(gph).yMax);
                 if (rowB == float.MaxValue || gridT == float.MinValue) { s_snapValid = false; return; }
                 Rect rs = ScreenOf(root);
                 float pxPerUnit = root.rect.height > 1f ? rs.height / root.rect.height : 1f;
                 float dy = (rowB - RowGridGap * pxPerUnit) - gridT;   // screen px the grid must move (negative = down)
                 if (Mathf.Abs(dy) > 0.5f)
                 {
-                    var cv = root.GetComponentInParent<Canvas>(); Camera cam = cv != null && cv.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? cv.rootCanvas.worldCamera : null;
+                    var cv = s_cacheCanvas; Camera cam = cv != null && cv.rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay ? cv.rootCanvas.worldCamera : null;
                     Vector2 p0 = new Vector2(rs.center.x, gridT);
                     if (RectTransformUtility.ScreenPointToWorldPointInRectangle(root, p0, cam, out Vector3 w0)
                         && RectTransformUtility.ScreenPointToWorldPointInRectangle(root, p0 + new Vector2(0f, dy), cam, out Vector3 w1))
@@ -284,9 +397,23 @@ namespace VerdantsAscent.Managers
                     && (t.parent == null || t.parent.name.IndexOf("Tag", System.StringComparison.OrdinalIgnoreCase) < 0)) yield return t;
         }
 
+        // A "Tag" object taller than this many button rows is a whole panel (Core's Chest tags panel, CoreChestTagsPanel, a child of the
+        // container panel anchored off its right edge), not a row button. Measuring it put the row's bottom at the panel's bottom, the grid
+        // under it, the panel resized, the anchored panel moved with it - and the chest flipped size every tick while the tags panel was open.
+        const float RowPartMaxRows = 2f;
+        static string s_rowSetBy;
+
         static float RowDrawnBottom(RectTransform root, RectTransform grid, RectTransform take, RectTransform stack, float y)
         {
-            foreach (var p in RowParts(root, grid, take, stack)) y = Mathf.Min(y, Drawn(root, p, CraftSections.Bounds(root, p)).yMin);
+            float rowTop = y, rowH = Mathf.Max(Size(root, take).y, Size(root, stack).y, 30f);
+            string setBy = "the button row";
+            foreach (var p in RowParts(root, grid, take, stack))
+            {
+                Rect d = Drawn(root, p, CraftSections.Bounds(root, p));
+                if (p != take && p != stack && d.height > rowH * RowPartMaxRows) continue;   // a panel, not part of the row
+                if (d.yMin < y) { y = d.yMin; setBy = $"'{p.name}' ({d.height:0} tall)"; }
+            }
+            if (setBy != s_rowSetBy) { s_rowSetBy = setBy; EquipmentPanel.PanelLog?.LogDebug($"panels: chest row bottom set by {setBy}: {rowTop - y:0} below the row top"); }
             return y;
         }
 
@@ -415,7 +542,12 @@ namespace VerdantsAscent.Managers
             var t = gui.m_containerWeight;
             if (t == null) return;
             string s = t.text ?? "";
-            if (!s.StartsWith("Container weight", System.StringComparison.Ordinal)) t.text = s = "Container weight: " + s;
+            // 1.0.358 (V8): vanilla writes the bare number every frame; the prefixed line is built once per new number, not per frame
+            if (!s.StartsWith("Container weight", System.StringComparison.Ordinal))
+            {
+                if (s != s_weightRaw) { s_weightRaw = s; s_weightFull = "Container weight: " + s; }
+                t.text = s = s_weightFull;
+            }
             // 
             // the label's rect is held at least as wide as its text, left-aligned and overflowing, every call - a restyle after the 0.25 s
             // layout tick (or a right-aligned clip) showed only the end of the line

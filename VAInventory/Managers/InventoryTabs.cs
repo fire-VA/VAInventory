@@ -203,6 +203,7 @@ namespace VerdantsAscent.Managers
             }
         }
 
+        internal static bool LastWasFull;
         internal static void LayoutRow(bool force)
         {
             var gui = InventoryGui.instance;
@@ -240,7 +241,7 @@ namespace VerdantsAscent.Managers
             foreach (Transform child in row) if (child.gameObject.activeSelf) shown++;
             int quick = ((shown * 397) ^ row.childCount) * 397 ^ Mathf.RoundToInt((right - rowLeft) * 10f);
             if (!force && quick == rowQuick && rowTabs.Count > 0) { PutBack(craft); return; }
-            rowQuick = quick;
+            rowQuick = quick; LastWasFull = true;   // 1.0.365: InvGuiTimer splits quick / full
 
             // The row: active buttons on the Craft tab's line, vanilla's two first, other mods' in sibling order, these in registry order.
             var ours = registered.OrderBy(t => t.Order).ThenBy(t => t.Label)
@@ -486,7 +487,10 @@ namespace VerdantsAscent.Managers
         [HarmonyPostfix, HarmonyPriority(Priority.Last), HarmonyAfter("com.Fire.FiresAllTheItems")]
         static void Postfix()
         {
-            if (InventoryGui.IsVisible()) InventoryTabs.LayoutRow(false);
+            if (!InventoryGui.IsVisible()) return;
+            long t0 = InvGuiTimer.Now; InventoryTabs.LastWasFull = false;
+            InventoryTabs.LayoutRow(false);
+            long dt = InvGuiTimer.Now - t0; if (InventoryTabs.LastWasFull) { InvGuiTimer.RowFullTicks += dt; InvGuiTimer.RowFull++; } else InvGuiTimer.RowQuickTicks += dt;
         }
     }
 }

@@ -3,6 +3,20 @@
 A character panel for your Valheim inventory: real slots for your worn gear, a coin pouch, three extra hotbars and
 room for your bags. Part of the Fires mod family.
 
+## What's new in 1.0.384
+
+- **Rounded minimap setting.** A new "Rounded minimap" setting (in the [UI] section) lets you choose between the round
+  minimap and the normal square one. It only matters while the Fires UI override is on. It is on by default.
+- **Two settings went back to Fires Unified Core.** "Fires UI override" and "Sky drift speed" are no longer in this
+  mod's config; you now find them in Fires Unified Core's settings again. "Show day and time box", "Minimap size" and
+  "Minimap clock shows" stay here.
+- **Tidier bag panels.** The cells in the bag strip are now the same size as the inventory grid beside them.
+- **Lighter on your game.** Slot styling is only redrawn after something actually changes, instead of on a timer.
+- **Server settings are safer.** A server now only accepts this mod's settings from an admin, whether the config is
+  locked or not. Admins written in the admin list as `Steam_<number>` are now recognised too.
+- **Fixed:** the character panel's title bar and resize corner no longer show on top of the NPC book or the Dressing
+  screen.
+
 ## What you get
 
 - **Equipment slots** around a live preview of your character: Helmet, Shoulder, Chest, Legs, Utility, Trinket and
@@ -22,6 +36,8 @@ room for your bags. Part of the Fires mod family.
 - **Three extra hotbars:** Tools (4 slots, up to 8), Food (3 slots) and Ammo (3 slots). Eat or swap arrows
   mid-fight without opening anything.
 - **Bag panels.** With VABackpacks, each equipped bag shows its contents in the character panel.
+- **Minimap and clock box.** Choose a round or square minimap, its size, and whether the day and time box under it
+  is shown.
 - **More room (optional, off by default).** Up to 3 extra rows on the main inventory grid.
 
 ## How to use
@@ -39,18 +55,21 @@ room for your bags. Part of the Fires mod family.
 ## Install
 
 - Install with a mod manager, or copy the `VAInventory` folder into `BepInEx/plugins`.
-- Client mod. Also install it on the server if you want the server to control the extra-rows setting.
+- Client mod. Also install it on the server if you want the server to control the extra-rows setting. Only admins
+  can change the server's settings.
 
 ## Requires
 
 - BepInExPack for Valheim
-- FiresUnifiedCore 0.2.752 or newer
+- FiresUnifiedCore 0.2.1223 or newer
 - VABackpacks (optional) - fills the Backpack slot and the bag panels.
 
 ## Good to know
 
 - Settings are in the Fires hub (F1) config page or `BepInEx/config/com.Fire.VAInventory.cfg`. You can change every
-  hotbar key, the torch key, extra rows, and show or hide the Food and Ammo slots and hotbars.
+  hotbar key, the torch key, extra rows, show or hide the Food and Ammo slots and hotbars, and the minimap options
+  (round or square, size, clock style, day and time box).
+- The Fires UI override and the sky drift speed are set in Fires Unified Core, not here.
 - Panel and hotbar positions are saved when you drag them; there's nothing to set in the config.
 - Each player arranges their own panels and hotbars.
 

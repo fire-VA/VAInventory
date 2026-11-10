@@ -328,7 +328,7 @@ namespace VerdantsAscent.Managers
                     e.m_food.enabled = item.m_shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable
                                        && (item.m_shared.m_food > 0f || item.m_shared.m_foodStamina > 0f || item.m_shared.m_foodEitr > 0f);
                 if (e.m_quality != null) { e.m_quality.enabled = item.m_shared.m_maxQuality > 1; if (e.m_quality.enabled) e.m_quality.text = item.m_quality.ToString(); }
-                if (e.m_amount != null) { e.m_amount.enabled = item.m_shared.m_maxStackSize > 1; if (e.m_amount.enabled) e.m_amount.text = $"{item.m_stack}/{item.m_shared.m_maxStackSize}"; }
+                if (e.m_amount != null) { e.m_amount.enabled = item.m_shared.m_maxStackSize > 1; if (e.m_amount.enabled) e.m_amount.text = mine ? BagStackCap.CountText(inv, item) : $"{item.m_stack}/{item.m_shared.m_maxStackSize}"; }
                 if (e.m_tooltip != null) { e.m_tooltip.m_topic = item.m_shared.m_name; e.m_tooltip.m_text = item.GetTooltip(); }
             }
         }
@@ -368,14 +368,40 @@ namespace VerdantsAscent.Managers
 
             int lastShown = -1, lastSkinnedCount = -1;
             float lastSpace = -1f;
+            // 1.0.358 (V4): redraw on change only
+            const float IdleHz = 4f, InvResolveSeconds = 1f;
+            Inventory cachedInv; float invAt, nextRedraw; int lastSig = int.MinValue; ItemDrop.ItemData lastDrag; bool redrawLogged;
+            static Camera GridCamera(RectTransform rt)
+            {
+                var canvas = rt.GetComponentInParent<Canvas>();
+                return canvas != null && canvas.renderMode != RenderMode.ScreenSpaceOverlay ? canvas.worldCamera : null;
+            }
 
             internal void Redraw()
             {
                 var player = Player.m_localPlayer;
                 if (Handle?.Grid == null || player == null) return;
-                var inv = Handle.Options?.Inventory != null ? SafeInv(Handle.Options.Inventory) : player.GetInventory();
+                // 1.0.358 (UI efficiency audit V4, Fire 10-26): this LateUpdate redrew the whole grid (vanilla UpdateInventory over every
+                // cell) EVERY frame, and resolved the inventory through the caller's delegate (reflection for the companion panel) each time.
+                // Now the inventory is re-resolved once a second, and the grid redraws when its items or the dragged item change, while the
+                // pointer is over it (hover / drop highlights), or at IdleHz otherwise.
+                float now = Time.unscaledTime;
+                if (cachedInv == null || now >= invAt)
+                {
+                    cachedInv = Handle.Options?.Inventory != null ? SafeInv(Handle.Options.Inventory) : player.GetInventory();
+                    invAt = now + InvResolveSeconds;
+                }
+                var inv = cachedInv;
                 if (inv == null) return;
                 var grid = Handle.Grid;
+                var drag = InventoryGui.instance != null ? InventoryGui.instance.m_dragItem : null;
+                int sig = inv.NrOfItems() * 397 + inv.GetWidth() * 13 + inv.GetHeight();
+                foreach (var it in inv.GetAllItems()) if (it != null) sig = sig * 31 + it.m_stack + it.m_gridPos.x * 7 + it.m_gridPos.y * 131 + (it.m_equipped ? 1 : 0) + (it.m_shared != null ? it.m_shared.m_name.GetHashCode() : 0);
+                var gridRt = grid.transform as RectTransform;
+                bool hover = gridRt != null && RectTransformUtility.RectangleContainsScreenPoint(gridRt, Input.mousePosition, GridCamera(gridRt));
+                if (sig == lastSig && drag == lastDrag && !hover && now < nextRedraw) return;
+                lastSig = sig; lastDrag = drag; nextRedraw = now + 1f / IdleHz;
+                if (!redrawLogged) { redrawLogged = true; EquipmentPanel.PanelLog?.LogDebug($"[VAInventory] grid api: '{grid.name}' redraws on change / hover / drag, {IdleHz:0} Hz idle (was every frame)"); }
                 // Vanilla's UpdateGui builds width x GetHeight()
                 // cells, and the player's backing inventory also holds VAInventory's hidden storage rows (pouches, tools, ammo, food, hotbars,
                 // equipment). The main grid hides them through patches gated on m_playerGrid; this clone got none of them. Here:

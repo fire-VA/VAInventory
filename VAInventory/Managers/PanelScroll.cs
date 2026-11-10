@@ -356,8 +356,7 @@ namespace VerdantsAscent.Managers
                 if (part == null) continue;
                 part.GetWorldCorners(partCorners);
                 bool inside = partCorners[0].y >= bottom - 0.5f && partCorners[1].y <= top + 0.5f;
-                var group = part.GetComponent<CanvasGroup>();
-                if (group == null) { group = part.gameObject.AddComponent<CanvasGroup>(); group.alpha = -1f; }   // forces the first write below
+                if (!part.TryGetComponent<CanvasGroup>(out var group)) { group = part.gameObject.AddComponent<CanvasGroup>(); group.alpha = -1f; }   // forces the first write below
                 float alpha = inside ? 1f : 0f;
                 if (group.alpha != alpha) { group.alpha = alpha; group.blocksRaycasts = inside; group.interactable = inside; }
             }
@@ -382,6 +381,8 @@ namespace VerdantsAscent.Managers
         void GuardBeforeRender()
         {
             if (this == null || !isActiveAndEnabled) return;
+            // 1.0.358 (UI efficiency audit V12): nothing to guard while the inventory screen is closed
+            if (InventoryGui.instance != null && !InventoryGui.IsVisible()) return;
             HideOutsideViewport();
         }
 
@@ -389,7 +390,7 @@ namespace VerdantsAscent.Managers
         {
             base.LateUpdate();
             MakeContentMaskable();
-            HideOutsideViewport();
+            // 1.0.358 (V12): the guard runs once per frame, in GuardBeforeRender (after layout); this earlier pass read stale positions anyway
             var gui = InventoryGui.instance;
             if (gui == null || viewport == null || content == null || DragItem(gui) == null) return;
             float overflow = content.rect.height - viewport.rect.height;

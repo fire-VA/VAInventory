@@ -84,6 +84,9 @@ namespace VerdantsAscent
                 return;
             }
 
+            // Client: only the SERVER may mark this client lock-exempt (SECURITY 10-24: any peer could send it before)
+            if (ZRoutedRpc.instance == null || sender != ZRoutedRpc.instance.GetServerPeerID()) return;
+
             // Client: Receive admin status
             try
             {
