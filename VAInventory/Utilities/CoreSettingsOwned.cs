@@ -28,9 +28,8 @@ namespace VerdantsAscent.Utilities
                 s_readSaved = cs.GetMethod("TryReadCoreSaved", new[] { typeof(string), typeof(string), typeof(string).MakeByRefType() });
                 // descriptions, defaults and ranges as Core 0.2.1043 had them (FiresShell.cs)
                 Own(cfg, "Show day and time box", true, new ConfigDescription("Shows the box under the minimap with the biome, the day and the time. Turn it off to hide it."));
-                Own(cfg, "Minimap size", 1f, new ConfigDescription("Size of the small on-screen minimap, as a multiple of vanilla. Only used while Fires UI override is ON.", new AcceptableValueRange<float>(0.5f, 2f)));
-                // 1.0.377 (Fire 11-02): the rounded minimap can be turned off; the UI override and sky drift are Core's own again (Core copies this cfg's saved values once)
-                Own(cfg, "Rounded minimap", true, new ConfigDescription("While Fires UI override is ON: the round minimap. Off: the normal square minimap."));
+                // 1.0.387 ([ghost], Fire 11-14): "Minimap size" + "Rounded minimap" removed: the round minimap is the stand-alone LiveMap
+                // mod's now (Fires.Supercalifragilisticexpialidocious.map, its own [5 Minimap] keys); Core falls back to its own defaults.
                 // Core's MinimapClockMode is internal: a string Core parses (SunTime / GameTime)
                 Own(cfg, "Minimap clock shows", "SunTime", new ConfigDescription("SunTime: the clock follows the sun (06:00 sunrise, 18:00 sunset; nights pass faster). GameTime: the plain game clock, every hour the same length (matches other clock mods).", new AcceptableValueList<string>("SunTime", "GameTime")));
             }

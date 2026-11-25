@@ -56,3 +56,5 @@ vainventoryui
 
 # rig-only UI test commands (built only when present; see VAInventory.csproj)
 VAInventory/Managers/UiTest*.cs
+VAInventory/Refs/PUBLIC_TEST_PATCH_READINESS.md
+VAInventory/Refs/INVENTORY_REWORK_AUDIT.md

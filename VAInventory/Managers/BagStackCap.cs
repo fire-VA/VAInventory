@@ -43,7 +43,12 @@ namespace VerdantsAscent.Managers
             {
                 if (s_apiLooked) return s_api;
                 s_apiLooked = true;
-                var m = AccessTools.Method(AccessTools.TypeByName(ApiTypeName), "BagCellStackCap", new[] { typeof(Player), typeof(ItemDrop.ItemData), typeof(ItemDrop.ItemData) });
+                // 1.0.389 ([generator] proof: the builder client's HarmonyX warnings "AccessTools.TypeByName: Could not find type named
+                // VerdantsAscent.Managers.BackpackApi" + "AccessTools.Method: type is null" came from this line without VABackpacks): the type is
+                // looked up in the VABackpacks assembly only (as BackpackBridge.Initialize does), and AccessTools only runs when it is there.
+                var asm = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(a => a != null && a.GetName().Name == BackpackBridge.VABACKPACKS_ASSEMBLY_NAME);
+                var apiType = asm?.GetType(ApiTypeName, false);
+                var m = apiType != null ? AccessTools.Method(apiType, "BagCellStackCap", new[] { typeof(Player), typeof(ItemDrop.ItemData), typeof(ItemDrop.ItemData) }) : null;
                 if (m != null) s_api = (Func<Player, ItemDrop.ItemData, ItemDrop.ItemData, int>)Delegate.CreateDelegate(typeof(Func<Player, ItemDrop.ItemData, ItemDrop.ItemData, int>), m);
                 Debug.Log($"[VAInventory] bag stack caps: {(s_api != null ? "bound to VABackpacks" : "VABackpacks has none (vanilla stacks)")}");
                 return s_api;

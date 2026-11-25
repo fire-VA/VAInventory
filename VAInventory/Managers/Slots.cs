@@ -122,13 +122,35 @@ namespace VerdantsAscent
             get
             {
                 int baseFull = InventoryHeightPlayer + GetTargetInventoryHeight(slots.Length, InventoryWidth);
-                int maxVisibleY = slotGroups
-                    .Where(g => g.VisibleInMainGrid)
-                    .SelectMany(g => g.Members)
-                    .Where(s => s != null)
-                    .Select(s => s.GridPosition.y)
-                    .DefaultIfEmpty(InventoryHeightPlayer - 1)
-                    .Max();
+                // 1.0.386 ([wishbone], lead 11-13 profiler: this getter = 2.5 MB/min from Player.Update): the same
+                // Where/SelectMany/Select/DefaultIfEmpty/Max as a plain loop (no LINQ iterators or closures per call)
+                int maxVisibleY = 0; bool anyVisible = false;
+                for (int gi = 0; gi < slotGroups.Count; gi++)
+                {
+                    var g = slotGroups[gi];
+                    if (!g.VisibleInMainGrid) continue;
+                    var members = g.Members;
+                    if (members is Slot[] arr)
+                    {
+                        for (int si = 0; si < arr.Length; si++)
+                        {
+                            var s = arr[si];
+                            if (s == null) continue;
+                            int y = s.GridPosition.y;
+                            if (!anyVisible || y > maxVisibleY) { maxVisibleY = y; anyVisible = true; }
+                        }
+                    }
+                    else
+                    {
+                        foreach (var s in members)
+                        {
+                            if (s == null) continue;
+                            int y = s.GridPosition.y;
+                            if (!anyVisible || y > maxVisibleY) { maxVisibleY = y; anyVisible = true; }
+                        }
+                    }
+                }
+                if (!anyVisible) maxVisibleY = InventoryHeightPlayer - 1;
                 // height is number of rows, so maxY +1
                 return Math.Max(baseFull, maxVisibleY + 1);
             }

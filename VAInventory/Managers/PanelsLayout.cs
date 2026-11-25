@@ -58,7 +58,7 @@ namespace VerdantsAscent.Managers
             PanelsGridLook.Placeholders(on);   // Grey slot names in empty equipment cells (Panels only)
             if (on && !PanelsDock.Registered) SeedHide(true);   // The first-open seeding hide BEFORE the crafting header check (it ran first and measured a frame DockTick hid later)
             Sec("tabs + placeholders"); try { PanelsCraftShift.Tick(gui, on); } catch (Exception e) { LogOnce("panels: crafting shift failed: " + e.Message); }   // 1.0.173
-            if (!on) { if (CompanionColumnShown) HideCompanion(); styleUntil = 0f; skinnedThisOpen = false; watchOpen = false; borderWasOn = false; return; }
+            if (!on) { if (!PanelsDock.Registered && dockSeedFrames == 0) seedWaitUntil = -1f; if (CompanionColumnShown) HideCompanion(); styleUntil = 0f; skinnedThisOpen = false; watchOpen = false; borderWasOn = false; return; }
             Sec("craft shift"); BorderPixelFloor(gui);   // 1.0.264
             if (!watchOpen) { watchOpen = true; UnifiedScreen.WatchOpen(); }   // The Misc cell 0 writer proof, per open
             UnifiedScreen.WatchTick();
@@ -349,6 +349,10 @@ namespace VerdantsAscent.Managers
             if (!PanelsDock.Registered)
             {
                 SeedHide(true);
+                // 1.0.388 ([ghost], hand test 11-16 :35406 "moved by -508,498.7" -> both defaults at y -467, above the screen, Core's header
+                // hit-test FAIL): the vanilla spot below was read on the first open frame, while vanilla's open animation still had the panels
+                // above the screen. Seeding now waits (panels still hidden) until InventoryGui's Animator has settled, at most 1 s.
+                if (dockSeedFrames == 0 && !SeedWaitDone(gui)) return;
                 // 1.0.363 (Fire 10-26: non-unified, "on first open it was in the middle of the screen"): the grid's VANILLA top-left, kept
                 // before the Panels row layout first moves it; the non-unified defaults start there (see NonUnifiedVanillaSeat)
                 if (gui.m_player != null && s_vanillaGridCornerOf != gui.m_player)
@@ -359,7 +363,7 @@ namespace VerdantsAscent.Managers
                 PanelsDock.DetachCharacter(character, root);
                 Layout(gui);
                 if (++dockSeedFrames < 3) return;
-                NonUnifiedVanillaSeat(gui, character);
+                NonUnifiedVanillaSeat(gui, character, root);
                 PanelsDock.MigrateCraftingRightOnce();   // Before Core loads the saved layout
                 PanelsDock.MigrateDropSavedOnce("companion_panel_1198", "vainv.companion");   // an older column / panel saved spot goes once
                 PanelsDock.MigrateDropSavedOnce("character_own_group_1218", "vainv.character");
@@ -694,13 +698,39 @@ namespace VerdantsAscent.Managers
 
         static RectTransform s_vanillaGridCornerOf; static Vector3 s_vanillaGridCorner;
 
+        // 1.0.388: true once InventoryGui's open animation has settled (not in a transition, current state played through once), or 1 s
+        // after the first wait frame of this open (the panels stay hidden meanwhile; SeedHide's own safety is 2 s). One Debug line.
+        Animator seedAnim; InventoryGui seedAnimOf; float seedWaitUntil = -1f, seedWaitStart;
+        bool SeedWaitDone(InventoryGui gui)
+        {
+            if (seedAnimOf != gui) { seedAnimOf = gui; seedAnim = gui.GetComponent<Animator>(); }
+            float now = Time.realtimeSinceStartup;
+            if (seedWaitUntil < 0f) { seedWaitStart = now; seedWaitUntil = now + 1f; }
+            var a = seedAnim;
+            bool settled = a == null || !a.isActiveAndEnabled || (!a.IsInTransition(0) && a.GetCurrentAnimatorStateInfo(0).normalizedTime >= 1f);
+            if (!settled && now < seedWaitUntil) return false;
+            EquipmentPanel.PanelLog?.LogDebug($"panels: first-open seeding after vanilla's open animation: {(settled ? "settled" : "not settled, 1 s cap")} after {(now - seedWaitStart) * 1000f:0} ms");
+            seedWaitUntil = float.MaxValue;   // done for this screen (no re-wait on the next 2 seed frames)
+            return true;
+        }
+
         // 1.0.363: in the non-unified UI the owner defaults are the vanilla spots, not the unified centred row: right before Register,
         // the grid and the player panel move together by (vanilla grid top-left - seeded row grid top-left), so the grid starts where
         // vanilla shows it and the player panel keeps its place beside it; the chest then seats under the grid. A saved non-unified spot
         // still wins (Core places it at Register), and Fire's first drop becomes the spot from then on.
-        static void NonUnifiedVanillaSeat(InventoryGui gui, RectTransform character)
+        static void NonUnifiedVanillaSeat(InventoryGui gui, RectTransform character, RectTransform root)
         {
             if (FiresCore.UI.Shell.FiresShell.OverrideOn || gui.m_player == null || s_vanillaGridCornerOf != gui.m_player) return;
+            // 1.0.388 backstop: a vanilla corner off the screen (read mid-animation) is never used; the panels keep the on-screen seeded row
+            if (root != null)
+            {
+                Vector2 lc = root.InverseTransformPoint(s_vanillaGridCorner); Rect rr = root.rect;
+                if (lc.x < rr.xMin - 1f || lc.x > rr.xMax + 1f || lc.y < rr.yMin - 1f || lc.y > rr.yMax + 1f)
+                {
+                    EquipmentPanel.PanelLog?.LogDebug($"panels: non-unified vanilla spot {lc.x:0},{lc.y:0} is off the {rr.width:0}x{rr.height:0} canvas; kept the seeded row");
+                    return;
+                }
+            }
             var c = new Vector3[4]; gui.m_player.GetWorldCorners(c);
             Vector3 d = s_vanillaGridCorner - c[1];
             if (d.sqrMagnitude < 0.0001f) return;
